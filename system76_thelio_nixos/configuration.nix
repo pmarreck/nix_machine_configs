@@ -170,6 +170,9 @@ in
     # gnome daemons
     udev.packages = with pkgs; [ gnome.gnome-settings-daemon ];
 
+    # RDP
+    xrdp.enable = true;
+
   };
 
   # Configure my 3D card correctly (hopefully!)
@@ -194,12 +197,11 @@ in
     packages = with pkgs; [
       unstable.elixir
       unstable.vscode
+      postgresql
       asdf-vm
       direnv
       nix-direnv
       delta #syntax highlighter for git
-      # unstable.steam # your kernel, video driver and steam all have to line up, sigh
-      unstable.heroic
       ripgrep-all
       spotify
       spotify-tui
@@ -207,7 +209,11 @@ in
       figlet
       jq
       fortune
-      xscreensaver
+      xscreensaver # note that this seems to require setup in home manager
+      # for desktop gaming
+      unstable.steam # your kernel, video driver and steam all have to line up, sigh
+      unstable.heroic
+      protonup # automates updating GloriousEggroll's Proton-GE
       # for retro gaming
       (retroarch.override { cores = with libretro; [
         atari800
@@ -418,6 +424,8 @@ in
     wget
     curl
     bash
+    bash-completion
+    nix-bash-completions
     file
     git
     duf
@@ -438,8 +446,11 @@ in
     xorg.xbacklight
     # the following may be needed by vips
     zlib
+    pkg-config
     libxml2
     glib
+    glibc
+    glibmm
     gobject-introspection
     libjpeg
     libexif
@@ -458,7 +469,7 @@ in
     libimagequant
     pango
     # end of vips deps
-    vips # for my image manipulation stuff
+    unstable.vips # for my image manipulation stuff
     # unstable.rustup
     unstable.cargo
     unstable.rustc
@@ -508,7 +519,7 @@ in
 
   # autoupgrade?
   system.autoUpgrade.enable = false;
-  system.autoUpgrade.allowReboot = true; # reboot if kernel changes?
+  system.autoUpgrade.allowReboot = false; # reboot if kernel changes?
   system.autoUpgrade.channel = https://nixos.org/channels/nixos-22.05;
 
   ### Nix settings
