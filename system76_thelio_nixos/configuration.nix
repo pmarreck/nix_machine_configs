@@ -109,6 +109,18 @@ in
       # Enable the GNOME Desktop Environment.
       displayManager.gdm.enable = true;
       desktopManager.gnome.enable = true;
+      # Reinstate the minimize/maximize buttons!
+      # To list all possible settings, try this:
+      # > gsettings list-recursively org.gnome.settings-daemon.plugins
+      desktopManager.gnome.extraGSettingsOverrides = ''
+        [org.gnome.desktop.wm.preferences]
+        button-layout=':minimize,maximize,close'
+
+        [org.gnome.settings-daemon.plugins.color]
+        night-light-enabled=true
+        night-light-temperature=2500
+        night-light-schedule-automatic=true
+      '';
       # wayland wonky with nvidia, still
       displayManager.gdm.wayland = false;
       # use nvidia card for xserver
@@ -378,7 +390,7 @@ in
   programs.steam = {
     enable = true;
     remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
   };
 
   # Fonts!
@@ -393,7 +405,7 @@ in
     font-awesome
     hack-font
     nerdfonts
-    key-rebel-moon
+    key-rebel-moon # my custom proprietary font with obfuscated name
   ];
 
   # Gnome package exclusions
@@ -444,30 +456,29 @@ in
     gnomeExtensions.appindicator
     home-manager
     xorg.xbacklight
-    # the following may be needed by vips
-    zlib
-    pkg-config
-    libxml2
-    glib
-    glibc
-    glibmm
-    gobject-introspection
+    # the following may be needed by vips but are optional
     libjpeg
     libexif
-    lcms2
-    fftw
-    giflib
-    libpng
-    libwebp
-    orc
-    libtiff
-    poppler
     librsvg
+    poppler
     libgsf
-    openexr
-    libheif
+    libtiff
+    fftw
+    lcms2
+    libpng
     libimagequant
+    imagemagick
     pango
+    orc
+    matio
+    cfitsio
+    libwebp
+    openexr
+    openjpeg
+    libjxl
+    openslide
+    libheif
+    zlib
     # end of vips deps
     unstable.vips # for my image manipulation stuff
     # unstable.rustup
@@ -476,6 +487,7 @@ in
     gcc
     gnumake
     gnupg
+    pkg-config
     # clang # removed due to collisions; install on project basis
     pciutils
     cacert
