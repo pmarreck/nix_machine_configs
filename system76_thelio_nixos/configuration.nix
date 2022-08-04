@@ -73,7 +73,7 @@ in
   time.timeZone = "America/New_York";
 
   # Select internationalisation properties.
-  i18n.defaultLocale = "en_US.utf8";
+  i18n.defaultLocale = "en_US.UTF-8";
 
   # Allow unfree packages (necessary for firefox and steam etc)
   nixpkgs.config = {
@@ -185,6 +185,24 @@ in
     # RDP
     xrdp.enable = true;
 
+    # Postgres
+    postgresql = {
+      enable = true;
+      package = pkgs.postgresql_13;
+      enableTCPIP = true;
+      authentication = pkgs.lib.mkOverride 10 ''
+        local all all trust
+        host all all 127.0.0.1/32 trust
+        host all all ::1/128 trust
+      '';
+      initialScript = pkgs.writeText "backend-initScript" ''
+        CREATE ROLE postgres WITH LOGIN PASSWORD 'postgres' CREATEDB;
+        CREATE DATABASE postgres;
+        CREATE DATABASE mpnetwork;
+        GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
+        GRANT ALL PRIVILEGES ON DATABASE mpnetwork TO postgres;
+      '';
+    };
   };
 
   # Configure my 3D card correctly (hopefully!)
@@ -378,6 +396,19 @@ in
       libretro.vecx
       libretro.virtualjaguar
       libretro.yabause
+      # for TUI and/or RPG games
+      angband
+      # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
+      tome2
+      nethack
+      unnethack
+      harmonist
+      hyperrogue
+      crawl
+      crawlTiles
+      brogue
+      meritous
+      egoboo
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
   };
@@ -408,97 +439,101 @@ in
     key-rebel-moon # my custom proprietary font with obfuscated name
   ];
 
-  # Gnome package exclusions
-  environment.gnome.excludePackages = (with pkgs; [
-    gnome-photos
-    gnome-tour
-  ]) ++ (with pkgs.gnome; [
-    cheese # webcam tool
-    gnome-music
-    gnome-terminal
-    gedit # text editor
-    epiphany # web browser
-    geary # email reader
-    evince # document viewer
-    gnome-characters
-    totem # video player
-    tali # poker game
-    iagno # go game
-    hitori # sudoku game
-    atomix # puzzle game
-  ]);
+  environment = {
+    # Gnome package exclusions
+    gnome.excludePackages = (with pkgs; [
+      gnome-photos
+      gnome-tour
+    ]) ++ (with pkgs.gnome; [
+      cheese # webcam tool
+      gnome-music
+      gnome-terminal
+      gedit # text editor
+      epiphany # web browser
+      geary # email reader
+      evince # document viewer
+      gnome-characters
+      totem # video player
+      tali # poker game
+      iagno # go game
+      hitori # sudoku game
+      atomix # puzzle game
+    ]);
 
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
-  environment.systemPackages = with pkgs; [
-    vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    emacs
-    wget
-    curl
-    bash
-    bash-completion
-    nix-bash-completions
-    file
-    git
-    duf
-    htop
-    bpytop
-    gotop
-    neofetch
-    ripgrep
-    fd
-    mcfly
-    exa
-    tokei
-    latest.firefox-nightly-bin
-    chromium
-    unstable.wezterm
-    gnomeExtensions.appindicator
-    home-manager
-    xorg.xbacklight
-    # the following may be needed by vips but are optional
-    libjpeg
-    libexif
-    librsvg
-    poppler
-    libgsf
-    libtiff
-    fftw
-    lcms2
-    libpng
-    libimagequant
-    imagemagick
-    pango
-    orc
-    matio
-    cfitsio
-    libwebp
-    openexr
-    openjpeg
-    libjxl
-    openslide
-    libheif
-    zlib
-    # end of vips deps
-    unstable.vips # for my image manipulation stuff
-    # unstable.rustup
-    unstable.cargo
-    unstable.rustc
-    gcc
-    gnumake
-    gnupg
-    pkg-config
-    # clang # removed due to collisions; install on project basis
-    pciutils
-    cacert
-  ];
+    # List packages installed in system profile. To search, run:
+    # $ nix search wget
+    systemPackages = with pkgs; [
+      vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+      emacs
+      wget
+      curl
+      bash
+      bash-completion
+      nix-bash-completions
+      file
+      git
+      duf
+      htop
+      bpytop
+      gotop
+      neofetch
+      ripgrep
+      fd
+      mcfly
+      exa
+      tokei
+      latest.firefox-nightly-bin
+      chromium
+      unstable.wezterm
+      gnomeExtensions.appindicator
+      home-manager
+      xorg.xbacklight
+      # the following may be needed by vips but are optional
+      libjpeg
+      libexif
+      librsvg
+      poppler
+      libgsf
+      libtiff
+      fftw
+      lcms2
+      libpng
+      libimagequant
+      imagemagick
+      pango
+      orc
+      matio
+      cfitsio
+      libwebp
+      openexr
+      openjpeg
+      libjxl
+      openslide
+      libheif
+      zlib
+      # end of vips deps
+      unstable.vips # for my image manipulation stuff
+      # unstable.rustup
+      unstable.cargo
+      unstable.rustc
+      gcc
+      gnumake
+      gnupg
+      pkg-config
+      # $%&* locales...
+      glibcLocales
+      # clang # removed due to collisions; install on project basis
+      pciutils
+      cacert
+    ];
 
-  environment.variables = {
-    EDITOR = "code";
-    BROWSER = "firefox";
-    # fix for this curl issue with https requests: https://github.com/NixOS/nixpkgs/issues/148686
-    CURL_CA_BUNDLE = "/etc/pki/tls/certs/ca-bundle.crt"; # this is the value of $SSL_CERT_FILE ; obviously this is brittle and may change
-    # May be fixed by adding `cacert` to systemPackages
+    variables = {
+      EDITOR = "code";
+      BROWSER = "firefox";
+      # fix for this curl issue with https requests: https://github.com/NixOS/nixpkgs/issues/148686
+      CURL_CA_BUNDLE = "/etc/pki/tls/certs/ca-bundle.crt"; # this is the value of $SSL_CERT_FILE ; obviously this is brittle and may change
+      # May be fixed by adding `cacert` to systemPackages
+    };
   };
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -535,19 +570,22 @@ in
   system.autoUpgrade.channel = https://nixos.org/channels/nixos-22.05;
 
   ### Nix settings
-  
-  # we have 128 cores on this beast, so...
-  # A value of "auto" may be permitted for max-jobs but is not pure...
-  # Cores is like the make -j option, and some packages don't like concurrent builds... sigh
-  nix.settings.max-jobs = "auto";
-  # nix.settings.cores = 4; # "option does not exist"??
-  # use hardlinks to save space?
-  nix.settings.auto-optimise-store = true;
-  # automatically run gc?
-  nix.gc = {
-    automatic = true;
-    dates = "daily";
-    options = "--delete-older-than 30d";
+  nix = {
+    settings = {
+      # we have 128 cores on this beast, so...
+      # A value of "auto" may be permitted for max-jobs but is not pure...
+      # Cores is like the make -j option, and some packages don't like concurrent builds... sigh
+      max-jobs = "auto";
+      # nix.settings.cores = 4; # "option does not exist"??
+      # use hardlinks to save space?
+      auto-optimise-store = true;
+    };
+    # automatically run gc?
+    gc = {
+      automatic = true;
+      dates = "daily";
+      options = "--delete-older-than 30d";
+    };
   };
 
 }
