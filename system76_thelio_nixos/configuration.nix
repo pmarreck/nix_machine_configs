@@ -10,11 +10,11 @@ let
   unstable = import <nixos-unstable> { 
     config = { allowUnfree = true; };
     # overlays = [
-      # use native cpu optimizations
-      # note: NOT PURE
-      # (self: super: {
-      #   stdenv = super.impureUseNativeOptimizations super.stdenv;
-      # })
+    # # use native cpu optimizations
+    # # note: NOT PURE
+    #   (self: super: {
+    #     stdenv = super.impureUseNativeOptimizations super.stdenv;
+    #   })
     # ];
   };
   # my custom proprietary fonts
@@ -37,18 +37,29 @@ in
     (import /home/pmarreck/Documents/nixpkgs-mozilla/firefox-overlay.nix)
   ];
 
-  # Boot using the latest kernel.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-
   # Bootloader.
   boot = {
     cleanTmpDir = true;
     plymouth.enable = true;
+    crashDump.enable = true;
     loader = {
       systemd-boot.enable = true;
       efi.canTouchEfiVariables = true;
       efi.efiSysMountPoint = "/boot/efi";
     };
+    # Boot using the latest kernel: pkgs.linuxPackages_latest
+    # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
+    kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4
+
+    kernel.sysctl = {
+      "vm.swappiness" = 90;
+      "vm.vfs_cache_pressure" = 150;
+      "vm.dirty_ratio" = 1;
+      "vm.dirty_background_ratio" = 2;
+      "kernel.task_delayacct" = 1; # so iotop/iotop-c can work; may add latency
+    };
+
+    kernelParams = [ "cgroup_no_v1=all" "systemd.unified_cgroup_hierarchy=yes" ];
   };
 
   # Networking details
@@ -65,9 +76,36 @@ in
     dhcpcd.wait = "background";
     # don't check if IP is already taken by another device on the network
     dhcpcd.extraConfig = "noarp";
+    # fix for https://github.com/NixOS/nix/issues/5441
+    hosts = {
+      "127.0.0.1" = [ "this.pre-initializes.the.dns.resolvers.invalid." ];
+    };
   };
 
-  systemd.services.NetworkManager-wait-online.enable = false;
+  systemd = {
+    services = {
+      systemd-journal-flush.enable = false; # had super high disk ute in jbd2
+      NetworkManager-wait-online.enable = false;
+      nix-daemon.serviceConfig = {
+        CPUWeight = 50;
+        IOWeight = 50;
+      };
+      # Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
+      "getty@tty1".enable = false;
+      "autovt@tty1".enable = false;
+    };
+    extraConfig = ''
+      DefaultCPUAccounting=yes
+      DefaultMemoryAccounting=yes
+      DefaultIOAccounting=yes
+    '';
+    user.extraConfig = ''
+      DefaultCPUAccounting=yes
+      DefaultMemoryAccounting=yes
+      DefaultIOAccounting=yes
+    '';
+    services."user@".serviceConfig.Delegate = true;
+  };
 
   # Set your time zone.
   time.timeZone = "America/New_York";
@@ -206,13 +244,15 @@ in
   };
 
   # Configure my 3D card correctly (hopefully!)
-  hardware.opengl = {
-    enable = true;
-    setLdLibraryPath = true;
-    driSupport32Bit = true;
-  };
+  # ...Actually, simply setting config.programs.steam.enable = true does these:
+  # hardware.opengl = {
+  #   enable = true;
+  #   # see discussion: https://app.bountysource.com/issues/74599012-nixos-don-t-set-ld_library_path-for-graphics-drivers-that-don-t-need-it
+  #   # setLdLibraryPath = true;
+  #   driSupport32Bit = true;
+  # };
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable;
-  hardware.nvidia.powerManagement.enable = true;
+  # hardware.nvidia.powerManagement.enable = true;
 
   # Enable sound with pipewire.
   sound.enable = true;
@@ -241,161 +281,27 @@ in
       fortune
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
-      unstable.steam # your kernel, video driver and steam all have to line up, sigh
+      # steam # your kernel, video driver and steam all have to line up, sigh
+      # simply setting config.programs.steam.enable to true adds stable steam
       unstable.heroic
       protonup # automates updating GloriousEggroll's Proton-GE
-      # for retro gaming
+      vlc
+      unstable.discord
+      dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
+      # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
-        atari800
-        beetle-gba
-        beetle-lynx
-        beetle-ngp
-        beetle-pce-fast
-        beetle-pcfx
-        beetle-psx
-        beetle-psx-hw
-        beetle-saturn
-        beetle-snes
-        beetle-supergrafx
-        beetle-vb
-        beetle-wswan
-        bluemsx
-        bsnes-mercury
-        citra
-        desmume
-        desmume2015
-        dolphin
-        dosbox
-        eightyone
-        fbalpha2012
-        fbneo
-        fceumm
-        flycast
-        fmsx
-        freeintv
-        gambatte
-        genesis-plus-gx
-        gpsp
-        gw
-        handy
-        hatari
-        mame
-        mame2000
-        mame2003
-        mame2003-plus
-        mame2010
-        mame2015
-        mame2016
-        mesen
-        meteor
-        mgba
-        mupen64plus
-        neocd
-        nestopia
-        np2kai
-        o2em
-        opera
-        parallel-n64
-        pcsx_rearmed
-        picodrive
-        play
-        ppsspp
-        prboom
-        prosystem
-        quicknes
-        sameboy
-        scummvm
-        smsplus-gx
-        snes9x
-        snes9x2002
-        snes9x2005
-        snes9x2010
-        stella
-        stella2014
-        tgbdual
-        thepowdertoy
-        tic80
-        vba-m
-        vba-next
-        vecx
-        virtualjaguar
-        yabause
+        atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
+        beetle-vb beetle-wswan bluemsx bsnes-mercury citra desmume desmume2015 dolphin dosbox eightyone fbalpha2012 fbneo fceumm flycast fmsx freeintv
+        gambatte genesis-plus-gx gpsp gw handy hatari mame mame2000 mame2003 mame2003-plus mame2010 mame2015 mame2016 mesen meteor mgba mupen64plus
+        neocd nestopia np2kai o2em opera parallel-n64 pcsx_rearmed picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
+        snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
       ]; })
       retroarch
-      libretro.atari800
-      libretro.beetle-gba
-      libretro.beetle-lynx
-      libretro.beetle-ngp
-      libretro.beetle-pce-fast
-      libretro.beetle-pcfx
-      libretro.beetle-psx
-      libretro.beetle-psx-hw
-      libretro.beetle-saturn
-      libretro.beetle-snes
-      libretro.beetle-supergrafx
-      libretro.beetle-vb
-      libretro.beetle-wswan
-      libretro.bluemsx
-      libretro.bsnes-mercury
-      libretro.citra
-      libretro.desmume
-      libretro.desmume2015
-      libretro.dolphin
-      libretro.dosbox
-      libretro.eightyone
-      libretro.fbalpha2012
-      libretro.fbneo
-      libretro.fceumm
-      libretro.flycast
-      libretro.fmsx
-      libretro.freeintv
-      libretro.gambatte
-      libretro.genesis-plus-gx
-      libretro.gpsp
-      libretro.gw
-      libretro.handy
-      libretro.hatari
-      libretro.mame
-      libretro.mame2000
-      libretro.mame2003
-      libretro.mame2003-plus
-      libretro.mame2010
-      libretro.mame2015
-      libretro.mame2016
-      libretro.mesen
-      libretro.meteor
-      libretro.mgba
-      libretro.mupen64plus
-      libretro.neocd
-      libretro.nestopia
-      libretro.np2kai
-      libretro.o2em
-      libretro.opera
-      libretro.parallel-n64
-      libretro.pcsx_rearmed
-      libretro.picodrive
-      libretro.play
-      libretro.ppsspp
-      libretro.prboom
-      libretro.prosystem
-      libretro.quicknes
-      libretro.sameboy
-      libretro.scummvm
-      libretro.smsplus-gx
-      libretro.snes9x
-      libretro.snes9x2002
-      libretro.snes9x2005
-      libretro.snes9x2010
-      libretro.stella
-      libretro.stella2014
-      libretro.tgbdual
-      libretro.thepowdertoy
-      libretro.tic80
-      libretro.vba-m
-      libretro.vba-next
-      libretro.vecx
-      libretro.virtualjaguar
-      libretro.yabause
+      libretro.atari800 libretro.beetle-gba libretro.beetle-lynx libretro.beetle-ngp libretro.beetle-pce-fast libretro.beetle-pcfx libretro.beetle-psx libretro.beetle-psx-hw libretro.beetle-saturn libretro.beetle-snes libretro.beetle-supergrafx
+      libretro.beetle-vb libretro.beetle-wswan libretro.bluemsx libretro.bsnes-mercury libretro.citra libretro.desmume libretro.desmume2015 libretro.dolphin libretro.dosbox libretro.eightyone libretro.fbalpha2012 libretro.fbneo libretro.fceumm libretro.flycast libretro.fmsx libretro.freeintv
+      libretro.gambatte libretro.genesis-plus-gx libretro.gpsp libretro.gw libretro.handy libretro.hatari libretro.mame libretro.mame2000 libretro.mame2003 libretro.mame2003-plus libretro.mame2010 libretro.mame2015 libretro.mame2016 libretro.mesen libretro.meteor libretro.mgba libretro.mupen64plus
+      libretro.neocd libretro.nestopia libretro.np2kai libretro.o2em libretro.opera libretro.parallel-n64 libretro.pcsx_rearmed libretro.picodrive libretro.play libretro.ppsspp libretro.prboom libretro.prosystem libretro.quicknes libretro.sameboy libretro.scummvm libretro.smsplus-gx libretro.snes9x
+      libretro.snes9x2002 libretro.snes9x2005 libretro.snes9x2010 libretro.stella libretro.stella2014 libretro.tgbdual libretro.thepowdertoy libretro.tic80 libretro.vba-m libretro.vba-next libretro.vecx libretro.virtualjaguar libretro.yabause
       # for TUI and/or RPG games
       angband
       # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
@@ -412,10 +318,6 @@ in
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
   };
-
-  # Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
-  systemd.services."getty@tty1".enable = false;
-  systemd.services."autovt@tty1".enable = false;
 
   # Enable Steam
   programs.steam = {
@@ -474,12 +376,12 @@ in
       git
       duf
       htop
-      bpytop
+      unstable.bpytop
       gotop
       neofetch
       ripgrep
       fd
-      mcfly
+      unstable.mcfly
       exa
       tokei
       latest.firefox-nightly-bin
@@ -524,7 +426,17 @@ in
       glibcLocales
       # clang # removed due to collisions; install on project basis
       pciutils
+      perf-tools
+      atop
+      unstable.iotop unstable.iotop-c
+      ioping
+      sysstat
+      dstat
       cacert
+      zfs
+      polybar
+      # stuff for my specific hardware
+      system76-firmware
     ];
 
     variables = {
@@ -532,7 +444,11 @@ in
       BROWSER = "firefox";
       # fix for this curl issue with https requests: https://github.com/NixOS/nixpkgs/issues/148686
       CURL_CA_BUNDLE = "/etc/pki/tls/certs/ca-bundle.crt"; # this is the value of $SSL_CERT_FILE ; obviously this is brittle and may change
-      # May be fixed by adding `cacert` to systemPackages
+      # ^ May be fixed by adding `cacert` to systemPackages; haven't checked yet though
+      # McFly config: https://github.com/cantino/mcfly
+      MCFLY_INTERFACE_VIEW = "BOTTOM";
+      MCFLY_RESULTS = "50";
+      MCFLY_FUZZY = "2";
     };
   };
 
@@ -577,13 +493,14 @@ in
       # Cores is like the make -j option, and some packages don't like concurrent builds... sigh
       max-jobs = "auto";
       # nix.settings.cores = 4; # "option does not exist"??
+      cores = 64;
       # use hardlinks to save space?
       auto-optimise-store = true;
     };
     # automatically run gc?
     gc = {
       automatic = true;
-      dates = "daily";
+      dates = "weekly";
       options = "--delete-older-than 30d";
     };
   };
