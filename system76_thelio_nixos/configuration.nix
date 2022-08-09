@@ -49,7 +49,8 @@ in
     };
     # Boot using the latest kernel: pkgs.linuxPackages_latest
     # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
-    kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4
+    # Commented out to use stable for now :/
+    # kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4
 
     kernel.sysctl = {
       "vm.swappiness" = 90;
@@ -432,6 +433,7 @@ in
       ioping
       sysstat
       dstat
+      psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       cacert
       zfs
       polybar
