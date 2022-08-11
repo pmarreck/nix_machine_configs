@@ -6,6 +6,9 @@
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+# to add to global channels and for user channels run
+# nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+
 let
   unstable = import <nixos-unstable> { 
     config = { allowUnfree = true; };
@@ -19,6 +22,8 @@ let
   };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
+  # which particular version of elixir and erlang I want globally
+  elixir = pkgs.beam.packages.erlangR25.elixir_1_13;
 in
 {
   imports =
@@ -266,7 +271,8 @@ in
     description = "Peter Marreck";
     extraGroups = [ "networkmanager" "wheel" "tty" ];
     packages = with pkgs; [
-      unstable.elixir
+      erlangR25
+      elixir
       unstable.vscode
       postgresql
       asdf-vm
@@ -280,6 +286,7 @@ in
       figlet
       jq
       fortune
+      unstable.blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
       # steam # your kernel, video driver and steam all have to line up, sigh
@@ -434,6 +441,7 @@ in
       sysstat
       dstat
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
+      hdparm
       cacert
       zfs
       polybar
