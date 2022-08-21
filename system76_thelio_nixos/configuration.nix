@@ -257,7 +257,7 @@ in
   #   # setLdLibraryPath = true;
   #   driSupport32Bit = true;
   # };
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.vulkan_beta; #.stable;
   # hardware.nvidia.powerManagement.enable = true;
 
   # Enable sound with pipewire.
@@ -440,6 +440,8 @@ in
       ioping
       sysstat
       dstat
+      smartmontools
+      gsmartcontrol
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
       cacert
