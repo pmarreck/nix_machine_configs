@@ -28,7 +28,7 @@ in
 {
   imports =
     [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
+      ./hardware-configuration.nix ./zfs.nix
     ];
 
   # Overlays
@@ -39,7 +39,7 @@ in
     #   stdenv = super.impureUseNativeOptimizations super.stdenv;
     # })
     # Firefox Nightly
-    (import /home/pmarreck/Documents/nixpkgs-mozilla/firefox-overlay.nix)
+    (import ./firefox-overlay.nix)
   ];
 
   # Bootloader.
@@ -48,14 +48,21 @@ in
     plymouth.enable = true;
     crashDump.enable = true;
     loader = {
-      systemd-boot.enable = true;
-      efi.canTouchEfiVariables = true;
-      efi.efiSysMountPoint = "/boot/efi";
+      ## I switched from systemd-boot to grub2 when I figured out how to get onto zfs root,
+      ## and the defaults seemed to work fine, don't know enough about boot/EFI yet to mess with it
+      # systemd-boot.enable = false;
+      grub = {
+        enable = true;
+        efiSupport = true;
+      };
+      # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
+      # efi.efiSysMountPoint = "/boot/efi";
     };
     # Boot using the latest kernel: pkgs.linuxPackages_latest
     # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
     # Commented out to use stable for now :/
-    # kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4
+    # kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4;
+    # kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages; # for latest zfs-compatible kernel
 
     kernel.sysctl = {
       "vm.swappiness" = 90;
@@ -65,7 +72,12 @@ in
       "kernel.task_delayacct" = 1; # so iotop/iotop-c can work; may add latency
     };
 
-    kernelParams = [ "cgroup_no_v1=all" "systemd.unified_cgroup_hierarchy=yes" ];
+    kernelParams = [ "cgroup_no_v1=all"
+                     "systemd.unified_cgroup_hierarchy=yes"
+                     "systemd.gpt_auto=0"
+                     "zfs.l2arc_rebuild_enabled=1"
+                     "zfs.l2arc_mfuonly=1"
+                   ];
   };
 
   # Networking details
@@ -247,6 +259,12 @@ in
         GRANT ALL PRIVILEGES ON DATABASE mpnetwork TO postgres;
       '';
     };
+
+    # ZFS, yeah, baby, yeah!!
+    zfs = {
+      autoScrub.enable = true;
+      trim.enable = true;
+    };
   };
 
   # Configure my 3D card correctly (hopefully!)
@@ -257,19 +275,29 @@ in
   #   # setLdLibraryPath = true;
   #   driSupport32Bit = true;
   # };
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.vulkan_beta; #.stable;
-  # hardware.nvidia.powerManagement.enable = true;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #.vulkan_beta;
+  # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
   sound.enable = true;
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
+  # Define a user account. Set a password hash via `mkpasswd -m sha-512`
+  users.mutableUsers = false; # user definitions are immutably defined only here
+  users.defaultUserShell = pkgs.bash;
+  users.users.root = {
+    initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
+    shell = pkgs.bash;
+  };
+  users.users.root.hashedPassword = config.users.users.root.initialHashedPassword;
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
     extraGroups = [ "networkmanager" "wheel" "tty" ];
+    shell = pkgs.bash;
+    hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
+
     packages = with pkgs; [
       erlangR25
       elixir
@@ -292,7 +320,7 @@ in
       # steam # your kernel, video driver and steam all have to line up, sigh
       # simply setting config.programs.steam.enable to true adds stable steam
       unstable.heroic
-      protonup # automates updating GloriousEggroll's Proton-GE
+      # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       vlc
       unstable.discord
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
@@ -380,6 +408,7 @@ in
       bash
       bash-completion
       nix-bash-completions
+      nixos-option
       file
       git
       duf
@@ -395,7 +424,15 @@ in
       latest.firefox-nightly-bin
       chromium
       unstable.wezterm
-      gnomeExtensions.appindicator
+      unstable.gnome.gnome-tweaks 
+      unstable.gnomeExtensions.appindicator
+      unstable.gnomeExtensions.clipboard-indicator
+      unstable.gnomeExtensions.freon
+      unstable.gnomeExtensions.vitals
+      unstable.gnomeExtensions.weather
+      unstable.gnomeExtensions.sermon
+      unstable.gnomeExtensions.pop-shell
+      unstable.gnome.sushi
       home-manager
       xorg.xbacklight
       # the following may be needed by vips but are optional
@@ -433,8 +470,11 @@ in
       # $%&* locales...
       glibcLocales
       # clang # removed due to collisions; install on project basis
+      evince # gnome's document viewer (pdfs etc)
+      groff # seems to be an undeclared dependency of evince...
       pciutils
       perf-tools
+      pv
       atop
       unstable.iotop unstable.iotop-c
       ioping
@@ -445,6 +485,7 @@ in
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
       cacert
+      mkpasswd
       zfs
       polybar
       # stuff for my specific hardware
@@ -508,6 +549,8 @@ in
       cores = 64;
       # use hardlinks to save space?
       auto-optimise-store = true;
+      # flakes
+      experimental-features = [ "nix-command" "flakes" ];
     };
     # automatically run gc?
     gc = {
