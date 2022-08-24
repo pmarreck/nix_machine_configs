@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -134,12 +134,11 @@ in
   # Allow unfree packages (necessary for firefox and steam etc)
   nixpkgs.config = {
     allowUnfree = true;
-    # the following didn't work because "lib" is not defined:
-    # allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    #   "steam"
-    #   "steam-original"
-    #   "steam-runtime"
-    # ];
+    allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+      "steam"
+      "steam-original"
+      "steam-runtime"
+    ];
     # for some reason this chromium config no longer works (seen in a 2018 configuration.nix):
     # chromium = {
     #   enablePepperFlash = true;
@@ -275,7 +274,7 @@ in
   #   # setLdLibraryPath = true;
   #   driSupport32Bit = true;
   # };
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #.vulkan_beta;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #.vulkan_beta; #stable;
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -320,6 +319,8 @@ in
       # steam # your kernel, video driver and steam all have to line up, sigh
       # simply setting config.programs.steam.enable to true adds stable steam
       unstable.heroic
+      unstable.legendary-gl
+      unstable.rare
       # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       vlc
       unstable.discord
@@ -382,6 +383,7 @@ in
     gnome.excludePackages = (with pkgs; [
       gnome-photos
       gnome-tour
+      emacs # sorry
     ]) ++ (with pkgs.gnome; [
       cheese # webcam tool
       gnome-music
@@ -501,7 +503,19 @@ in
       # McFly config: https://github.com/cantino/mcfly
       MCFLY_INTERFACE_VIEW = "BOTTOM";
       MCFLY_RESULTS = "50";
-      MCFLY_FUZZY = "2";
+      MCFLY_FUZZY = "2";      
+    };
+
+    sessionVariables = rec {
+      XDG_CACHE_HOME  = "\${HOME}/.cache";
+      XDG_CONFIG_HOME = "\${HOME}/.config";
+      XDG_BIN_HOME    = "\${HOME}/.local/bin";
+      XDG_DATA_HOME   = "\${HOME}/.local/share";
+      # Steam needs this to find Proton-GE
+      STEAM_EXTRA_COMPAT_TOOLS_PATHS = "\${HOME}/.steam/root/compatibilitytools.d";
+      PATH = [ 
+        "\${XDG_BIN_HOME}"
+      ];
     };
   };
 
