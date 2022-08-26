@@ -392,10 +392,13 @@ in
   };
 
   # Enable Steam
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+  programs = {
+    steam = {
+      enable = true;
+      remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+      # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    };
+    ssh.startAgent = true;
   };
 
   # Fonts!
@@ -509,7 +512,7 @@ in
       unstable.rustc
       gcc
       gnumake
-      gnupg
+      # gnupg
       pkg-config
       # $%&* locales...
       glibcLocales
@@ -566,7 +569,7 @@ in
   # programs.mtr.enable = true;
   programs.gnupg.agent = {
     enable = true;
-    enableSSHSupport = true;
+    # enableSSHSupport = true;
   };
 
   # Don't ask for my password quite as often
