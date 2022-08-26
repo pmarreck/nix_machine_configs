@@ -40,12 +40,12 @@ in
     # })
     # Firefox Nightly
     (import ./firefox-overlay.nix)
+    (import ./packages)
   ];
 
   # Bootloader.
   boot = {
     cleanTmpDir = true;
-    plymouth.enable = true;
     crashDump.enable = true;
     loader = {
       ## I switched from systemd-boot to grub2 when I figured out how to get onto zfs root,
@@ -54,6 +54,12 @@ in
       grub = {
         enable = true;
         efiSupport = true;
+        extraConfig = ''
+          GRUB_GFXMODE=3440x1440x32,auto
+          GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3"
+          GRUB_GFXPAYLOAD_LINUX="keep"
+          GRUB_INIT_TUNE="1750 523 1 392 1 523 1 659 1 784 1 1047 1 784 1 415 1 523 1 622 1 831 1 622 1 831 1 1046 1 1244 1 1661 1 1244 1 466 1 587 1 698 1 932 1 1195 1 1397 1 1865 1 1397 1"
+        '';
       };
       # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
       # efi.efiSysMountPoint = "/boot/efi";
@@ -72,12 +78,26 @@ in
       "kernel.task_delayacct" = 1; # so iotop/iotop-c can work; may add latency
     };
 
-    kernelParams = [ "cgroup_no_v1=all"
+    kernelParams = [ "quiet"
+                     "cgroup_no_v1=all"
+                     "udev.log_priority=3"
+                     "nvidia_drm.modeset=1"
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
                      "zfs.l2arc_rebuild_enabled=1"
                      "zfs.l2arc_mfuonly=1"
                    ];
+    consoleLogLevel = 3;
+
+    # for fancy boot/loading screen, because duh
+    # took this from a collection at: https://github.com/adi1090x/plymouth-themes
+    # unfortunately, it only lasts for a second or 2...
+    plymouth = {
+      enable = true;
+      themePackages = [ pkgs.adi1090x-plymouth ];
+      theme = "metal_ball";
+    };
+
   };
 
   # Networking details
@@ -102,8 +122,16 @@ in
 
   systemd = {
     services = {
+      # some of these things were tweaked to speed up booting.
+      # See output of: systemd-analyze blame
       systemd-journal-flush.enable = false; # had super high disk ute in jbd2
-      NetworkManager-wait-online.enable = false;
+      # note that the following may cause zfs pools not to mount, even though it shouldn't;
+      # please see discussion @ https://github.com/openzfs/zfs/issues/10891
+      # systemd-udev-settle.enable = false; # speed up booting
+      NetworkManager-wait-online.enable = false; # speed up booting
+      # more booting speedup... for the next 2 lines, see: https://github.com/NixOS/nixpkgs/issues/41055
+      modem-manager.enable = false;
+      "dbus-org.freedesktop.ModemManager1".enable = false;
       nix-daemon.serviceConfig = {
         CPUWeight = 50;
         IOWeight = 50;
@@ -166,7 +194,9 @@ in
       desktopManager.gnome.enable = true;
       # Reinstate the minimize/maximize buttons!
       # To list all possible settings, try this:
-      # > gsettings list-recursively org.gnome.settings-daemon.plugins
+      # > gsettings list-schemas
+      # then pick one and use it here:
+      # > gsettings list-recursively <schema-name>
       desktopManager.gnome.extraGSettingsOverrides = ''
         [org.gnome.desktop.wm.preferences]
         button-layout=':minimize,maximize,close'
@@ -175,6 +205,9 @@ in
         night-light-enabled=true
         night-light-temperature=2500
         night-light-schedule-automatic=true
+
+        [org.gnome.SessionManager]
+        auto-save-session=true
       '';
       # wayland wonky with nvidia, still
       displayManager.gdm.wayland = false;
@@ -185,6 +218,7 @@ in
       xkbVariant = "";
       # Enable automatic login for the user.
       displayManager.autoLogin.enable = false;
+      # if above is true, you'd still need to unlock the keyring anyway and sometimes that modal dialog gets stuck, forcing a reboot
       displayManager.autoLogin.user = "pmarreck";
       # Enable touchpad support (enabled default in most desktopManager).
       # libinput.enable = true;
@@ -322,6 +356,7 @@ in
       unstable.legendary-gl
       unstable.rare
       # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
+      protontricks
       vlc
       unstable.discord
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
@@ -384,6 +419,7 @@ in
       gnome-photos
       gnome-tour
       emacs # sorry
+      emacs-nox
     ]) ++ (with pkgs.gnome; [
       cheese # webcam tool
       gnome-music
@@ -420,9 +456,11 @@ in
       neofetch
       ripgrep
       fd
+      rdfind
       unstable.mcfly
       exa
       tokei
+      p7zip
       latest.firefox-nightly-bin
       chromium
       unstable.wezterm
@@ -435,6 +473,10 @@ in
       unstable.gnomeExtensions.sermon
       unstable.gnomeExtensions.pop-shell
       unstable.gnome.sushi
+      unstable.gnome.dconf-editor
+      unstable.gnome.zenity
+      unstable.dconf
+      unstable.dconf2nix
       home-manager
       xorg.xbacklight
       # the following may be needed by vips but are optional
