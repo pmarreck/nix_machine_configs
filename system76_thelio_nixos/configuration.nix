@@ -70,6 +70,12 @@ in
     # kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4;
     # kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages; # for latest zfs-compatible kernel
 
+    hardwareScan = true; # tried to make udev run faster by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
+
+    # regarding ZFS tunables:
+    # https://forums.freebsd.org/threads/howto-tuning-l2arc-in-zfs.29907/
+    # https://nixos.wiki/wiki/ZFS
+    # https://wiki.freebsd.org/ZFSTuningGuide
     kernel.sysctl = {
       "vm.swappiness" = 90;
       "vm.vfs_cache_pressure" = 150;
@@ -79,15 +85,20 @@ in
     };
 
     kernelParams = [ "quiet"
+                     "splash"
+                     "boot.shell_on_fail"
                      "cgroup_no_v1=all"
-                     "udev.log_priority=3"
+                     "loglevel=2"
+                     "rd.udev.log_level=2"
+                     "udev.log_priority=2"
                      "nvidia_drm.modeset=1"
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
-                     "zfs.l2arc_rebuild_enabled=1"
-                     "zfs.l2arc_mfuonly=1"
+                     "zfs.zfs_arc_max=2147483648" # I set the ARC low (2GB) to force things to get evicted to l2arc (NVMe in my setup) sooner for now
+                    #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
+                    #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
-    consoleLogLevel = 3;
+    consoleLogLevel = 2;
 
     # for fancy boot/loading screen, because duh
     # took this from a collection at: https://github.com/adi1090x/plymouth-themes
@@ -98,6 +109,16 @@ in
       theme = "metal_ball";
     };
 
+    # modules to load early in the boot process. was trying for a nicer boot splash, but meh
+    initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+
+    # this may fix some zfs issues, but with something so important, caveat emptor
+    # zfs.enableUnstable = true;
+    # l2arc_write_boost=33554432; # 32mb/s boost speed before ARC is full, default is 8mb/s
+    # l2arc_write_max=16777216; # 16mb/s, default is 8mb/s
+    extraModprobeConfig = ''
+      options zfs l2arc_noprefetch=0 l2arc_write_boost=33554432 l2arc_write_max=16777216 zfs_arc_max=2147483648
+    '';
   };
 
   # Networking details
@@ -223,9 +244,6 @@ in
       # Enable touchpad support (enabled default in most desktopManager).
       # libinput.enable = true;
     };
-    # the following 2 lines may no longer be necessary now
-    # dbus.packages = [ pkgs.gnome3.dconf ];
-    # udev.packages = [ pkgs.gnome3.gnome-settings-daemon ];
 
     # Enable CUPS to print documents.
     printing.enable = true;
@@ -317,7 +335,8 @@ in
   security.rtkit.enable = true;
 
   # Define a user account. Set a password hash via `mkpasswd -m sha-512`
-  users.mutableUsers = false; # user definitions are immutably defined only here
+  users.mutableUsers = true; # set from false due to requiring root password at login
+  # user definitions are immutably defined only here
   users.defaultUserShell = pkgs.bash;
   users.users.root = {
     initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
@@ -391,8 +410,8 @@ in
     ];
   };
 
-  # Enable Steam
   programs = {
+    # Enable Steam
     steam = {
       enable = true;
       remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
@@ -413,6 +432,7 @@ in
     font-awesome
     hack-font
     nerdfonts
+    gentium
     key-rebel-moon # my custom proprietary font with obfuscated name
   ];
 
@@ -421,8 +441,6 @@ in
     gnome.excludePackages = (with pkgs; [
       gnome-photos
       gnome-tour
-      emacs # sorry
-      emacs-nox
     ]) ++ (with pkgs.gnome; [
       cheese # webcam tool
       gnome-music
@@ -467,7 +485,7 @@ in
       latest.firefox-nightly-bin
       chromium
       unstable.wezterm
-      unstable.gnome.gnome-tweaks 
+      gnome.gnome-tweaks 
       unstable.gnomeExtensions.appindicator
       unstable.gnomeExtensions.clipboard-indicator
       unstable.gnomeExtensions.freon
@@ -475,10 +493,9 @@ in
       unstable.gnomeExtensions.weather
       unstable.gnomeExtensions.sermon
       unstable.gnomeExtensions.pop-shell
-      unstable.gnome.sushi
-      unstable.gnome.dconf-editor
-      unstable.gnome.zenity
-      unstable.dconf
+      gnome.sushi
+      gnome.dconf-editor
+      gnome.zenity
       unstable.dconf2nix
       home-manager
       xorg.xbacklight
@@ -521,6 +538,7 @@ in
       groff # seems to be an undeclared dependency of evince...
       pciutils
       perf-tools
+      vulkan-tools
       pv
       atop
       unstable.iotop unstable.iotop-c
