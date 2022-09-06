@@ -8,6 +8,9 @@
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
 # to add to global channels and for user channels run
 # nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+# for hardware-specific packages
+# sudo nix-channel --add https://github.com/NixOS/nixos-hardware/archive/master.tar.gz nixos-hardware
+# sudo nix-channel --update
 
 let
   unstable = import <nixos-unstable> { 
@@ -27,7 +30,10 @@ let
 in
 {
   imports =
-    [ # Include the results of the hardware scan.
+    [ # See the following on how to convert this to flakes or add the channel:
+      # https://github.com/NixOS/nixos-hardware
+      <nixos-hardware/system76>
+      # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./zfs.nix
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
@@ -71,6 +77,7 @@ in
           GRUB_GFXPAYLOAD_LINUX="keep"
           GRUB_INIT_TUNE="1750 523 1 392 1 523 1 659 1 784 1 1047 1 784 1 415 1 523 1 622 1 831 1 622 1 831 1 1046 1 1244 1 1661 1 1244 1 466 1 587 1 698 1 932 1 1195 1 1397 1 1865 1 1397 1"
         '';
+        configurationLimit = 10; # default is like 100? Too much
       };
       # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
       # efi.efiSysMountPoint = "/boot/efi";
@@ -361,11 +368,10 @@ in
   users.mutableUsers = false;
   # user definitions are immutably defined only here
   users.defaultUserShell = pkgs.bash;
-  # defining a root user caused a root prompt at every login, so I'm not doing that for now
-  # users.users.root = {
-  #   initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
-  #   shell = pkgs.bash;
-  # };
+  users.users.root = {
+    initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
+    shell = pkgs.bash;
+  };
   # users.users.root.hashedPassword = config.users.users.root.initialHashedPassword;
   users.users.pmarreck = {
     isNormalUser = true;
@@ -573,6 +579,7 @@ in
       dstat
       smartmontools
       gsmartcontrol
+      efibootmgr
       unstable.netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
