@@ -23,12 +23,14 @@ let
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   # which particular version of elixir and erlang I want globally
-  elixir = pkgs.beam.packages.erlangR25.elixir_1_13;
+  elixir = pkgs.beam.packages.erlangR25.elixir_1_13; # Elixir 1.14 was released Sept 1 2022 and is not yet in nixpkgs
 in
 {
   imports =
     [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix ./zfs.nix
+      ./hardware-configuration.nix
+      ./zfs.nix
+      # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
 
   # Overlays
@@ -43,6 +45,14 @@ in
     (import ./packages)
   ];
 
+  # Early console config.
+  console = {
+    font = "ter-132n";
+    packages = [pkgs.terminus_font];
+    useXkbConfig = true;
+    earlySetup = false;
+  };
+
   # Bootloader.
   boot = {
     cleanTmpDir = true;
@@ -54,9 +64,10 @@ in
       grub = {
         enable = true;
         efiSupport = true;
+        # the grub init tune doesn't actually work on my hardware but is supposedly Super Mario?
         extraConfig = ''
           GRUB_GFXMODE=3440x1440x32,auto
-          GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3"
+          GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=2"
           GRUB_GFXPAYLOAD_LINUX="keep"
           GRUB_INIT_TUNE="1750 523 1 392 1 523 1 659 1 784 1 1047 1 784 1 415 1 523 1 622 1 831 1 622 1 831 1 1046 1 1244 1 1661 1 1244 1 466 1 587 1 698 1 932 1 1195 1 1397 1 1865 1 1397 1"
         '';
@@ -94,7 +105,7 @@ in
                      "nvidia_drm.modeset=1"
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
-                     "zfs.zfs_arc_max=2147483648" # I set the ARC low (2GB) to force things to get evicted to l2arc (NVMe in my setup) sooner for now
+                     "zfs.zfs_arc_max=8589934592" # I tend to set the ARC lowish (8GB here) to force things to get evicted to l2arc (NVMe in my setup) sooner for now
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
                     #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
@@ -110,14 +121,18 @@ in
     };
 
     # modules to load early in the boot process. was trying for a nicer boot splash, but meh
-    initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+    initrd = {
+      verbose = false;
+      kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+    };
 
     # this may fix some zfs issues, but with something so important, caveat emptor
     # zfs.enableUnstable = true;
-    # l2arc_write_boost=33554432; # 32mb/s boost speed before ARC is full, default is 8mb/s
+    # l2arc_write_boost=16777216; # 32mb/s (max+boost vals) boost speed before ARC is full, default is 8mb/s
     # l2arc_write_max=16777216; # 16mb/s, default is 8mb/s
+    # Good l2arc docs: https://klarasystems.com/articles/openzfs-all-about-l2arc/
     extraModprobeConfig = ''
-      options zfs l2arc_noprefetch=0 l2arc_write_boost=33554432 l2arc_write_max=16777216 zfs_arc_max=2147483648
+      options zfs l2arc_noprefetch=0 l2arc_write_boost=16777216 l2arc_write_max=16777216 l2arc_headroom=16 zfs_arc_max=8589934592
     '';
   };
 
@@ -188,6 +203,9 @@ in
       "steam-original"
       "steam-runtime"
     ];
+    packageOverrides = pkgs: {
+      inherit (unstable) netdata;
+    };
     # for some reason this chromium config no longer works (seen in a 2018 configuration.nix):
     # chromium = {
     #   enablePepperFlash = true;
@@ -311,6 +329,11 @@ in
       '';
     };
 
+    # Netdata
+    netdata = {
+      enable = true; # might be already declared by the import above
+    };
+
     # ZFS, yeah, baby, yeah!!
     zfs = {
       autoScrub.enable = true;
@@ -335,14 +358,15 @@ in
   security.rtkit.enable = true;
 
   # Define a user account. Set a password hash via `mkpasswd -m sha-512`
-  users.mutableUsers = true; # set from false due to requiring root password at login
+  users.mutableUsers = false;
   # user definitions are immutably defined only here
   users.defaultUserShell = pkgs.bash;
-  users.users.root = {
-    initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
-    shell = pkgs.bash;
-  };
-  users.users.root.hashedPassword = config.users.users.root.initialHashedPassword;
+  # defining a root user caused a root prompt at every login, so I'm not doing that for now
+  # users.users.root = {
+  #   initialHashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
+  #   shell = pkgs.bash;
+  # };
+  # users.users.root.hashedPassword = config.users.users.root.initialHashedPassword;
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
@@ -375,9 +399,11 @@ in
       unstable.legendary-gl
       unstable.rare
       # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
-      protontricks
+      unstable.protontricks
+      unstable.proton-caller
       vlc
       unstable.discord
+      unstable.boinc
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
@@ -547,6 +573,7 @@ in
       dstat
       smartmontools
       gsmartcontrol
+      unstable.netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
       cacert
@@ -625,7 +652,7 @@ in
       # nix.settings.cores = 4; # "option does not exist"??
       cores = 64;
       # use hardlinks to save space?
-      auto-optimise-store = true;
+      auto-optimise-store = false; # using zfs dedup=edonr instead, which does this at a lower level
       # flakes
       experimental-features = [ "nix-command" "flakes" ];
     };
