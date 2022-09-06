@@ -210,9 +210,9 @@ in
       "steam-original"
       "steam-runtime"
     ];
-    packageOverrides = pkgs: {
-      inherit (unstable) netdata;
-    };
+    # packageOverrides = pkgs: {
+    #   inherit (unstable) netdata;
+    # };
     # for some reason this chromium config no longer works (seen in a 2018 configuration.nix):
     # chromium = {
     #   enablePepperFlash = true;
@@ -337,9 +337,9 @@ in
     };
 
     # Netdata
-    netdata = {
-      enable = true; # might be already declared by the import above
-    };
+    # netdata = {
+    #   enable = true; # might be already declared by the import above
+    # };
 
     # ZFS, yeah, baby, yeah!!
     zfs = {
@@ -580,7 +580,7 @@ in
       smartmontools
       gsmartcontrol
       efibootmgr
-      unstable.netdata # enabled via services.netdata.enable
+      # unstable.netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
       cacert
