@@ -55,6 +55,12 @@
       options = [ "bind" ];
     };
 
+  # to get both flatpak steam and native steam to use the same directory
+  fileSystems."/home/pmarreck/.var/app/com.valvesoftware.Steam/.local/share/Steam" = {
+    device = "/home/pmarreck/.local/share/Steam";
+    options = [ "bind" ];
+  };
+
   swapDevices = [ 
     { device = "/dev/disk/by-uuid/88801519-1d48-4572-9435-1598b75402c7"; }
     { device = "/dev/disk/by-uuid/e9ea414c-dce0-4a50-8d52-4eeda6519e5b"; }
