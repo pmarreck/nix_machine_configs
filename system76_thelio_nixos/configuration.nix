@@ -55,9 +55,16 @@ in
   console = {
     font = "ter-132n";
     packages = [pkgs.terminus_font];
+    # keyMap = "us"; # inherited from x11 layout, below, I believe
     useXkbConfig = true;
     earlySetup = false;
   };
+
+  # Set your time zone.
+  time.timeZone = "America/New_York";
+
+  # Select internationalisation properties.
+  i18n.defaultLocale = "en_US.UTF-8";
 
   # Bootloader.
   boot = {
@@ -84,22 +91,25 @@ in
     };
     # Boot using the latest kernel: pkgs.linuxPackages_latest
     # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
+    # TODO: investigate zen kernel
     # Commented out to use stable for now :/
     # kernelPackages = pkgs.linuxPackages_latest; #pkgs.linuxPackages_rpi4;
     # kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages; # for latest zfs-compatible kernel
 
-    hardwareScan = true; # tried to make udev run faster by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
+    hardwareScan = true; # tried to make udev run faster at boot by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
 
-    # regarding ZFS tunables:
-    # https://forums.freebsd.org/threads/howto-tuning-l2arc-in-zfs.29907/
-    # https://nixos.wiki/wiki/ZFS
-    # https://wiki.freebsd.org/ZFSTuningGuide
     kernel.sysctl = {
-      "vm.swappiness" = 90;
-      "vm.vfs_cache_pressure" = 150;
-      "vm.dirty_ratio" = 1;
-      "vm.dirty_background_ratio" = 2;
+      "vm.swappiness" = 20; # 90 when swapping to ssd; default is 60
+      "vm.vfs_cache_pressure" = 50; # default is 100
+      "vm.dirty_ratio" = 55; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
+      "vm.dirty_background_ratio" = 20;
       "kernel.task_delayacct" = 1; # so iotop/iotop-c can work; may add latency
+      "kernel.sched_latency_ns" = 4000000;
+      "kernel.sched_min_granularity_ns" = 500000;
+      "kernel.sched_wakeup_granularity_ns" = 50000;
+      "kernel.sched_migration_cost_ns" = 250000;
+      "kernel.sched_cfs_bandwidth_slice_us" = 3000;
+      "kernel.sched_nr_migrate" = 128;
     };
 
     kernelParams = [ "quiet"
@@ -112,7 +122,7 @@ in
                      "nvidia_drm.modeset=1"
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
-                     "zfs.zfs_arc_max=8589934592" # I tend to set the ARC lowish (8GB here) to force things to get evicted to l2arc (NVMe in my setup) sooner for now
+                     "zfs.zfs_arc_max=17179869184" # 16GB
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
                     #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
@@ -127,7 +137,7 @@ in
       theme = "metal_ball";
     };
 
-    # modules to load early in the boot process. was trying for a nicer boot splash, but meh
+    # modules to load early in the boot process, for nicer boot splash at correct rez
     initrd = {
       verbose = false;
       kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
@@ -137,9 +147,14 @@ in
     # zfs.enableUnstable = true;
     # l2arc_write_boost=16777216; # 32mb/s (max+boost vals) boost speed before ARC is full, default is 8mb/s
     # l2arc_write_max=16777216; # 16mb/s, default is 8mb/s
+    # regarding ZFS tunables:
+    # https://forums.freebsd.org/threads/howto-tuning-l2arc-in-zfs.29907/
+    # https://nixos.wiki/wiki/ZFS
+    # https://wiki.freebsd.org/ZFSTuningGuide
     # Good l2arc docs: https://klarasystems.com/articles/openzfs-all-about-l2arc/
+    # https://openzfs.github.io/openzfs-docs/man/4/zfs.4.html
     extraModprobeConfig = ''
-      options zfs l2arc_noprefetch=0 l2arc_write_boost=16777216 l2arc_write_max=16777216 l2arc_headroom=16 zfs_arc_max=8589934592
+      options zfs l2arc_noprefetch=0 l2arc_write_boost=16777216 l2arc_write_max=16777216 l2arc_headroom=0 zfs_arc_max=17179869184
     '';
   };
 
@@ -147,15 +162,16 @@ in
   networking = {
     hostName = "nixos"; # Define your hostname.
     # Enable networking
-    networkmanager.enable = true;
+    # Pick only one of the below networking options.
     # wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+    networkmanager.enable = true; # Easiest to use and most distros use this by default.
     # Configure network proxy if necessary
     #   proxy.default = "http://user:password@proxy:port/";
     #   proxy.noProxy = "127.0.0.1,localhost,internal.domain";
     # Boot optimizations regarding networking:
-    # don't wait for an ip
+    # don't wait for an ip before proceeding with boot
     dhcpcd.wait = "background";
-    # don't check if IP is already taken by another device on the network
+    # don't check and wait to see if IP is already taken by another device on the network
     dhcpcd.extraConfig = "noarp";
     # fix for https://github.com/NixOS/nix/issues/5441
     hosts = {
@@ -183,6 +199,7 @@ in
       "getty@tty1".enable = false;
       "autovt@tty1".enable = false;
     };
+    # https://discourse.nixos.org/t/desktop-oriented-kernel-scheduler/12588/3
     extraConfig = ''
       DefaultCPUAccounting=yes
       DefaultMemoryAccounting=yes
@@ -195,12 +212,6 @@ in
     '';
     services."user@".serviceConfig.Delegate = true;
   };
-
-  # Set your time zone.
-  time.timeZone = "America/New_York";
-
-  # Select internationalisation properties.
-  i18n.defaultLocale = "en_US.UTF-8";
 
   # Allow unfree packages (necessary for firefox and steam etc)
   nixpkgs.config = {
@@ -260,6 +271,10 @@ in
       # use nvidia card for xserver
       videoDrivers = ["nvidia"];
       # Configure keymap in X11
+      # xkbOptions = {
+      #   "eurosign:e";
+      #   "caps:escape" # map caps to escape.
+      # };
       layout = "us";
       xkbVariant = "";
       # Enable automatic login for the user.
@@ -291,9 +306,9 @@ in
     # Journald was taking too long to copy from runtime memory to disk at boot
     # set storage to "auto" if you're trying to troubleshoot a boot issue
     journald.extraConfig = ''
-      Storage=volatile
-      SystemMaxFileSize=30M
-      SystemMaxFiles=5
+      Storage=auto
+      SystemMaxFileSize=300M
+      SystemMaxFiles=50
     '';
 
     # screensaver config
@@ -380,6 +395,7 @@ in
     shell = pkgs.bash;
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
 
+    # TODO: move these to home-manager
     packages = with pkgs; [
       erlangR25
       elixir
@@ -399,7 +415,6 @@ in
       unstable.blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
-      # steam # your kernel, video driver and steam all have to line up, sigh
       # simply setting config.programs.steam.enable to true adds stable steam
       unstable.heroic
       unstable.legendary-gl
@@ -407,7 +422,6 @@ in
       # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       unstable.protontricks
       unstable.proton-caller
-      vlc
       unstable.discord
       unstable.boinc
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
@@ -438,6 +452,11 @@ in
       brogue
       meritous
       egoboo
+      # end of TUI/RPG games list
+      # media/video stuff
+      unstable.audacity
+      unstable.handbrake
+      unstable.vlc
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
   };
@@ -480,7 +499,7 @@ in
       gedit # text editor
       epiphany # web browser
       geary # email reader
-      evince # document viewer
+      # evince # document viewer
       gnome-characters
       totem # video player
       tali # poker game
@@ -502,22 +521,31 @@ in
       nixos-option
       file
       git
-      duf
-      htop
+      duf # really nice disk usage TUI
+      # various process viewers
+      unstable.htop
       unstable.bpytop
-      gotop
+      unstable.gotop
+      unstable.atop
+      unstable.iotop unstable.iotop-c
+      unstable.ioping
+      unstable.zenith # zoom-able charts
+      unstable.nvtop # for GPU info
+      # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
+      unstable.dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
+      # for showing off nixos:
       neofetch
-      ripgrep
-      fd
-      rdfind
-      unstable.mcfly
-      exa
-      tokei
+      ripgrep # rg, the best grep
+      fd # a better "find"
+      rdfind # finds dupes, optionally acts on them
+      unstable.mcfly # fantastic replacement for control-R history search
+      exa # a better ls
+      tokei # fast LOC counter
       p7zip
       latest.firefox-nightly-bin
       chromium
       unstable.wezterm
-      gnome.gnome-tweaks 
+      gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       unstable.gnomeExtensions.appindicator
       unstable.gnomeExtensions.clipboard-indicator
       unstable.gnomeExtensions.freon
@@ -532,28 +560,28 @@ in
       home-manager
       xorg.xbacklight
       # the following may be needed by vips but are optional
-      libjpeg
-      libexif
-      librsvg
-      poppler
-      libgsf
-      libtiff
-      fftw
-      lcms2
-      libpng
-      libimagequant
-      imagemagick
-      pango
-      orc
-      matio
-      cfitsio
-      libwebp
-      openexr
-      openjpeg
-      libjxl
-      openslide
-      libheif
-      zlib
+      # libjpeg
+      # libexif
+      # librsvg
+      # poppler
+      # libgsf
+      # libtiff
+      # fftw
+      # lcms2
+      # libpng
+      # libimagequant
+      # imagemagick
+      # pango
+      # orc
+      # matio
+      # cfitsio
+      # libwebp
+      # openexr
+      # openjpeg
+      # libjxl
+      # openslide
+      # libheif
+      # zlib
       # end of vips deps
       unstable.vips # for my image manipulation stuff
       # unstable.rustup
@@ -572,11 +600,6 @@ in
       perf-tools
       vulkan-tools
       pv
-      atop
-      unstable.iotop unstable.iotop-c
-      ioping
-      sysstat
-      dstat
       smartmontools
       gsmartcontrol
       efibootmgr
@@ -636,30 +659,40 @@ in
 
   ##### System level configs
 
-  # This value determines the NixOS release from which the default
-  # settings for stateful data, like file locations and database versions
-  # on your system were taken. It‘s perfectly fine and recommended to leave
-  # this value at the release version of the first install of this system.
-  # Before changing this value read the documentation for this option
-  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "22.05"; # Did you read the comment?
+  system = {
+    # Copy the NixOS configuration file and link it from the resulting system
+    # (/run/current-system/configuration.nix). This is useful in case you
+    # accidentally delete configuration.nix (which you should have source-controlled, anyway!).
+    # Note: Also source-control hardware-configuration.nix, FYI!
+    copySystemConfiguration = true;
 
-  # autoupgrade?
-  system.autoUpgrade.enable = false;
-  system.autoUpgrade.allowReboot = false; # reboot if kernel changes?
-  system.autoUpgrade.channel = https://nixos.org/channels/nixos-22.05;
+    # This value determines the NixOS release from which the default
+    # settings for stateful data, like file locations and database versions
+    # on your system were taken. It‘s perfectly fine and recommended to leave
+    # this value at the release version of the first install of this system.
+    # Before changing this value read the documentation for this option
+    # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
+    stateVersion = "22.05"; # Did you read the comment?
+
+    # autoupgrade?
+    autoUpgrade.enable = false;
+    autoUpgrade.allowReboot = false; # reboot if kernel changes?
+    autoUpgrade.channel = https://nixos.org/channels/nixos-22.05;
+  };
 
   ### Nix settings
   nix = {
     settings = {
-      # we have 128 cores on this beast, so...
-      # A value of "auto" may be permitted for max-jobs but is not pure...
-      # Cores is like the make -j option, and some packages don't like concurrent builds... sigh
-      max-jobs = "auto";
-      # nix.settings.cores = 4; # "option does not exist"??
-      cores = 64;
+      # we have 64 cores and 128 threads on this beast, so...
+      # A value of "auto" may be permitted for 'max-jobs' (to use all available cores) but is not pure...
+      # 'max-jobs' apparently also sets the number of possible concurrent downloads
+      # 'cores' is like the "make -j" option; note that some packages don't like concurrent builds,
+      # but that's their responsibility to limit themselves, in that case.
+      # Current values may change and are being played with to find optimal combo
+      max-jobs = 40;
+      cores = 8;
       # use hardlinks to save space?
-      auto-optimise-store = false; # using zfs dedup=edonr instead, which does this at a lower level
+      auto-optimise-store = true;
       # flakes
       experimental-features = [ "nix-command" "flakes" ];
     };
