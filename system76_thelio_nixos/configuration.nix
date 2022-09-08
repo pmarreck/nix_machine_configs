@@ -205,15 +205,17 @@ in
       DefaultMemoryAccounting=yes
       DefaultIOAccounting=yes
     '';
-    user.extraConfig = ''
-      DefaultCPUAccounting=yes
-      DefaultMemoryAccounting=yes
-      DefaultIOAccounting=yes
-    '';
+    # the following doesn't seem to do anything but add extra duplicate lines to /etc/systemd/system.conf
+    # user.extraConfig = ''
+    #   DefaultCPUAccounting=yes
+    #   DefaultMemoryAccounting=yes
+    #   DefaultIOAccounting=yes
+    # '';
     # note: this is a literal "user@"; not, say, "pmarreck@"
-    # systemctl show user-1000.slice
+    # check with: systemctl show user-1000.slice
+    # These don't seem to have an effect, but leaving here for now
     services."user@".serviceConfig.Delegate = true;
-    # services."user@".serviceConfig.LimitNOFILE = 10000; # how to set `ulimit -n` open files? this doesn't seem to work
+    services."user@".serviceConfig.LimitNOFILE = 9001; # because "over 9000!", duh
   };
 
   # Allow unfree packages (necessary for firefox and steam etc)
@@ -336,23 +338,24 @@ in
     xrdp.enable = true;
 
     # Postgres
-    postgresql = {
-      enable = true;
-      package = pkgs.postgresql_13;
-      enableTCPIP = true;
-      authentication = pkgs.lib.mkOverride 10 ''
-        local all all trust
-        host all all 127.0.0.1/32 trust
-        host all all ::1/128 trust
-      '';
-      initialScript = pkgs.writeText "backend-initScript" ''
-        CREATE ROLE postgres WITH LOGIN PASSWORD 'postgres' CREATEDB;
-        CREATE DATABASE postgres;
-        CREATE DATABASE mpnetwork;
-        GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
-        GRANT ALL PRIVILEGES ON DATABASE mpnetwork TO postgres;
-      '';
-    };
+    # disabled here and enabled at project level for now
+    # postgresql = {
+    #   enable = true;
+    #   package = pkgs.postgresql_13;
+    #   enableTCPIP = true;
+    #   authentication = pkgs.lib.mkOverride 10 ''
+    #     local all all trust
+    #     host all all 127.0.0.1/32 trust
+    #     host all all ::1/128 trust
+    #   '';
+    #   initialScript = pkgs.writeText "backend-initScript" ''
+    #     CREATE ROLE postgres WITH LOGIN PASSWORD 'postgres' CREATEDB;
+    #     CREATE DATABASE postgres;
+    #     CREATE DATABASE mpnetwork;
+    #     GRANT ALL PRIVILEGES ON DATABASE postgres TO postgres;
+    #     GRANT ALL PRIVILEGES ON DATABASE mpnetwork TO postgres;
+    #   '';
+    # };
 
     # Netdata
     # netdata = {
@@ -592,6 +595,7 @@ in
       figlet
       jq
       fortune
+      markets
       unstable.blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
@@ -604,6 +608,7 @@ in
       unstable.proton-caller
       unstable.discord
       unstable.boinc
+      treesheets # freeform data organizer
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
@@ -637,6 +642,7 @@ in
       unstable.audacity
       unstable.handbrake
       unstable.vlc
+      unstable.renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
   };
@@ -718,6 +724,7 @@ in
       unstable.baobab # radial treemap of disk usage
       # for showing off nixos:
       neofetch
+      nix-tree
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
@@ -831,8 +838,19 @@ in
     # enableSSHSupport = true;
   };
 
-  # Don't ask for my password quite as often
-  security.sudo.extraConfig = "Defaults timestamp_timeout=60";
+  security = {
+    # Don't ask for my password quite as often
+    sudo.extraConfig = "Defaults timestamp_timeout=60";
+    # expand open files limit
+    # pam.loginLimits = [
+    #   {
+    #     domain = "*";
+    #     type = "-";
+    #     item = "nofile";
+    #     value = "9001";
+    #   }
+    # ];
+  };
 
 
   # Open ports in the firewall.
