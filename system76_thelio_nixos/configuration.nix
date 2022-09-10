@@ -179,11 +179,10 @@ in
     # don't check and wait to see if IP is already taken by another device on the network
     dhcpcd.extraConfig = "noarp";
     # fix for https://github.com/NixOS/nix/issues/5441
-    hosts = {
-      "127.0.0.1" = [ "this.pre-initializes.the.dns.resolvers.invalid." ];
-    };
+    # hosts = {
+    #   "127.0.0.1" = [ "this.pre-initializes.the.dns.resolvers.invalid." ];
+    # };
     nameservers = [
-      "" # clears the existing list because 192.168.7.1 kept showing up
       "192.168.7.234" # my pihole
       "1.1.1.1"
     ];
