@@ -154,7 +154,12 @@ in
     # Good l2arc docs: https://klarasystems.com/articles/openzfs-all-about-l2arc/
     # https://openzfs.github.io/openzfs-docs/man/4/zfs.4.html
     extraModprobeConfig = ''
-      options zfs l2arc_noprefetch=0 l2arc_write_boost=16777216 l2arc_write_max=16777216 l2arc_headroom=0 zfs_arc_max=17179869184
+      options zfs l2arc_noprefetch=0 \
+      l2arc_write_boost=16777216 \
+      l2arc_write_max=16777216 \
+      l2arc_headroom=0 \
+      l2arc_mfuonly=1 \
+      zfs_arc_max=17179869184
     '';
   };
 
@@ -177,6 +182,11 @@ in
     hosts = {
       "127.0.0.1" = [ "this.pre-initializes.the.dns.resolvers.invalid." ];
     };
+    nameservers = [
+      "" # clears the existing list because 192.168.7.1 kept showing up
+      "192.168.7.234" # my pihole
+      "1.1.1.1"
+    ];
   };
 
   systemd = {
@@ -270,6 +280,9 @@ in
 
         [org.gnome.SessionManager]
         auto-save-session=true
+
+        [org.gnome.nautilus.preferences]
+        always-use-location-entry=true
       '';
       # wayland wonky with nvidia, still
       displayManager.gdm.wayland = false;
@@ -595,7 +608,20 @@ in
       figlet
       jq
       fortune
+      speedread
+      speedtest-cli
       markets
+      qalculate-gtk
+      free42 # hp-42S reverse-engineered from the ground up
+      numworks-epsilon # whoa, cool calc!
+      # unstable.mathematica # because why the heck not?
+      # actually, NOPE:
+      # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
+      # already part of the store. Find the file on your Mathematica CD
+      # and add it to the nix store with nix-store --add-fixed sha256 <FILE>.
+      # Awaiting update to 13.1.0:
+      # ❯ nix-store --add-fixed sha256 Mathematica_13.1.0_BNDL_LINUX.sh
+      # /nix/store/jsnr55faq59xkq1az8isrs9rkzxdpxj2-Mathematica_13.1.0_BNDL_LINUX.sh
       unstable.blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
@@ -606,6 +632,8 @@ in
       # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       unstable.protontricks
       unstable.proton-caller
+      # unstable.bottles
+      # unstable.gnutls # possibly needed for bottles to work correctly with battle.net launcher?
       unstable.discord
       unstable.boinc
       treesheets # freeform data organizer
@@ -637,11 +665,26 @@ in
       brogue
       meritous
       egoboo
+      sil
+      shattered-pixel-dungeon
       # end of TUI/RPG games list
+      # other games & stuff
+      xlife
+      abuse
+      pioneer
+      the-powder-toy
+      space-cadet-pinball
+      airshipper # for veloren voxel game
+      unvanquished
+      endless-sky
+      # tremulous # boooo, marked as broken :(
+      torcs
+      speed_dreams
       # media/video stuff
       unstable.audacity
       unstable.handbrake
       unstable.vlc
+      unstable.shortwave # internet radio
       unstable.renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
@@ -708,6 +751,7 @@ in
       file
       git
       duf # really nice disk usage TUI
+      bind # provides nslookup etc
       # various process viewers
       unstable.htop
       unstable.bpytop
@@ -721,10 +765,11 @@ in
       unstable.dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
       unstable.duc # disk usage visualization, highly configurable
       unstable.gdu # go disk usage
-      unstable.baobab # radial treemap of disk usage
+      baobab # radial treemap of disk usage
       # for showing off nixos:
       neofetch
       nix-tree
+      hydra-check
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
