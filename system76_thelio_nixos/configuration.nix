@@ -182,10 +182,10 @@ in
     # hosts = {
     #   "127.0.0.1" = [ "this.pre-initializes.the.dns.resolvers.invalid." ];
     # };
-    nameservers = [
-      "192.168.7.234" # my pihole
-      "1.1.1.1"
-    ];
+    # nameservers = [
+    #   "192.168.7.234" # my pihole
+    #   "1.1.1.1"
+    # ];
   };
 
   systemd = {
@@ -711,8 +711,10 @@ in
     font-awesome
     hack-font
     nerdfonts
-    gentium
-    key-rebel-moon # my custom proprietary font with obfuscated name
+    gentium # https://software.sil.org/gentium/
+    eb-garamond # my favorite serif font
+    atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
+    key-rebel-moon # my favorite monospaced proprietary font with obfuscated name
   ];
 
   environment = {
