@@ -703,7 +703,8 @@ in
   # Fonts!
   fonts.fonts = with pkgs; [
     powerline-fonts
-    inter
+    inter # https://rsms.me/inter/
+    google-fonts
     noto-fonts
     noto-fonts-cjk
     noto-fonts-emoji
