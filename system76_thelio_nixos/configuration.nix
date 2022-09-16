@@ -25,6 +25,7 @@ let
   };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
+  tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
   elixir = pkgs.beam.packages.erlangR25.elixir_1_13; # Elixir 1.14 was released Sept 1 2022 and is not yet in nixpkgs
 in
@@ -714,7 +715,9 @@ in
     gentium # https://software.sil.org/gentium/
     eb-garamond # my favorite serif font
     atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
+    inter # great helvetica clone; https://rsms.me/inter/
     key-rebel-moon # my favorite monospaced proprietary font with obfuscated name
+    tech-alive # another favorite sans serif font with obfuscated name
   ];
 
   environment = {
@@ -743,8 +746,6 @@ in
     systemPackages = with pkgs; [
       vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
       emacs
-      wget
-      curl
       bash
       bash-completion
       nix-bash-completions
@@ -753,6 +754,11 @@ in
       git
       duf # really nice disk usage TUI
       bind # provides nslookup etc
+      # obtaining files:
+      wget
+      curl
+      sshfs
+      uget # a download manager GUI
       # various process viewers
       unstable.htop
       unstable.bpytop
