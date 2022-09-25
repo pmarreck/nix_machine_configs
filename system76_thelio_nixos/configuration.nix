@@ -2,6 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
+# { config, pkgs, nixpkgs, stable, unstable, lib, home-manager, ... }:
 { config, pkgs, lib, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
@@ -12,7 +13,18 @@
 # sudo nix-channel --add https://github.com/NixOS/nixos-hardware/archive/master.tar.gz nixos-hardware
 # sudo nix-channel --update
 
+# ❯ sudo nix-channel --list
+# nixos https://nixos.org/channels/nixos-22.05
+# nixos-hardware https://github.com/NixOS/nixos-hardware/archive/master.tar.gz
+# nixos-unstable https://nixos.org/channels/nixos-unstable
+# nixos-stable https://nixos.org/channels/nixos-22.05
+
 let
+  # FYI: My system got switched to unstable,
+  # but I left in the unstable scoping for my original "unstable" packages
+  # (I don't believe this should cause any problems)
+  # and added a "stable" scope for any packages that break in unstable
+  # so I can just downgrade them to stable on a case by case basis
   unstable = import <nixos-unstable> { 
     config = { allowUnfree = true; };
     # overlays = [
@@ -22,6 +34,9 @@ let
     #     stdenv = super.impureUseNativeOptimizations super.stdenv;
     #   })
     # ];
+  };
+  stable = import <nixos-stable> { 
+    config = { allowUnfree = true; };
   };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
@@ -37,6 +52,7 @@ in
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./zfs.nix
+      # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
 
@@ -283,6 +299,9 @@ in
 
         [org.gnome.nautilus.preferences]
         always-use-location-entry=true
+
+        [org.gnome.desktop.interface]
+        text-scaling-factor=1.25
       '';
       # wayland wonky with nvidia, still
       displayManager.gdm.wayland = false;
@@ -567,7 +586,8 @@ in
   #   # setLdLibraryPath = true;
   #   driSupport32Bit = true;
   # };
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #.vulkan_beta; #stable;
+  # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.vulkan_beta; #stable;
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -611,10 +631,11 @@ in
       speedread
       speedtest-cli
       markets
-      qalculate-gtk
+      qalculate-gtk # very cool calculator
+      filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
       numworks-epsilon # whoa, cool calc!
-      # unstable.mathematica # because why the heck not?
+      unstable.mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
       # already part of the store. Find the file on your Mathematica CD
@@ -622,6 +643,7 @@ in
       # Awaiting update to 13.1.0:
       # ❯ nix-store --add-fixed sha256 Mathematica_13.1.0_BNDL_LINUX.sh
       # /nix/store/jsnr55faq59xkq1az8isrs9rkzxdpxj2-Mathematica_13.1.0_BNDL_LINUX.sh
+      # (the package was updated for 13.1.0)
       unstable.blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
@@ -679,19 +701,19 @@ in
       endless-sky
       # tremulous # boooo, marked as broken :(
       torcs
-      speed_dreams
+      stable.speed_dreams
       # media/video stuff
       unstable.audacity
       unstable.handbrake
       unstable.vlc
       unstable.shortwave # internet radio
-      unstable.renoise # super cool mod-tracker-like audio app
+      renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
   };
 
   programs = {
-    # Enable Steam
+    # Enable Steam # Note: using via flatpak for now due to incompatibilities
     # steam = {
     #   # enable = true;
     #   remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
@@ -751,9 +773,10 @@ in
       bash-completion
       nix-bash-completions
       nixos-option
+      nix-index # also provides nix-locate
+      gptfdisk
       file
       git
-      duf # really nice disk usage TUI
       bind # provides nslookup etc
       # obtaining files:
       wget
@@ -774,10 +797,12 @@ in
       unstable.duc # disk usage visualization, highly configurable
       unstable.gdu # go disk usage
       baobab # radial treemap of disk usage
+      unstable.ncdu # "ncurses du (disk usage)"
+      unstable.duf # really nice disk usage TUI
       # for showing off nixos:
       neofetch
-      nix-tree
-      hydra-check
+      unstable.nix-tree
+      unstable.hydra-check
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
@@ -787,7 +812,7 @@ in
       p7zip
       latest.firefox-nightly-bin
       chromium
-      unstable.wezterm
+      unstable.wezterm # nerdy but very nice terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       unstable.gnomeExtensions.appindicator
       unstable.gnomeExtensions.clipboard-indicator
@@ -802,32 +827,6 @@ in
       unstable.dconf2nix
       home-manager
       xorg.xbacklight
-      # the following may be needed by vips but are optional
-      # libjpeg
-      # libexif
-      # librsvg
-      # poppler
-      # libgsf
-      # libtiff
-      # fftw
-      # lcms2
-      # libpng
-      # libimagequant
-      # imagemagick
-      # pango
-      # orc
-      # matio
-      # cfitsio
-      # libwebp
-      # openexr
-      # openjpeg
-      # libjxl
-      # openslide
-      # libheif
-      # zlib
-      # end of vips deps
-      unstable.vips # for my image manipulation stuff
-      # unstable.rustup
       unstable.cargo
       unstable.rustc
       gcc
@@ -868,6 +867,8 @@ in
       MCFLY_RESULTS = "50";
       MCFLY_FUZZY = "2";    
       NIXPKGS_ALLOW_UNFREE = "1";
+      # friggin' keeps picking the wrong video card!!
+      DXVK_FILTER_DEVICE_NAME = "GeForce RTX 3080 Ti";
     };
 
     sessionVariables = rec {
