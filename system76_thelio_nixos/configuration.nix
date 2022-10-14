@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-# { config, pkgs, nixpkgs, stable, unstable, lib, home-manager, ... }:
+# { config, pkgs, nixpkgs, stable, unstable, trunk, lib, home-manager, nixos-hardware, ... }:
 { config, pkgs, lib, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
@@ -42,13 +42,13 @@ let
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
-  elixir = pkgs.beam.packages.erlangR25.elixir_1_13; # Elixir 1.14 was released Sept 1 2022 and is not yet in nixpkgs
+  elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
 in
 {
   imports =
     [ # See the following on how to convert this to flakes or add the channel:
       # https://github.com/NixOS/nixos-hardware
-      <nixos-hardware/system76>
+      # <nixos-hardware/system76>
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./zfs.nix
@@ -85,6 +85,8 @@ in
 
   # Bootloader.
   boot = {
+    tmpOnTmpfs = true;
+    tmpOnTmpfsSize = "20%"; # of 128GB = 25.6GB
     cleanTmpDir = true;
     crashDump.enable = true;
     loader = {
@@ -616,6 +618,9 @@ in
       erlangR25
       elixir
       unstable.vscode
+      unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
+      unstable.micro # sort of an enhanced nano
+      unstable.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql
       asdf-vm
       direnv
@@ -627,6 +632,7 @@ in
       slack
       figlet
       jq
+      fzy
       fortune
       speedread
       speedtest-cli
@@ -665,14 +671,14 @@ in
         atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
         beetle-vb beetle-wswan bluemsx bsnes-mercury citra desmume desmume2015 dolphin dosbox eightyone fbalpha2012 fbneo fceumm flycast fmsx freeintv
         gambatte genesis-plus-gx gpsp gw handy hatari mame mame2000 mame2003 mame2003-plus mame2010 mame2015 mame2016 mesen meteor mgba mupen64plus
-        neocd nestopia np2kai o2em opera parallel-n64 pcsx_rearmed picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
+        neocd nestopia np2kai o2em opera parallel-n64 pcsx-rearmed picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
         snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
       ]; })
       retroarch
       libretro.atari800 libretro.beetle-gba libretro.beetle-lynx libretro.beetle-ngp libretro.beetle-pce-fast libretro.beetle-pcfx libretro.beetle-psx libretro.beetle-psx-hw libretro.beetle-saturn libretro.beetle-snes libretro.beetle-supergrafx
       libretro.beetle-vb libretro.beetle-wswan libretro.bluemsx libretro.bsnes-mercury libretro.citra libretro.desmume libretro.desmume2015 libretro.dolphin libretro.dosbox libretro.eightyone libretro.fbalpha2012 libretro.fbneo libretro.fceumm libretro.flycast libretro.fmsx libretro.freeintv
       libretro.gambatte libretro.genesis-plus-gx libretro.gpsp libretro.gw libretro.handy libretro.hatari libretro.mame libretro.mame2000 libretro.mame2003 libretro.mame2003-plus libretro.mame2010 libretro.mame2015 libretro.mame2016 libretro.mesen libretro.meteor libretro.mgba libretro.mupen64plus
-      libretro.neocd libretro.nestopia libretro.np2kai libretro.o2em libretro.opera libretro.parallel-n64 libretro.pcsx_rearmed libretro.picodrive libretro.play libretro.ppsspp libretro.prboom libretro.prosystem libretro.quicknes libretro.sameboy libretro.scummvm libretro.smsplus-gx libretro.snes9x
+      libretro.neocd libretro.nestopia libretro.np2kai libretro.o2em libretro.opera libretro.parallel-n64 libretro.pcsx-rearmed libretro.picodrive libretro.play libretro.ppsspp libretro.prboom libretro.prosystem libretro.quicknes libretro.sameboy libretro.scummvm libretro.smsplus-gx libretro.snes9x
       libretro.snes9x2002 libretro.snes9x2005 libretro.snes9x2010 libretro.stella libretro.stella2014 libretro.tgbdual libretro.thepowdertoy libretro.tic80 libretro.vba-m libretro.vba-next libretro.vecx libretro.virtualjaguar libretro.yabause
       # for TUI and/or RPG games
       angband
@@ -702,6 +708,9 @@ in
       # tremulous # boooo, marked as broken :(
       torcs
       stable.speed_dreams
+      # littlesnitch fork:
+      unstable.opensnitch
+      unstable.opensnitch-ui
       # media/video stuff
       unstable.audacity
       unstable.handbrake
@@ -783,25 +792,36 @@ in
       curl
       sshfs
       uget # a download manager GUI
-      # various process viewers
-      unstable.htop
-      unstable.bpytop
+      ## various process viewers
+      unstable.htop # better than top
+      unstable.btop # better than htop
+      unstable.bottom # a modern alternative to top
       unstable.gotop
       unstable.atop
-      unstable.iotop unstable.iotop-c
-      unstable.ioping
-      unstable.zenith # zoom-able charts
+      unstable.iotop unstable.iotop-c # iotop-c is a fork of iotop with a curses interface
+      unstable.nmon # for monitoring system performance
+      unstable.nload # network load monitor
+      unstable.nethogs # network bandwidth monitor
+      unstable.ioping # disk latency tester
+      unstable.sysz # An fzf-based terminal UI for systemctl
+      unstable.ranger # file manager
+      unstable.fzf # fuzzy finder
+      unstable.visidata # https://github.com/saulpw/visidata
+      unstable.zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
       unstable.nvtop # for GPU info
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       unstable.dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
       unstable.duc # disk usage visualization, highly configurable
-      unstable.gdu # go disk usage
+      unstable.gdu # go disk usage, great way to visualize disk usage
       baobab # radial treemap of disk usage
       unstable.ncdu # "ncurses du (disk usage)"
       unstable.duf # really nice disk usage TUI
+      gping # ping with a graph
+      unstable.bmon # network bandwidth monitor
+      kmon # kernel module monitor
       # for showing off nixos:
-      neofetch
-      unstable.nix-tree
+      neofetch # system info
+      unstable.nix-tree # show nixpkgs tree
       unstable.hydra-check
       ripgrep # rg, the best grep
       fd # a better "find"
@@ -809,8 +829,11 @@ in
       unstable.mcfly # fantastic replacement for control-R history search
       exa # a better ls
       tokei # fast LOC counter
-      p7zip
-      latest.firefox-nightly-bin
+      p7zip # 7zip
+      unrar
+      bc
+      conky
+      latest.firefox-nightly-bin # firefox
       chromium
       unstable.wezterm # nerdy but very nice terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
@@ -821,7 +844,7 @@ in
       unstable.gnomeExtensions.weather
       unstable.gnomeExtensions.sermon
       unstable.gnomeExtensions.pop-shell
-      gnome.sushi
+      gnome.sushi # file previewer
       gnome.dconf-editor
       gnome.zenity
       unstable.dconf2nix
@@ -841,7 +864,7 @@ in
       pciutils
       perf-tools
       vulkan-tools
-      pv
+      pv # pipe viewer
       smartmontools
       gsmartcontrol
       efibootmgr
@@ -882,6 +905,10 @@ in
         "\${XDG_BIN_HOME}"
       ];
     };
+
+    # adds /usr/share/dict/words via 'scowl', which is depended on by some things;
+    # see: https://github.com/NixOS/nixpkgs/issues/16545
+    wordlist.enable = true;
   };
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -945,8 +972,8 @@ in
       # 'cores' is like the "make -j" option; note that some packages don't like concurrent builds,
       # but that's their responsibility to limit themselves, in that case.
       # Current values may change and are being played with to find optimal combo
-      max-jobs = 40;
-      cores = 8;
+      max-jobs = 20;
+      cores = 32;
       # use hardlinks to save space?
       auto-optimise-store = true;
       # flakes
