@@ -14,10 +14,11 @@
 # sudo nix-channel --update
 
 # ❯ sudo nix-channel --list
-# nixos https://nixos.org/channels/nixos-22.05
+# nixos https://nixos.org/channels/nixos-unstable
 # nixos-hardware https://github.com/NixOS/nixos-hardware/archive/master.tar.gz
-# nixos-unstable https://nixos.org/channels/nixos-unstable
+# nixos-master https://github.com/NixOS/nixpkgs/archive/master.tar.gz
 # nixos-stable https://nixos.org/channels/nixos-22.05
+# nixos-unstable https://nixos.org/channels/nixos-unstable
 
 let
   # FYI: My system got switched to unstable,
@@ -36,6 +37,9 @@ let
     # ];
   };
   stable = import <nixos-stable> { 
+    config = { allowUnfree = true; };
+  };
+  master = import <nixos-master> { 
     config = { allowUnfree = true; };
   };
   # my custom proprietary fonts
@@ -620,7 +624,7 @@ in
       unstable.vscode
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       unstable.micro # sort of an enhanced nano
-      unstable.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
+      master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql
       asdf-vm
       direnv
@@ -641,7 +645,7 @@ in
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
       numworks-epsilon # whoa, cool calc!
-      unstable.mathematica # because why the heck not?
+      # unstable.mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
       # already part of the store. Find the file on your Mathematica CD
