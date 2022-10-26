@@ -593,7 +593,7 @@ in
   #   driSupport32Bit = true;
   # };
   # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.vulkan_beta; #stable;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #vulkan_beta;
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -840,6 +840,8 @@ in
       latest.firefox-nightly-bin # firefox
       chromium
       unstable.wezterm # nerdy but very nice terminal
+      unstable.kitty
+      unstable.alacritty
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       unstable.gnomeExtensions.appindicator
       unstable.gnomeExtensions.clipboard-indicator
