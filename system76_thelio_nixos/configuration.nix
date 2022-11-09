@@ -784,6 +784,7 @@ in
       emacs
       bash
       bash-completion
+      shellcheck
       nix-bash-completions
       nixos-option
       nix-index # also provides nix-locate
@@ -823,6 +824,7 @@ in
       gping # ping with a graph
       unstable.bmon # network bandwidth monitor
       kmon # kernel module monitor
+      lsof # for listing open files and ports
       # for showing off nixos:
       neofetch # system info
       unstable.nix-tree # show nixpkgs tree
@@ -834,14 +836,16 @@ in
       exa # a better ls
       tokei # fast LOC counter
       p7zip # 7zip
+      xxHash # very fast hash
+      dcfldd # dd with progress bar and inline hash verification
       unrar
-      bc
-      conky
+      bc # calculator (also a basic language... possibly useful for education?)
+      conky # system monitor
       latest.firefox-nightly-bin # firefox
       chromium
       unstable.wezterm # nerdy but very nice terminal
-      unstable.kitty
-      unstable.alacritty
+      unstable.kitty # another nice terminal
+      unstable.alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       unstable.gnomeExtensions.appindicator
       unstable.gnomeExtensions.clipboard-indicator
@@ -868,7 +872,7 @@ in
       evince # gnome's document viewer (pdfs etc)
       groff # seems to be an undeclared dependency of evince...
       pciutils
-      perf-tools
+      perf-tools # for profiling
       vulkan-tools
       pv # pipe viewer
       smartmontools
@@ -881,6 +885,7 @@ in
       mkpasswd
       zfs
       polybar
+      imagemagick
       # stuff for my specific hardware
       system76-firmware
     ];
