@@ -108,6 +108,12 @@ in
           GRUB_INIT_TUNE="1750 523 1 392 1 523 1 659 1 784 1 1047 1 784 1 415 1 523 1 622 1 831 1 622 1 831 1 1046 1 1244 1 1661 1 1244 1 466 1 587 1 698 1 932 1 1195 1 1397 1 1865 1 1397 1"
         '';
         configurationLimit = 10; # default is like 100? Too much
+        theme = pkgs.fetchFromGitHub { # current as of 11/2022
+          owner = "shvchk";
+          repo = "fallout-grub-theme";
+          rev = "80734103d0b48d724f0928e8082b6755bd3b2078";
+          sha256 = "sha256-7kvLfD6Nz4cEMrmCA9yq4enyqVyqiTkVZV5y4RyUatU=";
+        };
       };
       # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
       # efi.efiSysMountPoint = "/boot/efi";
@@ -634,6 +640,10 @@ in
       spotify
       spotify-tui
       slack
+      # matrix clients [
+        nheko
+        # master.fluffychat # currently broken as of 11/13/2022
+      # ]
       figlet
       jq
       fzy
@@ -669,6 +679,11 @@ in
       unstable.discord
       unstable.boinc
       treesheets # freeform data organizer
+      flameshot # screenshot tool
+      shotwell # photo organizer like iPhoto
+      darktable # photo editor
+      krita # drawing program
+      gimp-with-plugins # drawing program
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
@@ -684,25 +699,26 @@ in
       libretro.gambatte libretro.genesis-plus-gx libretro.gpsp libretro.gw libretro.handy libretro.hatari libretro.mame libretro.mame2000 libretro.mame2003 libretro.mame2003-plus libretro.mame2010 libretro.mame2015 libretro.mame2016 libretro.mesen libretro.meteor libretro.mgba libretro.mupen64plus
       libretro.neocd libretro.nestopia libretro.np2kai libretro.o2em libretro.opera libretro.parallel-n64 libretro.pcsx-rearmed libretro.picodrive libretro.play libretro.ppsspp libretro.prboom libretro.prosystem libretro.quicknes libretro.sameboy libretro.scummvm libretro.smsplus-gx libretro.snes9x
       libretro.snes9x2002 libretro.snes9x2005 libretro.snes9x2010 libretro.stella libretro.stella2014 libretro.tgbdual libretro.thepowdertoy libretro.tic80 libretro.vba-m libretro.vba-next libretro.vecx libretro.virtualjaguar libretro.yabause
-      # for TUI and/or RPG games
-      angband
-      # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
-      tome2
-      nethack
-      unnethack
-      harmonist
-      hyperrogue
-      crawl
-      crawlTiles
-      brogue
-      meritous
-      egoboo
-      sil
-      shattered-pixel-dungeon
-      # end of TUI/RPG games list
+      # TUI and/or RPG games [
+        angband
+        # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
+        tome2
+        nethack
+        unnethack
+        harmonist
+        hyperrogue
+        crawl
+        crawlTiles
+        brogue
+        meritous
+        egoboo
+        sil
+        shattered-pixel-dungeon
+      # ]
       # other games & stuff
       xlife
       abuse
+      scorched3d # played the original version a lot in the military
       pioneer
       the-powder-toy
       space-cadet-pinball
@@ -847,13 +863,17 @@ in
       unstable.kitty # another nice terminal
       unstable.alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
-      unstable.gnomeExtensions.appindicator
-      unstable.gnomeExtensions.clipboard-indicator
-      unstable.gnomeExtensions.freon
-      unstable.gnomeExtensions.vitals
-      unstable.gnomeExtensions.weather
-      unstable.gnomeExtensions.sermon
-      unstable.gnomeExtensions.pop-shell
+      gnomeExtensions.appindicator
+      gnomeExtensions.clipboard-indicator
+      gnomeExtensions.freon
+      gnomeExtensions.hide-top-bar
+      gnomeExtensions.vitals
+      # gnomeExtensions.cpufreq # incompatible with gnome version as of 11/21/2022
+      # gnomeExtensions.weather # doesn't work with latest gnome
+      # gnomeExtensions.sermon
+      # gnomeExtensions.scrovol # doesn't work with latest gnome
+      gnomeExtensions.pop-shell
+      gnomeExtensions.lock-keys
       gnome.sushi # file previewer
       gnome.dconf-editor
       gnome.zenity
@@ -864,10 +884,13 @@ in
       unstable.rustc
       gcc
       gnumake
-      # gnupg
+      # gnupg # installed separately in config elsewhere
+      pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out...
+               # https://github.com/NixOS/nixpkgs/commit/3d832dee59ed0338db4afb83b4c481a062163771
       pkg-config
       # $%&* locales...
       glibcLocales
+      # lsb-release # sys info # nah, do "source /etc/os-release; echo $PRETTY_NAME" instead
       # clang # removed due to collisions; install on project basis
       evince # gnome's document viewer (pdfs etc)
       groff # seems to be an undeclared dependency of evince...
