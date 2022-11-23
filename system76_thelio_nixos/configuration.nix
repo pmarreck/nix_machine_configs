@@ -866,7 +866,7 @@ in
       gnomeExtensions.appindicator
       gnomeExtensions.clipboard-indicator
       gnomeExtensions.freon
-      gnomeExtensions.hide-top-bar
+      # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
       gnomeExtensions.vitals
       # gnomeExtensions.cpufreq # incompatible with gnome version as of 11/21/2022
       # gnomeExtensions.weather # doesn't work with latest gnome
