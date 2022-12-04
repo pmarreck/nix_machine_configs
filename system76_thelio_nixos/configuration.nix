@@ -627,9 +627,9 @@ in
     packages = with pkgs; [
       erlangR25
       elixir
-      unstable.vscode
-      unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
-      unstable.micro # sort of an enhanced nano
+      vscode
+      o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
+      micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql
       asdf-vm
@@ -655,7 +655,7 @@ in
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
       numworks-epsilon # whoa, cool calc!
-      # unstable.mathematica # because why the heck not?
+      # mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
       # already part of the store. Find the file on your Mathematica CD
@@ -664,20 +664,20 @@ in
       # ❯ nix-store --add-fixed sha256 Mathematica_13.1.0_BNDL_LINUX.sh
       # /nix/store/jsnr55faq59xkq1az8isrs9rkzxdpxj2-Mathematica_13.1.0_BNDL_LINUX.sh
       # (the package was updated for 13.1.0)
-      unstable.blesh
+      blesh
       xscreensaver # note that this seems to require setup in home manager
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
-      unstable.heroic
-      unstable.legendary-gl
-      unstable.rare
-      # unstable.protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
-      unstable.protontricks
-      unstable.proton-caller
-      # unstable.bottles
-      # unstable.gnutls # possibly needed for bottles to work correctly with battle.net launcher?
-      unstable.discord
-      unstable.boinc
+      heroic
+      legendary-gl
+      rare
+      # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
+      protontricks
+      proton-caller
+      # bottles
+      # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
+      discord
+      boinc
       treesheets # freeform data organizer
       flameshot # screenshot tool
       shotwell # photo organizer like iPhoto
@@ -685,6 +685,11 @@ in
       krita # drawing program
       gimp-with-plugins # drawing program
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
+      # bluemail # email client # doesn't currently work...
+      mailspring # email client
+      thunderbird # the venerable email client
+      evolutionWithPlugins # email client
+      recoll # full-text search tool
       # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
         atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
@@ -718,6 +723,10 @@ in
       # other games & stuff
       xlife
       abuse
+      newtonwars # missile game with gravity as a core element
+      gravit # gravity simulator
+      xaos # smooth fractal explorer
+      almonds # TUI fractal viewer
       scorched3d # played the original version a lot in the military
       pioneer
       the-powder-toy
@@ -729,13 +738,13 @@ in
       torcs
       stable.speed_dreams
       # littlesnitch fork:
-      unstable.opensnitch
-      unstable.opensnitch-ui
+      opensnitch
+      opensnitch-ui
       # media/video stuff
-      unstable.audacity
-      unstable.handbrake
-      unstable.vlc
-      unstable.shortwave # internet radio
+      audacity
+      handbrake
+      vlc
+      shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
     ];
@@ -783,7 +792,6 @@ in
       gnome-terminal
       gedit # text editor
       epiphany # web browser
-      geary # email reader
       # evince # document viewer
       gnome-characters
       totem # video player
@@ -814,41 +822,41 @@ in
       sshfs
       uget # a download manager GUI
       ## various process viewers
-      unstable.htop # better than top
-      unstable.btop # better than htop
-      unstable.bottom # a modern alternative to top
-      unstable.gotop
-      unstable.atop
-      unstable.iotop unstable.iotop-c # iotop-c is a fork of iotop with a curses interface
-      unstable.nmon # for monitoring system performance
-      unstable.nload # network load monitor
-      unstable.nethogs # network bandwidth monitor
-      unstable.ioping # disk latency tester
-      unstable.sysz # An fzf-based terminal UI for systemctl
-      unstable.ranger # file manager
-      unstable.fzf # fuzzy finder
-      unstable.visidata # https://github.com/saulpw/visidata
-      unstable.zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
-      unstable.nvtop # for GPU info
+      htop # better than top
+      btop # better than htop
+      bottom # a modern alternative to top
+      gotop
+      atop
+      iotop iotop-c # iotop-c is a fork of iotop with a curses interface
+      nmon # for monitoring system performance
+      nload # network load monitor
+      nethogs # network bandwidth monitor
+      ioping # disk latency tester
+      sysz # An fzf-based terminal UI for systemctl
+      ranger # file manager
+      fzf # fuzzy finder
+      visidata # https://github.com/saulpw/visidata
+      zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
+      nvtop # for GPU info
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
-      unstable.dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
-      unstable.duc # disk usage visualization, highly configurable
-      unstable.gdu # go disk usage, great way to visualize disk usage
+      dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
+      duc # disk usage visualization, highly configurable
+      gdu # go disk usage, great way to visualize disk usage
       baobab # radial treemap of disk usage
-      unstable.ncdu # "ncurses du (disk usage)"
-      unstable.duf # really nice disk usage TUI
+      ncdu # "ncurses du (disk usage)"
+      duf # really nice disk usage TUI
       gping # ping with a graph
-      unstable.bmon # network bandwidth monitor
+      bmon # network bandwidth monitor
       kmon # kernel module monitor
       lsof # for listing open files and ports
       # for showing off nixos:
       neofetch # system info
-      unstable.nix-tree # show nixpkgs tree
-      unstable.hydra-check
+      nix-tree # show nixpkgs tree
+      hydra-check
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
-      unstable.mcfly # fantastic replacement for control-R history search
+      mcfly # fantastic replacement for control-R history search
       exa # a better ls
       tokei # fast LOC counter
       p7zip # 7zip
@@ -859,9 +867,9 @@ in
       conky # system monitor
       latest.firefox-nightly-bin # firefox
       chromium
-      unstable.wezterm # nerdy but very nice terminal
-      unstable.kitty # another nice terminal
-      unstable.alacritty # a super fast terminal
+      wezterm # nerdy but very nice terminal
+      kitty # another nice terminal
+      alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       gnomeExtensions.appindicator
       gnomeExtensions.clipboard-indicator
@@ -877,11 +885,11 @@ in
       gnome.sushi # file previewer
       gnome.dconf-editor
       gnome.zenity
-      unstable.dconf2nix
+      dconf2nix
       home-manager
       xorg.xbacklight
-      unstable.cargo
-      unstable.rustc
+      cargo
+      rustc
       gcc
       gnumake
       # gnupg # installed separately in config elsewhere
@@ -901,7 +909,7 @@ in
       smartmontools
       gsmartcontrol
       efibootmgr
-      # unstable.netdata # enabled via services.netdata.enable
+      # netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm
       cacert
