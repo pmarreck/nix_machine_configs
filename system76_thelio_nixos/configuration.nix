@@ -686,10 +686,15 @@ in
       gimp-with-plugins # drawing program
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # bluemail # email client # doesn't currently work...
-      mailspring # email client
+      mailspring # nice open-source email client
       thunderbird # the venerable email client
       evolutionWithPlugins # email client
       recoll # full-text search tool
+      moar # a better "less"
+      sequeler # gui for postgresql/mariadb/mysql/sqlite
+      jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
+      gitkraken # git gui (as opposed to "git gud" I guess)
+      starship # cool prompt
       # for retro gaming. this workaround was to fix the cores not installing properly
       (retroarch.override { cores = with libretro; [
         atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
