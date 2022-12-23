@@ -72,14 +72,14 @@ in
     (import ./packages)
   ];
 
-  # Early console config.
-  console = {
-    font = "ter-132n";
-    packages = [pkgs.terminus_font];
-    # keyMap = "us"; # inherited from x11 layout, below, I believe
-    useXkbConfig = true;
-    earlySetup = false;
-  };
+  # Early console config. Note: Replaced by kmscon
+  # console = {
+  #   font = "ter-132n";
+  #   packages = [pkgs.terminus_font];
+  #   # keyMap = "us"; # inherited from x11 layout, below, I believe
+  #   useXkbConfig = true;
+  #   earlySetup = false;
+  # };
 
   # Set your time zone.
   time.timeZone = "America/New_York";
@@ -149,6 +149,7 @@ in
                      "rd.udev.log_level=2"
                      "udev.log_priority=2"
                      "nvidia_drm.modeset=1"
+                     "video=3440x1440@100" # for virtual console resolution
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
                      "zfs.zfs_arc_max=17179869184" # 16GB
@@ -286,6 +287,23 @@ in
   # List services that you want to enable:
   services = {
 
+    gnome.gnome-remote-desktop.enable = false; # because it inadvertently activates pipewire
+
+
+    # Enable the much fancier kmscon virtual console instead of gettys.
+    kmscon = {
+      enable = true;
+      hwRender = true;
+      autologinUser = "pmarreck";
+      fonts = [ 
+                { name = "Terminus NerdFont"; package = pkgs.terminus-nerdfont; }
+                { name = "Powerline Fonts"; package = pkgs.powerline-fonts; }
+                { name = "Source Code Pro"; package = pkgs.source-code-pro; }
+                { name = "Fira Code"; package = pkgs.fira-code; }              
+               ];
+      extraOptions = "--term xterm-256color --font-size 16";
+    };
+
     # Enable the X11 windowing system.
     xserver = {
       enable = true;
@@ -339,7 +357,7 @@ in
 
     # Enable sound with pipewire.
     pipewire = {
-      enable = true;
+      enable = false; # trying pulseaudio w/bluetooth
       alsa.enable = true;
       alsa.support32Bit = true;
       pulse.enable = true;
@@ -604,8 +622,11 @@ in
 
   # Enable sound with pipewire.
   sound.enable = true;
-  hardware.pulseaudio.enable = false;
+  hardware.pulseaudio.enable = true;
   security.rtkit.enable = true;
+
+  # Enable bluetooth. Wait, this wasn't the default??
+  hardware.bluetooth.enable = true;
 
   # Define a user account. Set a password hash via `mkpasswd -m sha-512`
   users.mutableUsers = false;
@@ -640,9 +661,10 @@ in
       spotify
       spotify-tui
       slack
+      rescuetime # usage tracking
       # matrix clients [
         nheko
-        # master.fluffychat # currently broken as of 11/13/2022
+        # master.fluffychat # currently still broken as of 12/19/2022 due to flutter not being properly specified as input
       # ]
       figlet
       jq
@@ -666,6 +688,7 @@ in
       # (the package was updated for 13.1.0)
       blesh
       xscreensaver # note that this seems to require setup in home manager
+      gthumb
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
       heroic
@@ -763,12 +786,12 @@ in
     #   # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
     # };
     ssh.startAgent = true;
+    gamemode.enable = true; # for steam
   };
 
   # Fonts!
   fonts.fonts = with pkgs; [
     powerline-fonts
-    inter # https://rsms.me/inter/
     google-fonts
     noto-fonts
     noto-fonts-cjk
@@ -778,6 +801,8 @@ in
     font-awesome
     hack-font
     nerdfonts
+    terminus-nerdfont
+    source-code-pro
     gentium # https://software.sil.org/gentium/
     eb-garamond # my favorite serif font
     atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
@@ -825,6 +850,7 @@ in
       wget
       curl
       sshfs
+      hwinfo # hardware info
       uget # a download manager GUI
       ## various process viewers
       htop # better than top
@@ -879,6 +905,7 @@ in
       gnomeExtensions.appindicator
       gnomeExtensions.clipboard-indicator
       gnomeExtensions.freon
+      gnomeExtensions.gamemode
       # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
       gnomeExtensions.vitals
       # gnomeExtensions.cpufreq # incompatible with gnome version as of 11/21/2022
