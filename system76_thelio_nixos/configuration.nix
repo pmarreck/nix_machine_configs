@@ -17,7 +17,7 @@
 # nixos https://nixos.org/channels/nixos-unstable
 # nixos-hardware https://github.com/NixOS/nixos-hardware/archive/master.tar.gz
 # nixos-master https://github.com/NixOS/nixpkgs/archive/master.tar.gz
-# nixos-stable https://nixos.org/channels/nixos-22.05
+# nixos-stable https://nixos.org/channels/nixos-22.11
 # nixos-unstable https://nixos.org/channels/nixos-unstable
 
 let
@@ -47,6 +47,7 @@ let
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
   elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
+  # libretro = stable.libretro;
 in
 {
   imports =
@@ -72,6 +73,11 @@ in
     (import ./packages)
   ];
 
+  # Any temporarily-allowed insecure packages.
+  nixpkgs.config.permittedInsecurePackages = [
+    "xrdp-0.9.9" # added 1/5/2023
+  ];
+
   # Early console config. Note: Replaced by kmscon
   # console = {
   #   font = "ter-132n";
@@ -89,7 +95,7 @@ in
 
   # Bootloader.
   boot = {
-    tmpOnTmpfs = true;
+    tmpOnTmpfs = false;
     tmpOnTmpfsSize = "20%"; # of 128GB = 25.6GB
     cleanTmpDir = true;
     crashDump.enable = true;
@@ -152,7 +158,13 @@ in
                      "video=3440x1440@100" # for virtual console resolution
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0"
+                     "zfs.l2arc_noprefetch=1"
+                     "zfs.l2arc_write_boost=16777216"
+                     "zfs.l2arc_write_max=16777216"
+                     "zfs.l2arc_headroom=2"
+                     "zfs.l2arc_mfuonly=0"
                      "zfs.zfs_arc_max=17179869184" # 16GB
+                     "zfs.prefetch_disable=1"
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
                     #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
@@ -184,12 +196,13 @@ in
     # Good l2arc docs: https://klarasystems.com/articles/openzfs-all-about-l2arc/
     # https://openzfs.github.io/openzfs-docs/man/4/zfs.4.html
     extraModprobeConfig = ''
-      options zfs l2arc_noprefetch=0 \
+      options zfs l2arc_noprefetch=1 \
       l2arc_write_boost=16777216 \
       l2arc_write_max=16777216 \
-      l2arc_headroom=0 \
-      l2arc_mfuonly=1 \
-      zfs_arc_max=17179869184
+      l2arc_headroom=2 \
+      l2arc_mfuonly=0 \
+      zfs_arc_max=17179869184 \
+      prefetch_disable=1
     '';
   };
 
@@ -287,7 +300,7 @@ in
   # List services that you want to enable:
   services = {
 
-    gnome.gnome-remote-desktop.enable = false; # because it inadvertently activates pipewire
+    # gnome.gnome-remote-desktop.enable = false; # because it inadvertently activates pipewire
 
 
     # Enable the much fancier kmscon virtual console instead of gettys.
@@ -357,10 +370,10 @@ in
 
     # Enable sound with pipewire.
     pipewire = {
-      enable = false; # trying pulseaudio w/bluetooth
-      alsa.enable = true;
-      alsa.support32Bit = true;
-      pulse.enable = true;
+      enable = true;
+      # alsa.enable = true;
+      # alsa.support32Bit = true;
+      # pulse.enable = false;
       # If you want to use JACK applications, uncomment this
       #jack.enable = true;
 
@@ -622,11 +635,11 @@ in
 
   # Enable sound with pipewire.
   sound.enable = true;
-  hardware.pulseaudio.enable = true;
+  # hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
 
   # Enable bluetooth. Wait, this wasn't the default??
-  hardware.bluetooth.enable = true;
+  # hardware.bluetooth.enable = true;
 
   # Define a user account. Set a password hash via `mkpasswd -m sha-512`
   users.mutableUsers = false;
@@ -677,6 +690,7 @@ in
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
       numworks-epsilon # whoa, cool calc!
+      browsh # graphical web browser in the terminal
       # mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
@@ -689,11 +703,12 @@ in
       blesh
       xscreensaver # note that this seems to require setup in home manager
       gthumb
+      hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
       heroic
-      legendary-gl
-      rare
+      # legendary-gl
+      stable.rare
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       protontricks
       proton-caller
@@ -704,9 +719,9 @@ in
       treesheets # freeform data organizer
       flameshot # screenshot tool
       shotwell # photo organizer like iPhoto
-      darktable # photo editor
+      stable.darktable # photo editor # forced stable on 1/24/2023 due to build failure on unstable
       krita # drawing program
-      gimp-with-plugins # drawing program
+      stable.gimp-with-plugins # drawing program # forced stable on 1/20/2023 due to build failure on unstable
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # bluemail # email client # doesn't currently work...
       mailspring # nice open-source email client
@@ -719,19 +734,23 @@ in
       gitkraken # git gui (as opposed to "git gud" I guess)
       starship # cool prompt
       # for retro gaming. this workaround was to fix the cores not installing properly
-      (retroarch.override { cores = with libretro; [
-        atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
-        beetle-vb beetle-wswan bluemsx bsnes-mercury citra desmume desmume2015 dolphin dosbox eightyone fbalpha2012 fbneo fceumm flycast fmsx freeintv
-        gambatte genesis-plus-gx gpsp gw handy hatari mame mame2000 mame2003 mame2003-plus mame2010 mame2015 mame2016 mesen meteor mgba mupen64plus
-        neocd nestopia np2kai o2em opera parallel-n64 pcsx-rearmed picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
-        snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
-      ]; })
-      retroarch
-      libretro.atari800 libretro.beetle-gba libretro.beetle-lynx libretro.beetle-ngp libretro.beetle-pce-fast libretro.beetle-pcfx libretro.beetle-psx libretro.beetle-psx-hw libretro.beetle-saturn libretro.beetle-snes libretro.beetle-supergrafx
-      libretro.beetle-vb libretro.beetle-wswan libretro.bluemsx libretro.bsnes-mercury libretro.citra libretro.desmume libretro.desmume2015 libretro.dolphin libretro.dosbox libretro.eightyone libretro.fbalpha2012 libretro.fbneo libretro.fceumm libretro.flycast libretro.fmsx libretro.freeintv
-      libretro.gambatte libretro.genesis-plus-gx libretro.gpsp libretro.gw libretro.handy libretro.hatari libretro.mame libretro.mame2000 libretro.mame2003 libretro.mame2003-plus libretro.mame2010 libretro.mame2015 libretro.mame2016 libretro.mesen libretro.meteor libretro.mgba libretro.mupen64plus
-      libretro.neocd libretro.nestopia libretro.np2kai libretro.o2em libretro.opera libretro.parallel-n64 libretro.pcsx-rearmed libretro.picodrive libretro.play libretro.ppsspp libretro.prboom libretro.prosystem libretro.quicknes libretro.sameboy libretro.scummvm libretro.smsplus-gx libretro.snes9x
-      libretro.snes9x2002 libretro.snes9x2005 libretro.snes9x2010 libretro.stella libretro.stella2014 libretro.tgbdual libretro.thepowdertoy libretro.tic80 libretro.vba-m libretro.vba-next libretro.vecx libretro.virtualjaguar libretro.yabause
+      # (retroarch.override { cores = with libretro; [
+      #   atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
+      #   beetle-vb beetle-wswan bluemsx bsnes-mercury citra desmume desmume2015 dolphin dosbox eightyone fbalpha2012 fbneo fceumm flycast fmsx freeintv
+      #   gambatte genesis-plus-gx gpsp gw handy hatari mame mame2000 mame2003 mame2003-plus mame2010 mame2015 mame2016 mesen meteor mgba mupen64plus
+      #   neocd nestopia np2kai o2em opera parallel-n64 picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
+      #   snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
+      #   # pcsx-rearmed
+      # ]; })
+      # retroarch
+      # (with libretro; [
+      #   atari800 beetle-gba beetle-lynx beetle-ngp beetle-pce-fast beetle-pcfx beetle-psx beetle-psx-hw beetle-saturn beetle-snes beetle-supergrafx
+      #   beetle-vb beetle-wswan bluemsx bsnes-mercury citra desmume desmume2015 dolphin dosbox eightyone fbalpha2012 fbneo fceumm flycast fmsx freeintv
+      #   gambatte genesis-plus-gx gpsp gw handy hatari mame mame2000 mame2003 mame2003-plus mame2010 mame2015 mame2016 mesen meteor mgba mupen64plus
+      #   neocd nestopia np2kai o2em opera parallel-n64 picodrive play ppsspp prboom prosystem quicknes sameboy scummvm smsplus-gx snes9x
+      #   snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
+      #   # pcsx-rearmed
+      # ])
       # TUI and/or RPG games [
         angband
         # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
@@ -770,7 +789,7 @@ in
       opensnitch-ui
       # media/video stuff
       audacity
-      handbrake
+      stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
       vlc
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
@@ -899,7 +918,7 @@ in
       latest.firefox-nightly-bin # firefox
       chromium
       wezterm # nerdy but very nice terminal
-      kitty # another nice terminal
+      stable.kitty # another nice terminal # forced stable on 1/20/2023 due to build failure on unstable
       alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       gnomeExtensions.appindicator
@@ -1007,6 +1026,22 @@ in
     # ];
   };
 
+  # Docker and other VM options
+  virtualisation.docker = {
+    # enable = true;
+    enableOnBoot = true;
+    rootless = {
+      enable = true;
+      setSocketVariable = true;
+      daemon.settings = { }; # https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
+    };
+    autoPrune = {
+      enable = true;
+      dates = "weekly";
+    };
+    enableNvidia = false; # enabling may let you use ML stuff that can then use the GPU via CUDA etc.
+    # storageDriver = null; # by default, lets docker pick
+  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
@@ -1052,6 +1087,7 @@ in
       auto-optimise-store = true;
       # flakes
       experimental-features = [ "nix-command" "flakes" ];
+      warn-dirty = false;
     };
     # automatically run gc?
     gc = {
