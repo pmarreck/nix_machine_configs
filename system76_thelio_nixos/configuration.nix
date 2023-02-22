@@ -48,6 +48,15 @@ let
   # which particular version of elixir and erlang I want globally
   elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
   # libretro = stable.libretro;
+  nix-software-center = (import (pkgs.fetchFromGitHub {
+    owner = "vlinkz";
+    repo = "nix-software-center";
+    rev = "0.1.1";
+    sha256 = "0frigabszyfkphfbsniaa1d546zm8a2gx0cqvk2fr2qfa71kd41n";
+  })) {};
+  python3_with_zfec = unstable.python3.withPackages (ps: [(ps.zfec.overrideAttrs (old: { 
+    src = /home/pmarreck/Documents/zfec; 
+  }))]);
 in
 {
   imports =
@@ -71,6 +80,7 @@ in
     # Firefox Nightly
     (import ./firefox-overlay.nix)
     (import ./packages)
+    (self: super: { nix-direnv = super.nix-direnv.override { enableFlakes = true; }; } )
   ];
 
   # Any temporarily-allowed insecure packages.
@@ -662,6 +672,7 @@ in
       erlangR25
       elixir
       vscode
+      mono # for C#/.NET stuff
       o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
@@ -671,7 +682,8 @@ in
       nix-direnv
       delta #syntax highlighter for git
       ripgrep-all
-      spotify
+      stable.spotifyd # spotify streamer daemon
+      stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       spotify-tui
       slack
       rescuetime # usage tracking
@@ -702,7 +714,7 @@ in
       # (the package was updated for 13.1.0)
       blesh
       xscreensaver # note that this seems to require setup in home manager
-      gthumb
+      stable.gthumb # forced stable on 2/16/2023 due to build failure on unstable
       hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
@@ -785,8 +797,8 @@ in
       torcs
       stable.speed_dreams
       # littlesnitch fork:
-      opensnitch
-      opensnitch-ui
+      stable.opensnitch # forced stable on 2/16/2023 due to build failure on unstable
+      stable.opensnitch-ui
       # media/video stuff
       audacity
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
@@ -794,6 +806,7 @@ in
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
+      python3_with_zfec
     ];
   };
 
@@ -831,6 +844,9 @@ in
   ];
 
   environment = {
+    pathsToLink = [
+      "/share/nix-direnv"
+    ];
     # Gnome package exclusions
     gnome.excludePackages = (with pkgs; [
       gnome-photos
@@ -861,6 +877,7 @@ in
       nix-bash-completions
       nixos-option
       nix-index # also provides nix-locate
+      nix-software-center
       gptfdisk
       file
       git
@@ -917,7 +934,7 @@ in
       conky # system monitor
       latest.firefox-nightly-bin # firefox
       chromium
-      wezterm # nerdy but very nice terminal
+      stable.wezterm # nerdy but very nice terminal # forced stable on 2/16/2023 due to build failure on unstable
       stable.kitty # another nice terminal # forced stable on 1/20/2023 due to build failure on unstable
       alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
@@ -1075,6 +1092,8 @@ in
   ### Nix settings
   nix = {
     settings = {
+      keep-outputs = true;
+      keep-derivations = true;
       # we have 64 cores and 128 threads on this beast, so...
       # A value of "auto" may be permitted for 'max-jobs' (to use all available cores) but is not pure...
       # 'max-jobs' apparently also sets the number of possible concurrent downloads
