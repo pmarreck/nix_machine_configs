@@ -677,11 +677,14 @@ in
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql
-      asdf-vm
+      asdf-vm # version manager for many languages
       direnv
       nix-direnv
+      asciinema # record terminal sessions
+      glow # markdown viewer
       delta #syntax highlighter for git
-      ripgrep-all
+      ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
+      parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       spotify-tui
@@ -718,9 +721,9 @@ in
       hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
-      heroic
+      heroic # heroic game launcher
       # legendary-gl
-      stable.rare
+      stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
       protontricks
       proton-caller
@@ -934,7 +937,7 @@ in
       conky # system monitor
       latest.firefox-nightly-bin # firefox
       chromium
-      stable.wezterm # nerdy but very nice terminal # forced stable on 2/16/2023 due to build failure on unstable
+      wezterm # nerdy but very nice terminal
       stable.kitty # another nice terminal # forced stable on 1/20/2023 due to build failure on unstable
       alacritty # a super fast terminal
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
@@ -950,6 +953,7 @@ in
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell
       gnomeExtensions.lock-keys
+      gnomeExtensions.random-wallpaper
       gnome.sushi # file previewer
       gnome.dconf-editor
       gnome.zenity
