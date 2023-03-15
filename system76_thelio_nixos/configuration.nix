@@ -46,6 +46,7 @@ let
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
+  erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
   # libretro = stable.libretro;
   nix-software-center = (import (pkgs.fetchFromGitHub {
@@ -54,9 +55,29 @@ let
     rev = "0.1.1";
     sha256 = "0frigabszyfkphfbsniaa1d546zm8a2gx0cqvk2fr2qfa71kd41n";
   })) {};
-  python3_with_zfec = unstable.python3.withPackages (ps: [(ps.zfec.overrideAttrs (old: { 
-    src = /home/pmarreck/Documents/zfec; 
-  }))]);
+  custom_python3 = ((pkgs.python310.override {
+      enableOptimizations = true;
+      reproducibleBuild = false;
+      # self = custom_python3;
+    }).withPackages (ps: with ps; [
+    (zfec.overrideAttrs (old: { 
+      src = /home/pmarreck/Documents/zfec; 
+    }))
+    pip
+    toolz
+    requests # for requests
+    pillow  # for image processing
+    virtualenv 
+    pytest # for testing
+    pandas # for data analysis
+    urllib3 # for requests
+    nltk  # natural language toolkit
+    torch # for machine learning
+    torchvision
+    torchaudio-bin
+    sentencepiece
+    numpy
+  ])).override (args: { ignoreCollisions = true; });
 in
 {
   imports =
@@ -669,17 +690,27 @@ in
 
     # TODO: move these to home-manager
     packages = with pkgs; [
-      erlangR25
+      erlang
       elixir
-      vscode
+      # I added some standard langs and build tools to all envs for now:
+      # python3Full # added with an overridden pkg, above
+      nodejs
+      pcre
+      openssl
+      curlpp
+      pkg-config
+      gcc
+      opencl-clhpp
+      ocl-icd
+      patchelf
+      stable.cudaPackages.cudatoolkit
       mono # for C#/.NET stuff
+      vscode
       o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql
       asdf-vm # version manager for many languages
-      direnv
-      nix-direnv
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
@@ -688,7 +719,8 @@ in
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       spotify-tui
-      slack
+      slack # the chat app du jour
+      zoom-us # the chinese spy network
       rescuetime # usage tracking
       # matrix clients [
         nheko
@@ -809,7 +841,7 @@ in
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
-      python3_with_zfec
+      custom_python3
     ];
   };
 
@@ -838,6 +870,7 @@ in
     nerdfonts
     terminus-nerdfont
     source-code-pro
+    hasklig # source code pro plus more ligatures, https://github.com/i-tu/Hasklig
     gentium # https://software.sil.org/gentium/
     eb-garamond # my favorite serif font
     atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
@@ -881,6 +914,8 @@ in
       nixos-option
       nix-index # also provides nix-locate
       nix-software-center
+      direnv
+      nix-direnv
       gptfdisk
       file
       git
@@ -1006,6 +1041,7 @@ in
       NIXPKGS_ALLOW_UNFREE = "1";
       # friggin' keeps picking the wrong video card!!
       DXVK_FILTER_DEVICE_NAME = "GeForce RTX 3080 Ti";
+      DIRENV_WARN_TIMEOUT = "60s";
     };
 
     sessionVariables = rec {
