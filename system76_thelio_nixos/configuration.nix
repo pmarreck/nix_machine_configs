@@ -376,7 +376,11 @@ in
 
         [org.gnome.desktop.interface]
         text-scaling-factor=1.25
+
+        [org.gnome.desktop.wm.preferences]
+        resize-with-right-button=true
       '';
+        # mouse-button-modifier='<Alt>'
       # wayland wonky with nvidia, still
       displayManager.gdm.wayland = false;
       # use nvidia card for xserver
@@ -394,6 +398,9 @@ in
       displayManager.autoLogin.user = "pmarreck";
       # Enable touchpad support (enabled default in most desktopManager).
       # libinput.enable = true;
+      # try out windowmaker!
+      # windowManager.windowmaker.enable = true;
+      # displayManager.defaultSession = "none+windowmaker";
     };
 
     # Enable CUPS to print documents.
@@ -402,15 +409,89 @@ in
     # Enable sound with pipewire.
     pipewire = {
       enable = true;
-      # alsa.enable = true;
-      # alsa.support32Bit = true;
-      # pulse.enable = false;
+      # wireplumber and media-session are mutually exclusive
+      # EDIT: media-session no longer supported on pipewire and removed upstream as of 2023-03-27
+      wireplumber.enable = true;
+      # media-session.enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
       # If you want to use JACK applications, uncomment this
-      #jack.enable = true;
+      jack.enable = true;
 
       # use the example session manager (no others are packaged yet so this is enabled by default,
       # no need to redefine it in your config for now)
       #media-session.enable = true;
+      # Disabled config.pipewire based on this warning on update (2023-03-27):
+      #  - The option definition `services.pipewire.config' in `/etc/nixos/configuration.nix' no longer has any effect; please remove it.
+      #  Overriding default Pipewire configuration through NixOS options never worked correctly and is no longer supported.
+      #  Please create drop-in files in /etc/pipewire/pipewire.conf.d/ to make the desired setting changes instead.
+      # config.pipewire = {
+      #   "context.properties" = {
+      #     "link.max-buffers" = 32;
+      #     # "link.max-buffers" = 16; # version < 3 clients can't handle more than this
+      #     "log.level" = 2; # https://docs.pipewire.org/page_daemon.html
+      #     "default.clock.rate" = 48000;
+      #     "default.clock.quantum" = 64;
+      #     "default.clock.min-quantum" = 32;
+      #     "default.clock.max-quantum" = 128;
+      #     "core.daemon" = true;
+      #     "core.name" = "pipewire-0";
+      #   };
+      #   "context.modules" = [
+      #     {
+      #       name = "libpipewire-module-rtkit";
+      #       args = {
+      #         "nice.level" = -15;
+      #         "rt.prio" = 88;
+      #         "rt.time.soft" = 200000;
+      #         "rt.time.hard" = 200000;
+      #       };
+      #       flags = [ "ifexists" "nofail" ];
+      #     }
+      #     { name = "libpipewire-module-protocol-native"; }
+      #     { name = "libpipewire-module-profiler"; }
+      #     { name = "libpipewire-module-metadata"; }
+      #     { name = "libpipewire-module-spa-device-factory"; }
+      #     { name = "libpipewire-module-spa-node-factory"; }
+      #     { name = "libpipewire-module-client-node"; }
+      #     { name = "libpipewire-module-client-device"; }
+      #     {
+      #       name = "libpipewire-module-portal";
+      #       flags = [ "ifexists" "nofail" ];
+      #     }
+      #     {
+      #       name = "libpipewire-module-access";
+      #       args = {};
+      #     }
+      #     { name = "libpipewire-module-adapter"; }
+      #     { name = "libpipewire-module-link-factory"; }
+      #     { name = "libpipewire-module-session-manager"; }
+      #   ];
+      # };
+      # media-session.config.bluez-monitor.rules = [
+      #   {
+      #     # Matches all cards
+      #     matches = [ { "device.name" = "~bluez_card.*"; } ];
+      #     actions = {
+      #       "update-props" = {
+      #         "bluez5.reconnect-profiles" = [ "hfp_hf" "hsp_hs" "a2dp_sink" ];
+      #         # mSBC is not expected to work on all headset + adapter combinations.
+      #         "bluez5.msbc-support" = true;
+      #         # SBC-XQ is not expected to work on all headset + adapter combinations.
+      #         "bluez5.sbc-xq-support" = true;
+      #       };
+      #     };
+      #   }
+      #   {
+      #     matches = [
+      #       # Matches all sources
+      #       { "node.name" = "~bluez_input.*"; }
+      #       # Matches all outputs
+      #       { "node.name" = "~bluez_output.*"; }
+      #     ];
+      #   }
+      # ];
     };
 
     # Boot optimizations regarding filesystem:
@@ -665,8 +746,8 @@ in
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
-  sound.enable = true;
-  # hardware.pulseaudio.enable = false;
+  # sound.enable = true;
+  hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
 
   # Enable bluetooth. Wait, this wasn't the default??
@@ -924,6 +1005,7 @@ in
       wget
       curl
       sshfs
+      cachix # for downloading pre-built binaries
       hwinfo # hardware info
       uget # a download manager GUI
       ## various process viewers
@@ -968,6 +1050,7 @@ in
       xxHash # very fast hash
       dcfldd # dd with progress bar and inline hash verification
       unrar
+      xclip
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       latest.firefox-nightly-bin # firefox
@@ -978,6 +1061,7 @@ in
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       gnomeExtensions.appindicator
       gnomeExtensions.clipboard-indicator
+      gnomeExtensions.miniview # for quick window previews
       gnomeExtensions.freon
       gnomeExtensions.gamemode
       # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
@@ -989,9 +1073,13 @@ in
       gnomeExtensions.pop-shell
       gnomeExtensions.lock-keys
       gnomeExtensions.random-wallpaper
+      imwheel
+      gnomeExtensions.toggle-imwheel # for mouse wheel scrolling
+      gnomeExtensions.oclock # analog clock
       gnome.sushi # file previewer
       gnome.dconf-editor
       gnome.zenity
+      nitrogen # wallpaper/desktop image manager
       dconf2nix
       home-manager
       xorg.xbacklight
@@ -1016,14 +1104,15 @@ in
       smartmontools
       gsmartcontrol
       efibootmgr
+      wmctrl # for controlling window managers
       # netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
-      hdparm
+      hdparm # for hard drive info
       cacert
       mkpasswd
       zfs
-      polybar
-      imagemagick
+      polybar # status bar
+      imagemagick # for converting images
       # stuff for my specific hardware
       system76-firmware
     ];
@@ -1042,6 +1131,8 @@ in
       # friggin' keeps picking the wrong video card!!
       DXVK_FILTER_DEVICE_NAME = "GeForce RTX 3080 Ti";
       DIRENV_WARN_TIMEOUT = "60s";
+      # tell gnome which window manager to prefer
+      # WINDOW_MANAGER = "wmaker"; # windowmaker
     };
 
     sessionVariables = rec {
@@ -1054,11 +1145,23 @@ in
       PATH = [ 
         "\${XDG_BIN_HOME}"
       ];
+      GNUSTEP_USER_ROOT = "\${XDG_CONFIG_HOME}/GNUstep";
     };
 
     # adds /usr/share/dict/words via 'scowl', which is depended on by some things;
     # see: https://github.com/NixOS/nixpkgs/issues/16545
     wordlist.enable = true;
+    # the following may not need manual configuration if media-session is enabled
+    # etc = {
+    #   "wireplumber/bluetooth.lua.d/51-bluez-config.lua".text = ''
+    #     bluez_monitor.properties = {
+    #       ["bluez5.enable-sbc-xq"] = true,
+    #       ["bluez5.enable-msbc"] = true,
+    #       ["bluez5.enable-hw-volume"] = true,
+    #       ["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_hf hfp_ag ]"
+    #     }
+    #   '';
+    # };
   };
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -1096,7 +1199,7 @@ in
       enable = true;
       dates = "weekly";
     };
-    enableNvidia = false; # enabling may let you use ML stuff that can then use the GPU via CUDA etc.
+    enableNvidia = true; # enabling may let you use ML stuff that can then use the GPU via CUDA etc.
     # storageDriver = null; # by default, lets docker pick
   };
 
