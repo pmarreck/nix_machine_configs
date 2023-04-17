@@ -122,13 +122,16 @@ in
   time.timeZone = "America/New_York";
 
   # Select internationalisation properties.
-  i18n.defaultLocale = "en_US.UTF-8";
-
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+  };
   # Bootloader.
   boot = {
-    tmpOnTmpfs = false;
-    tmpOnTmpfsSize = "20%"; # of 128GB = 25.6GB
-    cleanTmpDir = true;
+    tmp = {
+      useTmpfs = false;
+      tmpfsSize = "20%"; # of 128GB = 25.6GB
+      cleanOnBoot = true;
+    };
     crashDump.enable = true;
     loader = {
       ## I switched from systemd-boot to grub2 when I figured out how to get onto zfs root,
@@ -165,9 +168,10 @@ in
     hardwareScan = true; # tried to make udev run faster at boot by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
 
     kernel.sysctl = {
-      "vm.swappiness" = 20; # 90 when swapping to ssd; default is 60
-      "vm.vfs_cache_pressure" = 50; # default is 100
-      "vm.dirty_ratio" = 55; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
+      "vm.swappiness" = 40; # 90 when swapping to ssd; default is 60
+      "vm.vfs_cache_pressure" = 80; # default is 100
+      "vm.dirty_ratio" = 60; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
+      "vm.max_map_count" = 16777216; # literally based on a recommendation for the game Hogwarts Legacy to crash less
       "vm.dirty_background_ratio" = 20;
       "kernel.task_delayacct" = 1; # so iotop/iotop-c can work; may add latency
       "kernel.sched_latency_ns" = 4000000;
@@ -176,6 +180,7 @@ in
       "kernel.sched_migration_cost_ns" = 250000;
       "kernel.sched_cfs_bandwidth_slice_us" = 3000;
       "kernel.sched_nr_migrate" = 128;
+      "kernel.sysrq" = 1; # enables the very special sysrq key combo https://en.wikipedia.org/wiki/Magic_SysRq_key
     };
 
     kernelParams = [ "quiet"
@@ -359,9 +364,19 @@ in
       # > gsettings list-schemas
       # then pick one and use it here:
       # > gsettings list-recursively <schema-name>
+      # Try to keep the settings groups in alphabetical order.
       desktopManager.gnome.extraGSettingsOverrides = ''
+        [org.gnome.desktop.interface]
+        gtk-theme='Nordic'
+        text-scaling-factor=1.25
+
         [org.gnome.desktop.wm.preferences]
         button-layout=':minimize,maximize,close'
+        resize-with-right-button=true
+        theme='Nordic'
+
+        [org.gnome.nautilus.preferences]
+        always-use-location-entry=true
 
         [org.gnome.settings-daemon.plugins.color]
         night-light-enabled=true
@@ -371,14 +386,8 @@ in
         [org.gnome.SessionManager]
         auto-save-session=true
 
-        [org.gnome.nautilus.preferences]
-        always-use-location-entry=true
-
-        [org.gnome.desktop.interface]
-        text-scaling-factor=1.25
-
-        [org.gnome.desktop.wm.preferences]
-        resize-with-right-button=true
+        [org.gtk.Settings.FileChooser]
+        sort-directories-first=false
       '';
         # mouse-button-modifier='<Alt>'
       # wayland wonky with nvidia, still
@@ -805,7 +814,7 @@ in
       rescuetime # usage tracking
       # matrix clients [
         nheko
-        # master.fluffychat # currently still broken as of 12/19/2022 due to flutter not being properly specified as input
+        unstable.fluffychat # re-enabled 4/11/2023 after apparent dependency bugfix
       # ]
       figlet
       jq
@@ -834,7 +843,7 @@ in
       hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
-      heroic # heroic game launcher
+      stable.heroic # heroic game launcher # forced stable on 4/13/2023 due to build failure on unstable
       # legendary-gl
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
@@ -917,12 +926,17 @@ in
       stable.opensnitch-ui
       # media/video stuff
       audacity
+      unstable.clementine
+      audacious
+      audacious-plugins
+      rhythmbox
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
       vlc
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
       custom_python3
+      qFlipper
     ];
   };
 
@@ -935,30 +949,38 @@ in
     # };
     ssh.startAgent = true;
     gamemode.enable = true; # for steam
+    dconf.enable = true;
   };
 
   # Fonts!
-  fonts.fonts = with pkgs; [
-    powerline-fonts
-    google-fonts
-    noto-fonts
-    noto-fonts-cjk
-    noto-fonts-emoji
-    fira-code
-    fira-code-symbols
-    font-awesome
-    hack-font
-    nerdfonts
-    terminus-nerdfont
-    source-code-pro
-    hasklig # source code pro plus more ligatures, https://github.com/i-tu/Hasklig
-    gentium # https://software.sil.org/gentium/
-    eb-garamond # my favorite serif font
-    atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
-    inter # great helvetica clone; https://rsms.me/inter/
-    key-rebel-moon # my favorite monospaced proprietary font with obfuscated name
-    tech-alive # another favorite sans serif font with obfuscated name
-  ];
+  fonts = {
+    fontDir.enable = true;
+    enableGhostscriptFonts = true;
+    fonts = with pkgs; [
+      corefonts
+      inconsolata
+      liberation_ttf
+      powerline-fonts
+      google-fonts
+      noto-fonts
+      noto-fonts-cjk
+      noto-fonts-emoji
+      fira-code
+      fira-code-symbols
+      font-awesome
+      hack-font
+      nerdfonts
+      terminus-nerdfont
+      source-code-pro
+      hasklig # source code pro plus more ligatures, https://github.com/i-tu/Hasklig
+      gentium # https://software.sil.org/gentium/
+      eb-garamond # my favorite serif font
+      atkinson-hyperlegible # possibly my favorite sans serif font; https://brailleinstitute.org/freefont
+      inter # great helvetica clone; https://rsms.me/inter/
+      key-rebel-moon # my favorite monospaced proprietary font with obfuscated name
+      tech-alive # another favorite sans serif font with obfuscated name
+    ];
+  };
 
   environment = {
     pathsToLink = [
@@ -986,6 +1008,9 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
+      nordic
+      whitesur-gtk-theme
+      whitesur-icon-theme
       vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
       emacs
       bash
@@ -1050,7 +1075,8 @@ in
       xxHash # very fast hash
       dcfldd # dd with progress bar and inline hash verification
       unrar
-      xclip
+      xclip # clipboard interaction
+      ascii # commandline ascii chart
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       latest.firefox-nightly-bin # firefox
@@ -1061,6 +1087,9 @@ in
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       gnomeExtensions.appindicator
       gnomeExtensions.clipboard-indicator
+      gnomeExtensions.dash-to-dock
+      gnomeExtensions.dash-to-dock-toggle
+      gnomeExtensions.dash-to-dock-animator
       gnomeExtensions.miniview # for quick window previews
       gnomeExtensions.freon
       gnomeExtensions.gamemode
@@ -1073,6 +1102,7 @@ in
       gnomeExtensions.pop-shell
       gnomeExtensions.lock-keys
       gnomeExtensions.random-wallpaper
+      gnomeExtensions.user-themes
       imwheel
       gnomeExtensions.toggle-imwheel # for mouse wheel scrolling
       gnomeExtensions.oclock # analog clock
@@ -1113,6 +1143,7 @@ in
       zfs
       polybar # status bar
       imagemagick # for converting images
+      appimage-run # to run appimages
       # stuff for my specific hardware
       system76-firmware
     ];
