@@ -818,7 +818,9 @@ in
       # ]
       figlet
       jq
-      fzy
+      fzf # fuzzy finder
+      fzy # fuzzy finder that's faster/better than fzf
+      peco # TUI fuzzy finder and selector
       fortune
       speedread
       speedtest-cli
@@ -936,7 +938,13 @@ in
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
       custom_python3
-      qFlipper
+      qFlipper # for Flipper Zero
+      lightspark # Flash (ActionScript 3) runner
+      ruffle # Flash (soon ActionScript 3) runner
+      trufflehog # scans github repos for possible secrets checked in by accident
+      inkscape-with-extensions # Vector graphics editor with extensions
+      csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
+      unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
     ];
   };
 
@@ -1037,8 +1045,8 @@ in
       htop # better than top
       btop # better than htop
       bottom # a modern alternative to top
-      gotop
-      atop
+      gotop # a terminal based graphical activity monitor inspired by gtop and vtop
+      atop # advanced top
       iotop iotop-c # iotop-c is a fork of iotop with a curses interface
       nmon # for monitoring system performance
       nload # network load monitor
@@ -1105,8 +1113,9 @@ in
       gnomeExtensions.user-themes
       imwheel
       gnomeExtensions.toggle-imwheel # for mouse wheel scrolling
-      gnomeExtensions.oclock # analog clock
-      gnome.sushi # file previewer
+      gnomeExtensions.what-watch # analog floating clock
+      gnome.sushi # file previewer (just hit spacebar in Gnome Files)
+      libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       gnome.dconf-editor
       gnome.zenity
       nitrogen # wallpaper/desktop image manager
