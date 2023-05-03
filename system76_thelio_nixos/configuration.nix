@@ -201,6 +201,7 @@ in
                      "zfs.l2arc_mfuonly=0"
                      "zfs.zfs_arc_max=17179869184" # 16GB
                      "zfs.prefetch_disable=1"
+                     "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
                     #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
@@ -265,6 +266,11 @@ in
     #   "192.168.7.234" # my pihole
     #   "1.1.1.1"
     # ];
+    # stuff to go in /etc/hosts
+    # extraHosts = ''
+    #   192.168.2.1    genera-vlm
+    #   192.168.2.2    genera
+    # '';
   };
 
   systemd = {
@@ -1034,6 +1040,8 @@ in
       file
       git
       bind # provides nslookup etc
+      inetutils # provides ping telnet etc
+      xinetd # provides tftp etc. (originally installed to play with symbolics opengenera)
       # obtaining files:
       wget
       curl
