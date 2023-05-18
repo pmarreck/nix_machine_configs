@@ -827,10 +827,11 @@ in
       fzf # fuzzy finder
       fzy # fuzzy finder that's faster/better than fzf
       peco # TUI fuzzy finder and selector
-      fortune
-      speedread
+      fortune # fortune cookie
+      taoup # The Tao of Unix Programming
+      speedread # speed reading
       speedtest-cli
-      markets
+      markets # stock market watcher
       qalculate-gtk # very cool calculator
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
@@ -845,7 +846,7 @@ in
       # ❯ nix-store --add-fixed sha256 Mathematica_13.1.0_BNDL_LINUX.sh
       # /nix/store/jsnr55faq59xkq1az8isrs9rkzxdpxj2-Mathematica_13.1.0_BNDL_LINUX.sh
       # (the package was updated for 13.1.0)
-      blesh
+      blesh # bluetooth shell
       xscreensaver # note that this seems to require setup in home manager
       stable.gthumb # forced stable on 2/16/2023 due to build failure on unstable
       hyperfine # command-line benchmarking tool
@@ -855,8 +856,8 @@ in
       # legendary-gl
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
-      protontricks
-      proton-caller
+      protontricks # automates installing winetricks packages for proton
+      proton-caller # automates launching proton games
       # bottles
       # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
       discord
@@ -870,11 +871,11 @@ in
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # bluemail # email client # doesn't currently work...
       mailspring # nice open-source email client
-      thunderbird # the venerable email client
+      # thunderbird # the venerable email client
       evolutionWithPlugins # email client
       recoll # full-text search tool
       moar # a better "less"
-      sequeler # gui for postgresql/mariadb/mysql/sqlite
+      sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
       gitkraken # git gui (as opposed to "git gud" I guess)
       starship # cool prompt
@@ -951,6 +952,7 @@ in
       inkscape-with-extensions # Vector graphics editor with extensions
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
+      rescuetime # Time tracking software
     ];
   };
 
@@ -1085,6 +1087,7 @@ in
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
       mcfly # fantastic replacement for control-R history search
+      atuin # a better history search, with sync and fuzzy search
       exa # a better ls
       tokei # fast LOC counter
       p7zip # 7zip
@@ -1093,22 +1096,25 @@ in
       unrar
       xclip # clipboard interaction
       ascii # commandline ascii chart
+      cowsay # a classic
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       latest.firefox-nightly-bin # firefox
       chromium
       wezterm # nerdy but very nice terminal
-      stable.kitty # another nice terminal # forced stable on 1/20/2023 due to build failure on unstable
+      kitty # another nice terminal emulator
       alacritty # a super fast terminal
+      cool-retro-term # a retro terminal emulator
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
+      glib # seems to be an undeclared dependency of some gnome tweaks such as Night Theme Switcher
       gnomeExtensions.appindicator
-      gnomeExtensions.clipboard-indicator
+      # gnomeExtensions.clipboard-indicator # "incompatible with current Gnome version"
       gnomeExtensions.dash-to-dock
-      gnomeExtensions.dash-to-dock-toggle
-      gnomeExtensions.dash-to-dock-animator
+      # gnomeExtensions.dash-to-dock-toggle # "incompatible with current Gnome version"
+      # gnomeExtensions.dash-to-dock-animator # "incompatible with current Gnome version"
       gnomeExtensions.miniview # for quick window previews
       gnomeExtensions.freon
-      gnomeExtensions.gamemode
+      # gnomeExtensions.gamemode # "incompatible with current Gnome version"
       # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
       gnomeExtensions.vitals
       # gnomeExtensions.cpufreq # incompatible with gnome version as of 11/21/2022
@@ -1117,11 +1123,11 @@ in
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell
       gnomeExtensions.lock-keys
-      gnomeExtensions.random-wallpaper
-      gnomeExtensions.user-themes
+      # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
+      # gnomeExtensions.user-themes # "incompatible with current Gnome version"
       imwheel
-      gnomeExtensions.toggle-imwheel # for mouse wheel scrolling
-      gnomeExtensions.what-watch # analog floating clock
+      # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
+      # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
       gnome.sushi # file previewer (just hit spacebar in Gnome Files)
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       gnome.dconf-editor
