@@ -1,1 +1,0 @@
-system76_thelio_nixos/hardware-configuration.nix
