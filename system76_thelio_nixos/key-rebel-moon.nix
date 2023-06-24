@@ -6,7 +6,7 @@ in fetchzip rec {
 
   name = "key-rebel-moon-${version}";
 
-  url = "https://github.com/pmarreck/dotfiles/raw/98fda03f5a83b9dc347b605e7d9ff5aacb29ce3d/bin/key-rebel-moon.zip";
+  url = "https://github.com/pmarreck/dotfiles/raw/0fce7d330beff005f75336fac2aeb75cbceb1691/bin/key-rebel-moon.zip";
 
   postFetch = ''
     downloadedFile="/build/key-rebel-moon.zip"

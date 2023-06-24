@@ -49,6 +49,12 @@ let
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
   # libretro = stable.libretro;
+  comma = (import (pkgs.fetchFromGitHub {
+    owner = "nix-community";
+    repo = "comma";
+    rev = "v1.6.0";
+    sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
+  })).default;
   nix-software-center = (import (pkgs.fetchFromGitHub {
     owner = "vlinkz";
     repo = "nix-software-center";
@@ -138,6 +144,7 @@ in
       ## and the defaults seemed to work fine, don't know enough about boot/EFI yet to mess with it
       # systemd-boot.enable = false;
       grub = {
+        # version = 2; # removed based on deprecation warning
         enable = true;
         efiSupport = true;
         # the grub init tune doesn't actually work on my hardware but is supposedly Super Mario?
@@ -151,7 +158,7 @@ in
         theme = pkgs.fetchFromGitHub { # current as of 11/2022
           owner = "shvchk";
           repo = "fallout-grub-theme";
-          rev = "80734103d0b48d724f0928e8082b6755bd3b2078";
+          rev = "fcc680d166fa2a723365004df4b8736359d15a62";
           sha256 = "sha256-7kvLfD6Nz4cEMrmCA9yq4enyqVyqiTkVZV5y4RyUatU=";
         };
       };
@@ -310,6 +317,15 @@ in
     # These don't seem to have an effect, but leaving here for now
     services."user@".serviceConfig.Delegate = true;
     services."user@".serviceConfig.LimitNOFILE = 9001; # because "over 9000!", duh
+    # Run RescueTime for all users
+    user.services.rescuetime = {
+      description = "RescueTime";
+      wantedBy = [ "default.target" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.rescuetime}/bin/rescuetime";
+      };
+    };
+
   };
 
   # Allow unfree packages (necessary for firefox and steam etc)
@@ -564,6 +580,57 @@ in
     #   enable = true; # might be already declared by the import above
     # };
 
+    # Samba
+    samba = {
+      enable = true;
+      enableWinbindd = true;
+      extraConfig = ''
+        [global]
+        workgroup = WORKGROUP
+        server string = Samba Server %v
+        netbios name = nixos
+        security = user
+        map to guest = bad user
+        dns proxy = no
+        bind interfaces only = yes
+        interfaces = lo enp68s0 wlo2 wlp69s0
+        log file = /var/log/samba/log.%m
+        max log size = 1000
+        syslog = 0
+        panic action = /usr/share/samba/panic-action %d
+        server role = standalone server
+        passdb backend = tdbsam
+        obey pam restrictions = yes
+        unix password sync = yes
+        passwd program = /usr/bin/passwd %u
+        passwd chat = *Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
+        pam password change = yes
+        map to guest = bad user
+        usershare allow guests = yes
+        [homes]
+        comment = Home Directories
+        browseable = no
+        read only = no
+        create mask = 0700
+        directory mask = 0700
+        valid users = %S
+        [printers]
+        comment = All Printers
+        browseable = no
+        path = /var/spool/samba
+        printable = yes
+        guest ok = no
+        read only = yes
+        create mask = 0700
+        [print$]
+        comment = Printer Drivers
+        path = /var/lib/samba/printers
+        browseable = yes
+        read only = yes
+        guest ok = no
+      '';
+    };
+
     # Fartpak
     flatpak.enable = true;
 
@@ -788,6 +855,7 @@ in
     packages = with pkgs; [
       erlang
       elixir
+      ruby
       # I added some standard langs and build tools to all envs for now:
       # python3Full # added with an overridden pkg, above
       nodejs
@@ -817,7 +885,6 @@ in
       spotify-tui
       slack # the chat app du jour
       zoom-us # the chinese spy network
-      rescuetime # usage tracking
       # matrix clients [
         nheko
         unstable.fluffychat # re-enabled 4/11/2023 after apparent dependency bugfix
@@ -848,15 +915,15 @@ in
       # (the package was updated for 13.1.0)
       blesh # bluetooth shell
       xscreensaver # note that this seems to require setup in home manager
-      stable.gthumb # forced stable on 2/16/2023 due to build failure on unstable
+      gthumb # image viewer
       hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
       stable.heroic # heroic game launcher # forced stable on 4/13/2023 due to build failure on unstable
       # legendary-gl
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
+      # lutris # It always struck me as wonky, but I'm including this game launcher for now. EDIT: Nope, still wonky AF. Bye.
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
-      protontricks # automates installing winetricks packages for proton
       proton-caller # automates launching proton games
       # bottles
       # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
@@ -875,7 +942,7 @@ in
       evolutionWithPlugins # email client
       recoll # full-text search tool
       moar # a better "less"
-      sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice
+      stable.sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice # downgraded to stable 6/13/2023 due to build failure on unstable
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
       gitkraken # git gui (as opposed to "git gud" I guess)
       starship # cool prompt
@@ -952,7 +1019,6 @@ in
       inkscape-with-extensions # Vector graphics editor with extensions
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
-      rescuetime # Time tracking software
     ];
   };
 
@@ -1049,6 +1115,7 @@ in
       curl
       sshfs
       cachix # for downloading pre-built binaries
+      comma # for trying out software, see "let" section above
       hwinfo # hardware info
       uget # a download manager GUI
       ## various process viewers
@@ -1067,7 +1134,7 @@ in
       fzf # fuzzy finder
       visidata # https://github.com/saulpw/visidata
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
-      nvtop # for GPU info
+      stable.nvtop # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
       duc # disk usage visualization, highly configurable
@@ -1167,6 +1234,29 @@ in
       polybar # status bar
       imagemagick # for converting images
       appimage-run # to run appimages
+      rescuetime # usage tracking; currently configured to run for all users, above
+
+      ## start WINE stuff
+      # support both 32- and 64-bit applications
+      # wineWowPackages.unstableFull
+      # support 32-bit only
+      # wine
+      # support 64-bit only
+      # (wine.override { wineBuild = "wine64"; })
+      # wine-staging (version with experimental features)
+      # wineWowPackages.staging
+      # winetricks (all versions)
+      # winetricks
+      # native wayland support (unstable)
+      # wineWowPackages.waylandFull
+      (wineWowPackages.unstableFull.override {
+        wineRelease = "staging";
+        mingwSupport = true;
+      })
+      winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
+      protontricks # automates installing winetricks packages for proton
+      ## end WINE stuff
+
       # stuff for my specific hardware
       system76-firmware
     ];
