@@ -1,7 +1,7 @@
 { lib, fetchzip }:
 
 let
-  version = "1.0";
+  version = "1.1";
 in fetchzip rec {
 
   name = "key-rebel-moon-${version}";
@@ -16,7 +16,7 @@ in fetchzip rec {
     unzip -j $downloadedFile \*.otf -d $out/share/fonts/opentype
   '';
 
-  sha256 = "sha256-3mvRFSuAJQwTaGjy8OvSwCGOZI3/srtrVkK9vb2hbws=";
+  sha256 = "sha256-xU/NQmTkZdFpmfhlXW8iXapegtQ+hez3mFL78vpcSxg=";
 
   meta = with lib; {
     homepage = "";
