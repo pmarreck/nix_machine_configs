@@ -281,6 +281,40 @@ in
   };
 
   systemd = {
+    user = {
+      services = {
+        # my custom grandfather clock gong script
+        clocksound = let
+          scriptUrl = "https://gist.githubusercontent.com/pmarreck/2a2de1a5227383625829fdaf9b50c4a3/raw/d0a987055b83bf2fa5a0500ce2c948fd175fa4f1/grandfather_clock_chime.bash";
+          scriptContent = builtins.readFile (builtins.fetchurl scriptUrl);
+          scriptFile = pkgs.writeShellScriptBin "clocksound" ''
+            export PATH="${pkgs.mpv}/bin:$PATH"
+            ${scriptContent}
+          '';
+        in {
+          description = "Play grandfather clock sound on the hour";
+          serviceConfig = {
+            ExecStart = "${scriptFile}/bin/clocksound";
+            Type = "oneshot";
+          };
+        };
+      };
+      timers = {
+        clocksound = {
+          description = "Run clocksound.service on the hour";
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnCalendar = "hourly";
+            # OnCalendar = [
+            #   "*-*-* 08..23:00:00"  # Every hour from 08:00 to 23:00
+            #   "*-*-* 00:00:00"      # At 00:00
+            # ];
+            Unit = "clocksound.service";
+            # Persistent = true;
+          };
+        };
+      };
+    };
     services = {
       # some of these things were tweaked to speed up booting.
       # See output of: systemd-analyze blame
@@ -853,27 +887,27 @@ in
 
     # TODO: move these to home-manager
     packages = with pkgs; [
-      erlang
-      elixir
-      ruby
+      erlang # the inspiration for the best language
+      elixir # the best language
+      ruby # my OG love
       # I added some standard langs and build tools to all envs for now:
       # python3Full # added with an overridden pkg, above
-      nodejs
-      pcre
-      openssl
-      curlpp
-      pkg-config
-      gcc
-      opencl-clhpp
-      ocl-icd
-      patchelf
-      stable.cudaPackages.cudatoolkit
+      nodejs # for javascript spaghetticode
+      pcre # perl-compatible regex
+      openssl # security
+      curlpp # for curl bindings in C++
+      pkg-config # for compiling C/C++
+      gcc # compiler for C
+      opencl-clhpp # for opencl
+      ocl-icd # for opencl
+      patchelf # for fixing up binaries in nix
+      stable.cudaPackages.cudatoolkit # for tensorflow
       mono # for C#/.NET stuff
-      vscode
+      vscode # nice gui editor
       o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
-      postgresql
+      postgresql # the premier open-source database
       asdf-vm # version manager for many languages
       asciinema # record terminal sessions
       glow # markdown viewer
@@ -882,15 +916,15 @@ in
       parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
-      spotify-tui
+      spotify-tui # spotify terminal UI
       slack # the chat app du jour
       zoom-us # the chinese spy network
       # matrix clients [
-        nheko
+        nheko # matrix client
         unstable.fluffychat # re-enabled 4/11/2023 after apparent dependency bugfix
       # ]
-      figlet
-      jq
+      figlet # ascii art
+      jq # json query
       fzf # fuzzy finder
       fzy # fuzzy finder that's faster/better than fzf
       peco # TUI fuzzy finder and selector
@@ -927,8 +961,8 @@ in
       proton-caller # automates launching proton games
       # bottles
       # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
-      discord
-      boinc
+      discord # chat app for gamers
+      boinc # distributed computing
       treesheets # freeform data organizer
       flameshot # screenshot tool
       shotwell # photo organizer like iPhoto
@@ -965,53 +999,53 @@ in
       #   # pcsx-rearmed
       # ])
       # TUI and/or RPG games [
-        angband
+        angband # roguelike
         # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
-        tome2
-        nethack
-        unnethack
-        harmonist
-        hyperrogue
-        crawl
-        crawlTiles
-        brogue
-        meritous
-        egoboo
-        sil
-        shattered-pixel-dungeon
+        tome2 # roguelike
+        nethack # roguelike
+        unnethack # roguelike
+        harmonist # roguelike
+        hyperrogue # roguelike
+        crawl # roguelike
+        crawlTiles # roguelike
+        brogue # roguelike
+        meritous # platformer
+        egoboo # dungeon crawler
+        sil # roguelike
+        shattered-pixel-dungeon # roguelike
       # ]
       # other games & stuff
-      xlife
-      abuse
+      xlife # cellular automata
+      abuse # classic side-scrolling shooter customizable with LISP
       newtonwars # missile game with gravity as a core element
       gravit # gravity simulator
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
       scorched3d # played the original version a lot in the military
-      pioneer
-      the-powder-toy
-      space-cadet-pinball
+      pioneer # space exploration game
+      the-powder-toy # sandbox game
+      space-cadet-pinball # nostalgia
       airshipper # for veloren voxel game
-      unvanquished
-      endless-sky
+      unvanquished # FPS
+      endless-sky # space exploration game
       # tremulous # boooo, marked as broken :(
-      torcs
+      torcs # racing game
       stable.speed_dreams
       # littlesnitch fork:
       stable.opensnitch # forced stable on 2/16/2023 due to build failure on unstable
       stable.opensnitch-ui
       # media/video stuff
-      audacity
-      unstable.clementine
-      audacious
-      audacious-plugins
-      rhythmbox
+      audacity # audio editor
+      unstable.clementine # audio player
+      audacious # audio player
+      audacious-plugins # audio player plugins
+      rhythmbox # audio player
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
-      vlc
+      vlc # video player
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
-      custom_python3
+      custom_python3 # for a language I don't care about but which remains too popular
       qFlipper # for Flipper Zero
       lightspark # Flash (ActionScript 3) runner
       ruffle # Flash (soon ActionScript 3) runner
@@ -1090,30 +1124,33 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
-      nordic
+      nordic # for nordic theme
       whitesur-gtk-theme
       whitesur-icon-theme
-      vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-      emacs
-      bash
-      bash-completion
-      shellcheck
-      nix-bash-completions
-      nixos-option
+      # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+      vim # it's no emacs
+      emacs # it's no vim
+      bash # The venerable GNU Bourne Again shell
+      bash-completion # Programmable completion for the bash shell
+      zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
+      oil # A Posix shell that aims to replace Bash. We'll see...
+      shellcheck # A static analysis tool for shell scripts
+      nix-bash-completions # bash completions for nix
+      nixos-option # for searching options
       nix-index # also provides nix-locate
-      nix-software-center
-      direnv
-      nix-direnv
-      gptfdisk
-      file
-      git
+      nix-software-center # for installing nix packages via a GUI
+      direnv # for loading environment variables from .env and .envrc files
+      nix-direnv # direnv integration for nix
+      gptfdisk # for gdisk
+      file # file type identification
+      git # the stupid content tracker
       bind # provides nslookup etc
       inetutils # provides ping telnet etc
       xinetd # provides tftp etc. (originally installed to play with symbolics opengenera)
       # obtaining files:
-      wget
-      curl
-      sshfs
+      wget # wget is better than curl because it will resume with exponential backoff
+      curl # curl is better than wget because it supports more protocols
+      sshfs # for mounting remote filesystems
       cachix # for downloading pre-built binaries
       comma # for trying out software, see "let" section above
       hwinfo # hardware info
@@ -1149,93 +1186,95 @@ in
       # for showing off nixos:
       neofetch # system info
       nix-tree # show nixpkgs tree
-      hydra-check
+      hydra-check # show hydra status
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
       mcfly # fantastic replacement for control-R history search
       atuin # a better history search, with sync and fuzzy search
       exa # a better ls
+      tree # view directory structure
       tokei # fast LOC counter
       p7zip # 7zip
       xxHash # very fast hash
       dcfldd # dd with progress bar and inline hash verification
-      unrar
+      unrar # a rar extractor
       xclip # clipboard interaction
       ascii # commandline ascii chart
       cowsay # a classic
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       latest.firefox-nightly-bin # firefox
-      chromium
+      chromium # like chrome but without the google
       wezterm # nerdy but very nice terminal
       kitty # another nice terminal emulator
       alacritty # a super fast terminal
       cool-retro-term # a retro terminal emulator
       gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
       glib # seems to be an undeclared dependency of some gnome tweaks such as Night Theme Switcher
-      gnomeExtensions.appindicator
+      gnomeExtensions.appindicator # for system tray icons
       # gnomeExtensions.clipboard-indicator # "incompatible with current Gnome version"
-      gnomeExtensions.dash-to-dock
+      gnomeExtensions.dash-to-dock # for moving the dock to the bottom
       # gnomeExtensions.dash-to-dock-toggle # "incompatible with current Gnome version"
       # gnomeExtensions.dash-to-dock-animator # "incompatible with current Gnome version"
       gnomeExtensions.miniview # for quick window previews
-      gnomeExtensions.freon
+      gnomeExtensions.freon # for monitoring CPU and GPU temps
       # gnomeExtensions.gamemode # "incompatible with current Gnome version"
       # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
-      gnomeExtensions.vitals
+      gnomeExtensions.vitals # for monitoring CPU and GPU temps
       # gnomeExtensions.cpufreq # incompatible with gnome version as of 11/21/2022
       # gnomeExtensions.weather # doesn't work with latest gnome
       # gnomeExtensions.sermon
       # gnomeExtensions.scrovol # doesn't work with latest gnome
-      gnomeExtensions.pop-shell
-      gnomeExtensions.lock-keys
+      gnomeExtensions.pop-shell # for tiling windows
+      gnomeExtensions.lock-keys # for showing caps lock etc
       # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
       # gnomeExtensions.user-themes # "incompatible with current Gnome version"
-      imwheel
+      imwheel # for mouse wheel scrolling
       # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
       # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
       gnome.sushi # file previewer (just hit spacebar in Gnome Files)
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
-      gnome.dconf-editor
-      gnome.zenity
+      gnome.dconf-editor # for editing gnome settings
+      gnome.zenity # for zenity, a GUI dialog box tool
       nitrogen # wallpaper/desktop image manager
-      dconf2nix
-      home-manager
-      xorg.xbacklight
-      cargo
-      rustc
-      gcc
-      gnumake
+      dconf2nix # for converting dconf settings to nix
+      home-manager # for managing user settings in Nix
+      xorg.xbacklight # for controlling screen brightness
+      cargo # rust package manager
+      rustc # rust compiler
+      gcc # C compiler
+      gnumake # make
       # gnupg # installed separately in config elsewhere
       pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out...
                # https://github.com/NixOS/nixpkgs/commit/3d832dee59ed0338db4afb83b4c481a062163771
-      pkg-config
+      pkg-config # for compiling stuff
       # $%&* locales...
-      glibcLocales
+      glibcLocales # for locales
       # lsb-release # sys info # nah, do "source /etc/os-release; echo $PRETTY_NAME" instead
       # clang # removed due to collisions; install on project basis
       evince # gnome's document viewer (pdfs etc)
       groff # seems to be an undeclared dependency of evince...
-      pciutils
+      pciutils # for lspci
       perf-tools # for profiling
-      vulkan-tools
+      vulkan-tools # for profiling
       pv # pipe viewer
       smartmontools
       gsmartcontrol
-      efibootmgr
+      efibootmgr # for managing EFI boot entries
       wmctrl # for controlling window managers
       # netdata # enabled via services.netdata.enable
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       hdparm # for hard drive info
-      cacert
-      mkpasswd
-      zfs
+      cacert # for curl certificate verification
+      mkpasswd # for generating passwords
+      zfs # the best filesystem on the planet
       polybar # status bar
       imagemagick # for converting images
       appimage-run # to run appimages
       rescuetime # usage tracking; currently configured to run for all users, above
-
+      alsa-utils # for alsa sound utilities
+      mpv # media player
       ## start WINE stuff
       # support both 32- and 64-bit applications
       # wineWowPackages.unstableFull
@@ -1258,7 +1297,7 @@ in
       ## end WINE stuff
 
       # stuff for my specific hardware
-      system76-firmware
+      system76-firmware # for system76 firmware updates
     ];
 
     variables = {
