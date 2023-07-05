@@ -47,7 +47,7 @@ let
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
-  elixir = pkgs.beam.packages.erlangR25.elixir_1_14;
+  elixir = pkgs.beam.packages.erlangR26.elixir_1_15;
   # libretro = stable.libretro;
   comma = (import (pkgs.fetchFromGitHub {
     owner = "nix-community";
@@ -908,7 +908,7 @@ in
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       postgresql # the premier open-source database
-      asdf-vm # version manager for many languages
+      # asdf-vm # version manager for many languages
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
@@ -920,7 +920,7 @@ in
       slack # the chat app du jour
       zoom-us # the chinese spy network
       # matrix clients [
-        nheko # matrix client
+        stable.nheko # matrix client # forced stable on 6/28/2023 due to build failure on unstable
         unstable.fluffychat # re-enabled 4/11/2023 after apparent dependency bugfix
       # ]
       figlet # ascii art
@@ -1140,6 +1140,7 @@ in
       nix-index # also provides nix-locate
       nix-software-center # for installing nix packages via a GUI
       direnv # for loading environment variables from .env and .envrc files
+      has # for verifying the availability and version of executables
       nix-direnv # direnv integration for nix
       gptfdisk # for gdisk
       file # file type identification
