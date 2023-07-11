@@ -907,7 +907,7 @@ in
       o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
-      postgresql # the premier open-source database
+      # postgresql # the premier open-source database # we are only using project-based pg's for now
       # asdf-vm # version manager for many languages
       asciinema # record terminal sessions
       glow # markdown viewer
@@ -1131,12 +1131,14 @@ in
       vim # it's no emacs
       emacs # it's no vim
       bash # The venerable GNU Bourne Again shell
-      bash-completion # Programmable completion for the bash shell
+      # bash-completion # Programmable completion for the bash shell # note: caused problems
+      # bash-preexec # Bash preexec and precmd functions # disabled since it's pulled in via a dotfile function now
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
       oil # A Posix shell that aims to replace Bash. We'll see...
       shellcheck # A static analysis tool for shell scripts
       nix-bash-completions # bash completions for nix
       nixos-option # for searching options
+      inotify-tools # for watching files programmatically
       nix-index # also provides nix-locate
       nix-software-center # for installing nix packages via a GUI
       direnv # for loading environment variables from .env and .envrc files
@@ -1329,7 +1331,7 @@ in
       PATH = [ 
         "\${XDG_BIN_HOME}"
       ];
-      GNUSTEP_USER_ROOT = "\${XDG_CONFIG_HOME}/GNUstep";
+      # GNUSTEP_USER_ROOT = "\${XDG_CONFIG_HOME}/GNUstep";
     };
 
     # adds /usr/share/dict/words via 'scowl', which is depended on by some things;
