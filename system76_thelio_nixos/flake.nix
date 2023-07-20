@@ -29,8 +29,13 @@
       specialArgs = inputs;
       modules = [
         nixos-hardware.nixosModules.system76
-        home-manager.nixosModules.home-manager
         ./configuration.nix
+        home-manager.nixosModules.home-manager # make home manager available to configuration.nix
+        {
+          # use system-level nixpkgs rather than the HM private ones
+          # "This saves an extra Nixpkgs evaluation, adds consistency, and removes the dependency on NIX_PATH, which is otherwise used for importing Nixpkgs."
+          home-manager.useGlobalPkgs = true;
+        }
       ];
     };
   };

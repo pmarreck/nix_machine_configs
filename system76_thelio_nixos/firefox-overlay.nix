@@ -1,9 +1,10 @@
 # This file provide the latest binary versions of Firefox published by Mozilla.
+# The latest version of this file can usually be found here:
+# https://raw.githubusercontent.com/mozilla/nixpkgs-mozilla/master/firefox-overlay.nix
 self: super:
 
 let
   # This URL needs to be updated about every 2 years when the subkey is rotated.
-  # Try looking at https://github.com/mozilla/nixpkgs-mozilla in the future for any updates if it breaks.
   pgpKey = super.fetchurl {
     url = "https://download.cdn.mozilla.net/pub/firefox/candidates/113.0.1-candidates/build1/KEY";
     sha256 = "beaf64d50d347175af3308e73aaeeb547f912e453bb15594122cb669cc4cabfb";
@@ -55,6 +56,9 @@ let
       in rec {
         chksum = "${dir}/SHA512SUMS";
         chksumSig = "${chksum}.asc";
+        chksumSha256 = hashFile "sha256" (fetchurl "${dir}/SHA512SUMS");
+        chksumSigSha256 = hashFile "sha256" (fetchurl "${chksum}.asc");
+        inherit file;
         url = "${dir}/${file}";
         sha512 = sha512Of chksum file;
         sig = null;
@@ -87,16 +91,16 @@ let
 
   # From the version info, check the authenticity of the check sum file, such
   # that we guarantee that we have
-  verifyFileAuthenticity = { file, asc }:
-    if asc == null then "" else super.runCommandNoCC "check-firefox-signature" {
+  verifyFileAuthenticity = { file, sha512, chksum, chksumSig }:
+    assert extractSha512Sum (builtins.readFile chksum) file == sha512;
+    super.runCommand "check-firefox-signature" {
       buildInputs = [ self.gnupg ];
-      FILE = file;
-      ASC = asc;
+      FILE = chksum;
+      ASC = chksumSig;
     } ''
-      HOME=`mktemp -d`
       set -eu
-      gpg --import < ${pgpKey}
-      gpgv --keyring=$HOME/.gnupg/pubring.kbx $ASC $FILE
+      gpg --dearmor < ${pgpKey} > keyring.gpg
+      gpgv --keyring=./keyring.gpg $ASC $FILE
       mkdir $out
     '';
 
@@ -112,8 +116,9 @@ let
         # executed once the verifyAuthenticity script finished successfully.
         postFetch = ''
           : # Authenticity Check (${verifyFileAuthenticity {
-            file = builtins.fetchurl info.chksum;
-            asc = builtins.fetchurl info.chksumSig;
+            inherit (info) file sha512;
+            chksum = builtins.fetchurl { url = info.chksum; sha256 = info.chksumSha256; };
+            chksumSig = builtins.fetchurl { url = info.chksumSig; sha256 = info.chksumSigSha256; };
           }})
         '';
       }
@@ -127,11 +132,10 @@ let
         postFetch =
           let asc = super.fetchurl { url = info.sig; sha512 = info.sigSha512; }; in ''
           : # Authenticity Check
-          HOME=`mktemp -d`
           set -eu
           export PATH="$PATH:${self.gnupg}/bin/"
-          gpg --import < ${pgpKey}
-          gpgv --keyring=$HOME/.gnupg/pubring.kbx ${asc} $out
+          gpg --dearmor < ${pgpKey} > keyring.gpg
+          gpgv --keyring=./keyring.gpg ${asc} $out
         '';
       };
 
@@ -181,6 +185,19 @@ let
         libPath = with super.lib;
           old.libPath
           + optionalString (96 >= getMajorVersion version) (":" + makeLibraryPath [self.xorg.libXtst]);
+
+        # Since 2023-04-13-15-26-44 114.0a1, Firefox has new binaries checking
+        # for hardware, and preventing displays of some video calls services.
+        installPhase = old.installPhase + ''
+          for executable in \
+            glxtest vaapitest
+          do
+            if [ -e "$out/usr/lib/firefox-bin-${old.version}/$executable" ]; then
+              patchelf --interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
+                "$out/usr/lib/firefox-bin-${old.version}/$executable"
+            fi
+          done
+        '';
       }));
       in wrapFirefoxCompat { inherit version pkg; };
 

@@ -55,35 +55,35 @@ let
     rev = "v1.6.0";
     sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
   })).default;
-  nix-software-center = (import (pkgs.fetchFromGitHub {
-    owner = "vlinkz";
-    repo = "nix-software-center";
-    rev = "0.1.1";
-    sha256 = "0frigabszyfkphfbsniaa1d546zm8a2gx0cqvk2fr2qfa71kd41n";
-  })) {};
-  custom_python3 = ((pkgs.python310.override {
-      enableOptimizations = true;
-      reproducibleBuild = false;
-      # self = custom_python3;
-    }).withPackages (ps: with ps; [
-    (zfec.overrideAttrs (old: { 
-      src = /home/pmarreck/Documents/zfec; 
-    }))
-    pip
-    toolz
-    requests # for requests
-    pillow  # for image processing
-    virtualenv 
-    pytest # for testing
-    pandas # for data analysis
-    urllib3 # for requests
-    nltk  # natural language toolkit
-    torch # for machine learning
-    torchvision
-    torchaudio-bin
-    sentencepiece
-    numpy
-  ])).override (args: { ignoreCollisions = true; });
+  # nix-software-center = (import (pkgs.fetchFromGitHub {
+  #   owner = "vlinkz";
+  #   repo = "nix-software-center";
+  #   rev = "0.1.1";
+  #   sha256 = "0frigabszyfkphfbsniaa1d546zm8a2gx0cqvk2fr2qfa71kd41n";
+  # })) {};
+  # custom_python3 = ((pkgs.python310.override {
+  #     enableOptimizations = true;
+  #     reproducibleBuild = false;
+  #     # self = custom_python3;
+  #   }).withPackages (ps: with ps; [
+  #   (zfec.overrideAttrs (old: { 
+  #     src = /home/pmarreck/Documents/zfec; 
+  #   }))
+  #   pip
+  #   toolz
+  #   requests # for requests
+  #   pillow  # for image processing
+  #   virtualenv 
+  #   pytest # for testing
+  #   pandas # for data analysis
+  #   urllib3 # for requests
+  #   nltk  # natural language toolkit
+  #   torch # for machine learning
+  #   torchvision
+  #   torchaudio-bin
+  #   sentencepiece
+  #   numpy
+  # ])).override (args: { ignoreCollisions = true; });
 in
 {
   imports =
@@ -298,6 +298,15 @@ in
             Type = "oneshot";
           };
         };
+        # Run RescueTime for all users
+        rescuetime = {
+          description = "RescueTime time tracker";
+          partOf = [ "graphical-session.target" ];
+          wantedBy = [ "graphical-session.target" ];
+          serviceConfig = {
+            ExecStart = "${pkgs.rescuetime}/bin/rescuetime";
+          };
+        };
       };
       timers = {
         clocksound = {
@@ -351,15 +360,6 @@ in
     # These don't seem to have an effect, but leaving here for now
     services."user@".serviceConfig.Delegate = true;
     services."user@".serviceConfig.LimitNOFILE = 9001; # because "over 9000!", duh
-    # Run RescueTime for all users
-    user.services.rescuetime = {
-      description = "RescueTime";
-      wantedBy = [ "default.target" ];
-      serviceConfig = {
-        ExecStart = "${pkgs.rescuetime}/bin/rescuetime";
-      };
-    };
-
   };
 
   # Allow unfree packages (necessary for firefox and steam etc)
@@ -866,6 +866,9 @@ in
   hardware.pulseaudio.enable = false;
   security.rtkit.enable = true;
 
+  # Enable the OpenRazer driver for my Razer stuff
+  hardware.openrazer.enable = true;
+
   # Enable bluetooth. Wait, this wasn't the default??
   # hardware.bluetooth.enable = true;
 
@@ -881,19 +884,19 @@ in
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
-    extraGroups = [ "networkmanager" "wheel" "tty" "input" ];
+    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" ];
     shell = pkgs.bash;
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
 
     # TODO: move these to home-manager
     packages = with pkgs; [
-      erlang # the inspiration for the best language
-      elixir # the best language
-      ruby # my OG love
+      # erlang # the inspiration for the best language
+      # elixir # the best language
+      # ruby # my OG love
       # I added some standard langs and build tools to all envs for now:
       # python3Full # added with an overridden pkg, above
-      nodejs # for javascript spaghetticode
-      pcre # perl-compatible regex
+      # nodejs # for javascript spaghetticode
+      # pcre # perl-compatible regex
       openssl # security
       curlpp # for curl bindings in C++
       pkg-config # for compiling C/C++
@@ -913,6 +916,7 @@ in
       glow # markdown viewer
       delta #syntax highlighter for git
       ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
+      fsearch # file search GUI
       parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
@@ -936,7 +940,7 @@ in
       qalculate-gtk # very cool calculator
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
-      numworks-epsilon # whoa, cool calc!
+      # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
       # mathematica # because why the heck not?
       # actually, NOPE:
@@ -962,6 +966,13 @@ in
       # bottles
       # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
       discord # chat app for gamers
+      # razergenie # razer mouse/keyboard config tool. disabled because seems lamer than polychromatic
+      polychromatic # razer mouse/keyboard config tool
+      whatsapp-for-linux # whatsapp desktop client
+      telegram-desktop # chat app
+      transmission-gtk # torrent client
+      bfs # better, breadth-first find
+      nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       boinc # distributed computing
       treesheets # freeform data organizer
       flameshot # screenshot tool
@@ -973,7 +984,7 @@ in
       # bluemail # email client # doesn't currently work...
       mailspring # nice open-source email client
       # thunderbird # the venerable email client
-      evolutionWithPlugins # email client
+      # evolutionWithPlugins # email client
       recoll # full-text search tool
       moar # a better "less"
       stable.sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice # downgraded to stable 6/13/2023 due to build failure on unstable
@@ -1045,7 +1056,7 @@ in
       shortwave # internet radio
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
-      custom_python3 # for a language I don't care about but which remains too popular
+      # custom_python3 # for a language I don't care about but which remains too popular
       qFlipper # for Flipper Zero
       lightspark # Flash (ActionScript 3) runner
       ruffle # Flash (soon ActionScript 3) runner
@@ -1140,7 +1151,7 @@ in
       nixos-option # for searching options
       inotify-tools # for watching files programmatically
       nix-index # also provides nix-locate
-      nix-software-center # for installing nix packages via a GUI
+      # nix-software-center # for installing nix packages via a GUI
       direnv # for loading environment variables from .env and .envrc files
       has # for verifying the availability and version of executables
       nix-direnv # direnv integration for nix
@@ -1257,6 +1268,7 @@ in
       # lsb-release # sys info # nah, do "source /etc/os-release; echo $PRETTY_NAME" instead
       # clang # removed due to collisions; install on project basis
       evince # gnome's document viewer (pdfs etc)
+      zathura # a better document viewer (pdf's etc)
       groff # seems to be an undeclared dependency of evince...
       pciutils # for lspci
       perf-tools # for profiling
@@ -1278,6 +1290,7 @@ in
       rescuetime # usage tracking; currently configured to run for all users, above
       alsa-utils # for alsa sound utilities
       mpv # media player
+      openrazer-daemon # for razer stuff
       ## start WINE stuff
       # support both 32- and 64-bit applications
       # wineWowPackages.unstableFull
