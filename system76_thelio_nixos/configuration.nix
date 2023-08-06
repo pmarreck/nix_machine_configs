@@ -26,7 +26,7 @@ let
   # (I don't believe this should cause any problems)
   # and added a "stable" scope for any packages that break in unstable
   # so I can just downgrade them to stable on a case by case basis
-  unstable = import <nixos-unstable> { 
+  unstable = import <nixos-unstable> {
     config = { allowUnfree = true; };
     # overlays = [
     # # use native cpu optimizations
@@ -36,10 +36,10 @@ let
     #   })
     # ];
   };
-  stable = import <nixos-stable> { 
+  stable = import <nixos-stable> {
     config = { allowUnfree = true; };
   };
-  master = import <nixos-master> { 
+  master = import <nixos-master> {
     config = { allowUnfree = true; };
   };
   # my custom proprietary fonts
@@ -66,14 +66,14 @@ let
   #     reproducibleBuild = false;
   #     # self = custom_python3;
   #   }).withPackages (ps: with ps; [
-  #   (zfec.overrideAttrs (old: { 
-  #     src = /home/pmarreck/Documents/zfec; 
+  #   (zfec.overrideAttrs (old: {
+  #     src = /home/pmarreck/Documents/zfec;
   #   }))
   #   pip
   #   toolz
   #   requests # for requests
   #   pillow  # for image processing
-  #   virtualenv 
+  #   virtualenv
   #   pytest # for testing
   #   pandas # for data analysis
   #   urllib3 # for requests
@@ -200,7 +200,9 @@ in
                      "nvidia_drm.modeset=1"
                      "video=3440x1440@100" # for virtual console resolution
                      "systemd.unified_cgroup_hierarchy=yes"
-                     "systemd.gpt_auto=0"
+                     "systemd.gpt_auto=0" # so that systemd doesn't try to mount my zfs root before zfs is loaded
+                     "scsi_mod.use_blk_mq=1" # https://www.kernel.org/doc/html/latest/block/blk-mq.html
+                     "elevator=bfq" # https://wiki.archlinux.org/title/Improving_performance#BFQ_I/O_scheduler
                      "zfs.l2arc_noprefetch=1"
                      "zfs.l2arc_write_boost=16777216"
                      "zfs.l2arc_write_max=16777216"
@@ -388,7 +390,7 @@ in
   #   gcc.tune = "native";
   #   system = "x86_64-linux";
   # };
-  
+
   # List services that you want to enable:
   services = {
 
@@ -400,11 +402,11 @@ in
       enable = true;
       hwRender = true;
       autologinUser = "pmarreck";
-      fonts = [ 
+      fonts = [
                 { name = "Terminus NerdFont"; package = pkgs.terminus-nerdfont; }
                 { name = "Powerline Fonts"; package = pkgs.powerline-fonts; }
                 { name = "Source Code Pro"; package = pkgs.source-code-pro; }
-                { name = "Fira Code"; package = pkgs.fira-code; }              
+                { name = "Fira Code"; package = pkgs.fira-code; }
                ];
       extraOptions = "--term xterm-256color --font-size 16";
     };
@@ -579,7 +581,7 @@ in
     #      mode = "random";
     #    };
     #  };
-    
+
     # Enable the OpenSSH daemon.
     openssh.enable = true;
 
@@ -906,12 +908,13 @@ in
       patchelf # for fixing up binaries in nix
       stable.cudaPackages.cudatoolkit # for tensorflow
       mono # for C#/.NET stuff
-      vscode # nice gui editor
-      o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
-      micro # sort of an enhanced nano
+      unstable.vscode # nice gui editor
+      unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
+      unstable.micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       # postgresql # the premier open-source database # we are only using project-based pg's for now
       # asdf-vm # version manager for many languages
+      python311Packages.pygments # syntax highlighting for 565 languages in terminal
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
@@ -1012,7 +1015,7 @@ in
       # TUI and/or RPG games [
         angband # roguelike
         # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
-        tome2 # roguelike
+        unstable.tome2 # roguelike
         nethack # roguelike
         unnethack # roguelike
         harmonist # roguelike
@@ -1083,7 +1086,7 @@ in
   fonts = {
     fontDir.enable = true;
     enableGhostscriptFonts = true;
-    fonts = with pkgs; [
+    packages = with pkgs; [
       corefonts
       inconsolata
       liberation_ttf
@@ -1259,6 +1262,9 @@ in
       rustc # rust compiler
       gcc # C compiler
       gnumake # make
+      cosmocc # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++
+      idris2 # Idris2 functional statically-typed programming language that looks cool and compiles to C
+      gmp # GNU Multiple Precision Arithmetic Library
       # gnupg # installed separately in config elsewhere
       pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out...
                # https://github.com/NixOS/nixpkgs/commit/3d832dee59ed0338db4afb83b4c481a062163771
@@ -1325,7 +1331,7 @@ in
       # McFly config: https://github.com/cantino/mcfly
       MCFLY_INTERFACE_VIEW = "BOTTOM";
       MCFLY_RESULTS = "50";
-      MCFLY_FUZZY = "2";    
+      MCFLY_FUZZY = "2";
       NIXPKGS_ALLOW_UNFREE = "1";
       # friggin' keeps picking the wrong video card!!
       DXVK_FILTER_DEVICE_NAME = "GeForce RTX 3080 Ti";
@@ -1341,7 +1347,7 @@ in
       XDG_DATA_HOME   = "\${HOME}/.local/share";
       # Steam needs this to find Proton-GE
       # STEAM_EXTRA_COMPAT_TOOLS_PATHS = "\${HOME}/.steam/root/compatibilitytools.d";
-      PATH = [ 
+      PATH = [
         "\${XDG_BIN_HOME}"
       ];
       # GNUSTEP_USER_ROOT = "\${XDG_CONFIG_HOME}/GNUstep";
