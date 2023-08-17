@@ -210,7 +210,8 @@ in
                      "zfs.l2arc_mfuonly=0"
                      "zfs.zfs_arc_max=17179869184" # 16GB
                      "zfs.prefetch_disable=1"
-                     "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
+                    #  "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
+                    #  EDIT: I believe I fixed the runaway z_wr_iss/z_wr_int process spawn issue just by reverting to lz4 compression for now
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
                     #  "zfs.l2arc_mfuonly=1" # only l2arc-cache most frequently used data, not most recently used data
                    ];
@@ -394,10 +395,11 @@ in
   # List services that you want to enable:
   services = {
 
-    # gnome.gnome-remote-desktop.enable = false; # because it inadvertently activates pipewire
+    gnome.gnome-remote-desktop.enable = true; # because it inadvertently activates pipewire... which is fine now
 
 
     # Enable the much fancier kmscon virtual console instead of gettys.
+    # ...I'm not actually sure if this is working as advertised. Needs to be tested.
     kmscon = {
       enable = true;
       hwRender = true;
@@ -939,7 +941,8 @@ in
       taoup # The Tao of Unix Programming
       speedread # speed reading
       speedtest-cli
-      markets # stock market watcher
+      # markets # stock market watcher # went defunct in march 2023: https://github.com/tomasz-oponowicz/markets
+      ticker # stock market watcher, to replace the "markets" GUI
       qalculate-gtk # very cool calculator
       filezilla # it's no Transmit.app, but it'll do
       free42 # hp-42S reverse-engineered from the ground up
@@ -1015,7 +1018,7 @@ in
       # TUI and/or RPG games [
         angband # roguelike
         # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
-        unstable.tome2 # roguelike
+        stable.tome2 # roguelike
         nethack # roguelike
         unnethack # roguelike
         harmonist # roguelike
@@ -1167,6 +1170,8 @@ in
       # obtaining files:
       wget # wget is better than curl because it will resume with exponential backoff
       curl # curl is better than wget because it supports more protocols
+      master.youtube-dl # for downloading videos from youtube and other sites
+      clipgrab # for downloading videos from youtube and other sites
       sshfs # for mounting remote filesystems
       cachix # for downloading pre-built binaries
       comma # for trying out software, see "let" section above
@@ -1186,7 +1191,7 @@ in
       sysz # An fzf-based terminal UI for systemctl
       ranger # file manager
       fzf # fuzzy finder
-      visidata # https://github.com/saulpw/visidata
+      master.visidata # https://github.com/saulpw/visidata
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
       stable.nvtop # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
@@ -1264,6 +1269,7 @@ in
       gnumake # make
       cosmocc # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++
       idris2 # Idris2 functional statically-typed programming language that looks cool and compiles to C
+      chez # Chez Scheme (useful for idris)
       gmp # GNU Multiple Precision Arithmetic Library
       # gnupg # installed separately in config elsewhere
       pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out...
