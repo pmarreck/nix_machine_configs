@@ -920,7 +920,7 @@ in
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
-      ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
+      stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
       fsearch # file search GUI
       parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
@@ -1034,6 +1034,7 @@ in
       # other games & stuff
       xlife # cellular automata
       abuse # classic side-scrolling shooter customizable with LISP
+      jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
       gravit # gravity simulator
       xaos # smooth fractal explorer
@@ -1171,12 +1172,20 @@ in
       wget # wget is better than curl because it will resume with exponential backoff
       curl # curl is better than wget because it supports more protocols
       master.youtube-dl # for downloading videos from youtube and other sites
+      ytmdl # for downloading music from youtube
       clipgrab # for downloading videos from youtube and other sites
       sshfs # for mounting remote filesystems
       cachix # for downloading pre-built binaries
       comma # for trying out software, see "let" section above
       hwinfo # hardware info
       uget # a download manager GUI
+      obsidian # a note-taking app based on plain markdown files
+      ## Timers
+      gnome-solanum # timer GUI
+      uair # a minimal pomodoro timer GUI/TUI
+      timer # a `sleep` with progress TUI
+      peaclock # a nice timer TUI
+      et # A minimal (egg) timer TUI based on libnotify
       ## various process viewers
       htop # better than top
       btop # better than htop
