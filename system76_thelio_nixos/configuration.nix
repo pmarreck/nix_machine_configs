@@ -164,6 +164,7 @@ in
       };
       # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
       # efi.efiSysMountPoint = "/boot/efi";
+      # swraid.enable = false; # due to a bug, this defaulted to true, see: https://github.com/NixOS/nixpkgs/issues/254807
     };
     # Boot using the latest kernel: pkgs.linuxPackages_latest
     # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
@@ -455,10 +456,7 @@ in
       # use nvidia card for xserver
       videoDrivers = ["nvidia"];
       # Configure keymap in X11
-      # xkbOptions = {
-      #   "eurosign:e";
-      #   "caps:escape" # map caps to escape.
-      # };
+      xkbOptions = "mod_led:compose,compose:ralt,terminate:ctrl_alt_bksp,shift:breaks_caps";
       layout = "us";
       xkbVariant = "";
       # Enable automatic login for the user.
@@ -850,6 +848,10 @@ in
       KERNEL=="hidraw*", ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="8802", MODE="0660", TAG+="uaccess"
       # Unknown-Brand Xbox Controller; USB
       KERNEL=="hidraw*", ATTRS{idVendor}=="0c12", ATTRS{idProduct}=="8810", MODE="0660", TAG+="uaccess"
+      # PS5 DualSense controller over USB hidraw
+      KERNEL=="hidraw*", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", MODE="0660", TAG+="uaccess"
+      # PS5 DualSense controller over bluetooth hidraw
+      KERNEL=="hidraw*", KERNELS=="*054C:0CE6*", MODE="0660", TAG+="uaccess"
     '';
   };
 
@@ -862,7 +864,7 @@ in
   #   driSupport32Bit = true;
   # };
   # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.stable; #vulkan_beta;
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta; #vulkan_beta;
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -911,12 +913,14 @@ in
       stable.cudaPackages.cudatoolkit # for tensorflow
       mono # for C#/.NET stuff
       unstable.vscode # nice gui editor
+      unstable.gnome-builder # code editor
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       unstable.micro # sort of an enhanced nano
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       # postgresql # the premier open-source database # we are only using project-based pg's for now
       # asdf-vm # version manager for many languages
       python311Packages.pygments # syntax highlighting for 565 languages in terminal
+      conda # python package manager (ew. but need it for LLM's)
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
@@ -944,7 +948,10 @@ in
       # markets # stock market watcher # went defunct in march 2023: https://github.com/tomasz-oponowicz/markets
       ticker # stock market watcher, to replace the "markets" GUI
       qalculate-gtk # very cool calculator
+      galculator # calculator GUI
       filezilla # it's no Transmit.app, but it'll do
+      rclone # rsync for cloud storage
+      rclone-browser # GUI for rclone
       free42 # hp-42S reverse-engineered from the ground up
       # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
@@ -974,10 +981,11 @@ in
       discord # chat app for gamers
       # razergenie # razer mouse/keyboard config tool. disabled because seems lamer than polychromatic
       polychromatic # razer mouse/keyboard config tool
-      whatsapp-for-linux # whatsapp desktop client
+      master.whatsapp-for-linux # whatsapp desktop client
+      master.signal-desktop # signal desktop client
       telegram-desktop # chat app
       transmission-gtk # torrent client
-      bfs # better, breadth-first find
+      bfs # better, breadth-first search
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       boinc # distributed computing
       treesheets # freeform data organizer
@@ -1036,6 +1044,7 @@ in
       abuse # classic side-scrolling shooter customizable with LISP
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
+      gamehub # game launcher
       gravit # gravity simulator
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
@@ -1069,6 +1078,8 @@ in
       ruffle # Flash (soon ActionScript 3) runner
       trufflehog # scans github repos for possible secrets checked in by accident
       inkscape-with-extensions # Vector graphics editor with extensions
+      drawing # drawing program
+      nasc # "do maths like a normal person", it says. I'm intrigued.
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
     ];
@@ -1165,6 +1176,8 @@ in
       gptfdisk # for gdisk
       file # file type identification
       git # the stupid content tracker
+      git-lfs # git large file storage (for large AI models, usually)
+      meld # visual diff and merge tool
       bind # provides nslookup etc
       inetutils # provides ping telnet etc
       xinetd # provides tftp etc. (originally installed to play with symbolics opengenera)
@@ -1194,6 +1207,8 @@ in
       atop # advanced top
       iotop iotop-c # iotop-c is a fork of iotop with a curses interface
       nmon # for monitoring system performance
+      wsysmon # like Windows Task Manager but for Linux
+      monitor # yet another sexy system monitor
       nload # network load monitor
       nethogs # network bandwidth monitor
       ioping # disk latency tester
@@ -1223,7 +1238,8 @@ in
       rdfind # finds dupes, optionally acts on them
       mcfly # fantastic replacement for control-R history search
       atuin # a better history search, with sync and fuzzy search
-      exa # a better ls
+      # exa # a better ls # deprecated and replaced 9/2023 with eza due to being unmaintained
+      eza # a better ls
       tree # view directory structure
       tokei # fast LOC counter
       p7zip # 7zip
@@ -1258,10 +1274,12 @@ in
       # gnomeExtensions.sermon
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell # for tiling windows
+      gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
       gnomeExtensions.lock-keys # for showing caps lock etc
       # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
       # gnomeExtensions.user-themes # "incompatible with current Gnome version"
       imwheel # for mouse wheel scrolling
+      bucklespring # for keyboard sounds
       # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
       # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
       gnome.sushi # file previewer (just hit spacebar in Gnome Files)
