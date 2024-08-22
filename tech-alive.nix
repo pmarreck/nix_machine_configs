@@ -1,1 +1,0 @@
-system76_thelio_nixos/tech-alive.nix
