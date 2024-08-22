@@ -363,6 +363,7 @@ in
       nasc # "do maths like a normal person", it says. I'm intrigued.
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
+      unstable.chatgpt-cli # CLI for ChatGPT
     ];
   };
 
