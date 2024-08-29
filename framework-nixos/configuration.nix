@@ -59,6 +59,31 @@ let
   #   rev = "0.1.1";
   #   sha256 = "0frigabszyfkphfbsniaa1d546zm8a2gx0cqvk2fr2qfa71kd41n";
   # })) {};
+  # custom_python3 = ((pkgs.python311.override {
+  #     enableOptimizations = true;
+  #     reproducibleBuild = false;
+  #     # self = custom_python3;
+  #   }).withPackages (ps: with ps; [
+  #   # (zfec.overrideAttrs (old: {
+  #   #   src = /home/pmarreck/Documents/zfec;
+  #   # }))
+  #   pip
+  #   toolz
+  #   requests # for requests
+  #   pillow  # for image processing
+  #   virtualenv
+  #   tkinter # for tkinter
+  #   pytest # for testing
+  #   pygments # syntax highlighting for 565 languages in terminal
+  #   pandas # for data analysis
+  #   urllib3 # for requests
+  #   nltk  # natural language toolkit
+  #   torch # for machine learning
+  #   # torchvision
+  #   # torchaudio-bin
+  #   sentencepiece
+  #   numpy
+  # ])).override (args: { ignoreCollisions = true; });
 in
 {
   imports =
@@ -200,8 +225,18 @@ in
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       # postgresql # the premier open-source database # we are only using project-based pg's for now
       # asdf-vm # version manager for many languages
+      # Python 3.11 garbage follows
+      python311Packages.conda # python package manager (ew. but need it for LLM's)
+      python311Packages.python # python interpreter
       python311Packages.pygments # syntax highlighting for 565 languages in terminal
-      conda # python package manager (ew. but need it for LLM's)
+      python311Packages.pandas # for data analysis
+      python311Packages.torch-bin
+      python311Packages.torchvision-bin
+      python311Packages.torchaudio-bin
+      python311Packages.pip # for pip
+      python311Packages.virtualenv # for virtualenv
+      python311Packages.tkinter # for tkinter
+      python311Packages.pillow # for image processing
       asciinema # record terminal sessions
       glow # markdown viewer
       delta #syntax highlighter for git
@@ -623,6 +658,7 @@ in
       alsa-utils # for alsa sound utilities
       mpv # media player
       # openrazer-daemon # for razer stuff
+      (callPackage ./cursor.nix {}) # for cursor editor
       ## start WINE stuff
       # support both 32- and 64-bit applications
       # wineWowPackages.unstableFull
