@@ -53,6 +53,13 @@ let
     rev = "v1.6.0";
     sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
   })).default;
+  # roc is dynamically compiled, so it's not usable in NixOS yet
+  # roc = (import (pkgs.fetchFromGitHub {
+  #   owner = "roc-lang";
+  #   repo = "roc";
+  #   rev = "nightly";
+  #   hash = "sha256-qm045v41H3y1pUF1Zyv+EqF+UQRmFBgiT0QwcFpOyvY=";
+  # })).default;
   # nix-software-center = (import (pkgs.fetchFromGitHub {
   #   owner = "vlinkz";
   #   repo = "nix-software-center";
@@ -147,7 +154,15 @@ in
   # };
 
   # Enable the X11 windowing system.
-  services.xserver.enable = true;
+  services.xserver = {
+    enable = true;
+    dpi = 189;  # Adjust this value as needed for your desired scale
+    # Configure keymap in X11
+    xkb = {
+      layout = "us";
+      # options = "eurosign:e,caps:escape";
+    };
+  };
 
   # ollama service
   services.ollama.enable = true;
@@ -166,10 +181,6 @@ in
 
   # framework laptop
   services.fwupd.enable = true;
-
-  # Configure keymap in X11
-  services.xserver.xkb.layout = "us";
-  # services.xserver.xkb.options = "eurosign:e,caps:escape";
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -516,6 +527,8 @@ in
       sshfs # for mounting remote filesystems
       cachix # for downloading pre-built binaries
       comma # for trying out software, see "let" section above
+      # roc # Fast. Friendly. Functional.
+      zoxide # intelligent cd command replacement
       hwinfo # hardware info
       uget # a download manager GUI
       obsidian # a note-taking app based on plain markdown files
