@@ -378,7 +378,7 @@ in
       scorched3d # played the original version a lot in the military
       pioneer # space exploration game
       the-powder-toy # sandbox game
-      space-cadet-pinball # nostalgia
+      stable.space-cadet-pinball # nostalgia # forced stable on 10/20/2024 due to build failure on unstable
       airshipper # for veloren voxel game
       unvanquished # FPS
       endless-sky # space exploration game
