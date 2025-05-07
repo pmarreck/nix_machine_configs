@@ -4,16 +4,16 @@ self: super:
 let
   # This URL needs to be updated about every 2 years when the subkey is rotated.
   pgpKey = super.fetchurl {
-    url = "https://download.cdn.mozilla.net/pub/firefox/candidates/113.0.1-candidates/build1/KEY";
-    sha256 = "beaf64d50d347175af3308e73aaeeb547f912e453bb15594122cb669cc4cabfb";
+    url = "https://download.cdn.mozilla.net/pub/firefox/candidates/138.0b1-candidates/build1/KEY";
+    hash = "sha256-FOGtyDxtZpW6AbNdSj0QoK1AYkQYxHPypT8zJr2XYQk=";
   };
 
   # This file is currently maintained manually, if this Nix expression attempt
   # to download the wrong version, this is likely to be the problem.
   #
-  # Open a pull request against https://github.com/mozilla-releng/ship-it/ to
+  # Open a pull request against https://github.com/mozilla-releng/shipit to
   # update the version, as done in
-  # https://github.com/mozilla-releng/ship-it/pull/182
+  # https://github.com/mozilla-releng/shipit/pull/1467
   firefox_versions = with builtins;
     fromJSON (readFile (fetchurl "https://product-details.mozilla.org/1.0/firefox_versions.json"));
 
@@ -49,6 +49,7 @@ let
       # https://download.cdn.mozilla.net/pub/firefox/releases/55.0b3/SHA256SUMS
       let
         dir = "https://download.cdn.mozilla.net/pub/firefox/releases/${version}";
+        # TODO: Update the extension once XZ linux builds leave nightly channel
         file = "${system}/en-US/firefox-${version}.tar.bz2";
         sha512Of = chksum: file: extractSha512Sum (readFile (fetchurl chksum)) file;
       in rec {
@@ -73,7 +74,7 @@ let
                 fromJSON (readFile (fetchurl "https://download.cdn.mozilla.net/pub/firefox/nightly/latest-mozilla-central/firefox-${version}.en-US.${system}.buildhub.json"));
             in builtins.replaceStrings [ "/${file}" ] [ "" ] buildhubJSON.download.url
           else "https://download.cdn.mozilla.net/pub/firefox/nightly/${yearOf timestamp}/${monthOf timestamp}/${timestamp}-mozilla-central" ;
-        file = "firefox-${version}.en-US.${system}.tar.bz2";
+        file = "firefox-${version}.en-US.${system}.tar.xz";
         sha512Of = chksum: file: head (match ".*[\n]([0-9a-f]*) sha512 [0-9]* ${file}[\n].*" (readFile (fetchurl chksum)));
       in rec {
         chksum = "${dir}/firefox-${version}.en-US.${system}.checksums";
@@ -232,4 +233,3 @@ in
 
   jsdoc = super.callPackage ./pkgs/jsdoc {};
 }
-

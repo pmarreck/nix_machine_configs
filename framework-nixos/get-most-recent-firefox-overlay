@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+pushd /etc/nixos
+mv firefox-overlay.nix firefox-overlay.nix.bak
+curl -O https://raw.githubusercontent.com/mozilla/nixpkgs-mozilla/refs/heads/master/firefox-overlay.nix
+popd
