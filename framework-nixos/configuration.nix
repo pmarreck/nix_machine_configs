@@ -91,6 +91,31 @@ let
   #   sentencepiece
   #   numpy
   # ])).override (args: { ignoreCollisions = true; });
+  luajitUserPackages = with pkgs.luajitPackages; {
+    inherit alt-getopt basexx busted cjson lpeg lua_cliargs luabitop luacheck luafilesystem luarocks luasocket luasystem moonscript nfd penlight tl;
+  };
+
+  getLuaPath = pkg: [
+    "${pkg}/share/lua/5.1/?.lua"
+    "${pkg}/share/lua/5.1/?/init.lua"
+  ];
+
+  getLuaCPath = pkg: [
+    "${pkg}/lib/lua/5.1/?.so"
+  ];
+
+  luaPath = lib.concatStringsSep ";" (
+    (lib.flatten (lib.mapAttrsToList (name: pkg: getLuaPath pkg) luajitUserPackages)) ++ [
+      "./?.lua"
+      "./?/init.lua"
+    ]
+  );
+
+  luaCPath = lib.concatStringsSep ";" (
+    (lib.flatten (lib.mapAttrsToList (name: pkg: getLuaCPath pkg) luajitUserPackages)) ++ [
+      "./?.so"
+    ]
+  );
 in
 {
   imports =
@@ -709,7 +734,7 @@ in
       zoxide # A smarter cd command inspired by z
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
       zstd # Zstandard real-time compression algorithm
-    ];
+    ] ++ lib.attrValues luajitUserPackages;
 
     variables = {
       EDITOR = "code";
@@ -727,6 +752,9 @@ in
       DIRENV_WARN_TIMEOUT = "60s";
       # tell gnome which window manager to prefer
       # WINDOW_MANAGER = "wmaker"; # windowmaker
+      LUA_PATH = luaPath;
+      LUA_CPATH = luaCPath;
+      GMP_PATH = "${pkgs.gmp}/lib/libgmp.dylib";
     };
 
     sessionVariables = rec {
