@@ -385,6 +385,7 @@ in
       shotwell # photo organizer like iPhoto
       sil # roguelike
       slack # the chat app du jour
+      sourceHighlight # Source code renderer with syntax highlighting
       speedread # speed reading
       speedtest-cli
       unstable.cudaPackages.cudatoolkit # for tensorflow
@@ -393,7 +394,7 @@ in
       stable.gitkraken # git gui (as opposed to "git gud" I guess) # downgraded to stable 10/20/2024 due to build failure
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
       stable.heroic # heroic game launcher # forced stable on 4/13/2023 due to build failure on unstable
-      stable.nheko # matrix client # forced stable on 6/28/2023 due to build failure on unstable
+      # unstable.nheko # matrix client # forced stable on 6/28/2023 due to build failure on unstable # commented out due to security issue in libolm: CVE-2024-4519[123
       stable.opensnitch # littlesnitch for linux. forced stable on 2/16/2023 due to build failure on unstable
       stable.opensnitch-ui
       master.oterm # Ollama chat TUI
@@ -594,6 +595,7 @@ in
       dcfldd # dd with progress bar and inline hash verification
       dconf2nix # for converting dconf settings to nix
       direnv # for loading environment variables from .env and .envrc files
+      dmd # Official reference compiler for d-lang
       dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
       duc # disk usage visualization, highly configurable
       duf # really nice disk usage TUI
@@ -653,6 +655,7 @@ in
       kitty # another nice terminal emulator
       kmon # kernel module monitor
       latest.firefox-nightly-bin # firefox
+      ldc # d-lang LLVM compiler
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       lsof # for listing open files and ports
       luajit # High-performance JIT compiler for Lua 5.1
@@ -701,11 +704,12 @@ in
       rdfind # finds dupes, optionally acts on them
       rescuetime # usage tracking; currently configured to run for all users, above
       ripgrep # rg, the best grep
+      rund # Compiler-wrapper that runs and caches D-lang programs
       rustc # rust compiler
       shellcheck # A static analysis tool for shell scripts
       smartmontools
       sshfs # for mounting remote filesystems
-      stable.nvtop # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
+      nvtopPackages.full # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
       sysz # An fzf-based terminal UI for systemctl
       timer # a `sleep` with progress TUI
       tmux # Terminal multiplexer
@@ -734,6 +738,7 @@ in
       zoxide # A smarter cd command inspired by z
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
       zstd # Zstandard real-time compression algorithm
+      (pkgs.callPackage ./yuescript.nix { })
     ] ++ lib.attrValues luajitUserPackages;
 
     variables = {
@@ -754,7 +759,9 @@ in
       # WINDOW_MANAGER = "wmaker"; # windowmaker
       LUA_PATH = luaPath;
       LUA_CPATH = luaCPath;
-      GMP_PATH = "${pkgs.gmp}/lib/libgmp.dylib";
+      GMP_PATH = if pkgs.stdenv.isDarwin 
+           then "${pkgs.gmp}/lib/libgmp.dylib" 
+           else "${pkgs.gmp}/lib/libgmp.so";
     };
 
     sessionVariables = rec {
