@@ -193,7 +193,7 @@ in
   services.ollama.enable = true;
 
   # fingerprint reader
-  # services.fprintd.enable = true; # enabled by a hardare support include above
+  services.fprintd.enable = false;
   # remember to do:
   # sudo fprintd-enroll $USER
 
@@ -272,6 +272,7 @@ in
       bottom # Like top but bottomer
       brogue # roguelike
       browsh # graphical web browser in the terminal
+      unstable.capstone # Advanced disassembly library
       unstable.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
       clinfo
       colordiff # A tool to colorize diff output
@@ -424,15 +425,15 @@ in
       unstable.gnome-builder # code editor
       unstable.micro # sort of an enhanced nano
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
-      unstable.ollama # playing with LLM's
+      master.ollama # playing with LLM's
       unstable.vscode # nice gui editor
-      unstable.zed-editor # code editor
+      master.zed-editor # code editor
       unvanquished # FPS
       visidata # Terminal TUI spreadsheet multitool for discovering and arranging data
       vsce # Visual Studio Code extensions manager/tooling
       vlc # video player
       wdiff # A front end to diff for comparing files on a word per word basis
-      unstable.windsurf # the agentic AI code editor
+      master.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xlife # cellular automata
@@ -806,6 +807,21 @@ in
 
   # Enable the OpenSSH daemon.
   services.openssh.enable = true;
+
+  # Disable default lid-closed behavior
+  services.logind.extraConfig = ''
+    HandleLidSwitch=ignore
+    HandleLidSwitchDocked=ignore
+  '';
+
+  # Only valid for Home Manager
+  # dconf.settings = {
+  #   "org/gnome/settings-daemon/plugins/power" = {
+  #     lid-close-ac-action = "nothing";
+  #     lid-close-battery-action = "suspend";  # Optional — only suspend when on battery
+  #   };
+  # };
+
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
