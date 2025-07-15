@@ -260,7 +260,7 @@ in
       angband # A classic roguelike dungeon exploration game
       asciinema # record terminal sessions
       aspell # GNU spell checker
-      atac # Postman, but as a TUI. API client.
+      # atac # Postman, but as a TUI. API client.
       audacious # audio player
       audacious-plugins # audio player plugins
       audacity # audio editor
@@ -273,7 +273,7 @@ in
       brogue # roguelike
       browsh # graphical web browser in the terminal
       unstable.capstone # Advanced disassembly library
-      unstable.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
+      master.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -298,7 +298,7 @@ in
       fontconfig # Library for configuring and customizing font access
       fortune # fortune cookie
       free42 # hp-42S reverse-engineered from the ground up
-      frogmouth # A Markdown browser TUI
+      # frogmouth # A Markdown browser TUI # disabled due to build failure thanks to 'textual' dependency invalidation
       fsearch # file search GUI
       fzf # fuzzy finder
       fzy # fuzzy finder that's faster/better than fzf
@@ -398,7 +398,7 @@ in
       # unstable.nheko # matrix client # forced stable on 6/28/2023 due to build failure on unstable # commented out due to security issue in libolm: CVE-2024-4519[123
       stable.opensnitch # littlesnitch for linux. forced stable on 2/16/2023 due to build failure on unstable
       stable.opensnitch-ui
-      master.oterm # Ollama chat TUI
+      # master.oterm # Ollama chat TUI, disabled due to deprecation of textual
       stable.pbzip2 # Parallel implementation of bzip2 (pinned to stable)
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
@@ -433,7 +433,7 @@ in
       vsce # Visual Studio Code extensions manager/tooling
       vlc # video player
       wdiff # A front end to diff for comparing files on a word per word basis
-      master.windsurf # the agentic AI code editor
+      unstable.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xlife # cellular automata
@@ -466,6 +466,9 @@ in
       enable = true;
       remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
       dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+      extraCompatPackages = with pkgs; [
+        proton-ge-bin # Compatibility tool for Steam Play based on Wine and additional components. (This is intended for use in the `programs.steam.extraCompatPackages` option only.) 
+      ];
     };
     ssh = {
       startAgent = true;
