@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec {
   pname = "yuescript";
-  version = "0.27.5";
+  version = "0.29.2";
 
   src = fetchFromGitHub {
     owner = "IppClub";
     repo = "YueScript";
-    rev = "v0.27.5";
-    hash = "sha256-s8cHTi+aSpramXpJ8Y0/9MGDk79kDlKRIYKqIABu8VA=";
+    rev = "v${version}";
+    sha256 = "sha256-rK2gfganKcv/dITHNnK0k79mX8qVK7uMZOKeO7Vsook=";
   };
 
   nativeBuildInputs = [ cmake ninja pkg-config ];
@@ -22,14 +22,17 @@ stdenv.mkDerivation rec {
   buildInputs = [ luajit ];
 
   cmakeFlags = [
-    "-DLUAJIT_BIN=${luajit}/bin/luajit"
+    "-DCMAKE_BUILD_TYPE=Release"
+    "-DLUAJIT_BIN=${LUA}"
     "-DLUA_INCDIR=${luajit}/include/luajit-2.1"
     "-DLUA_LIBRARIES=${luajit}/lib/libluajit-5.1.so"
   ];
 
   installPhase = ''
+    runHook preInstall
     mkdir -p $out/bin
     cp yue $out/bin/
+    runHook postInstall
   '';
 
   meta = with lib; {

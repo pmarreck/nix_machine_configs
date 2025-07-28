@@ -638,6 +638,7 @@ in
       gnomeExtensions.lock-keys # for showing caps lock etc
       gnomeExtensions.miniview # for quick window previews
       gnomeExtensions.night-theme-switcher # for automatically switching between light and dark themes
+      gnomeExtensions.paperwm # Tiling window manager with a twist!
       gnomeExtensions.pop-shell # for tiling windows
       gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
       gnomeExtensions.vitals # for monitoring CPU and GPU temps
