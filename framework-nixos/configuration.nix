@@ -189,6 +189,12 @@ in
     };
   };
 
+  # avahi bonjour service
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+  };
+
   # ollama service
   services.ollama.enable = true;
 
