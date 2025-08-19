@@ -278,6 +278,7 @@ in
       bottom # Like top but bottomer
       brogue # roguelike
       browsh # graphical web browser in the terminal
+      bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       master.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
       clinfo
@@ -348,6 +349,7 @@ in
       nmap # Network exploration tool and security scanner
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       nnn # Terminal file manager
+      nodejs_20 # javascript runtime
       ocl-icd # for opencl
       ocrmypdf # Adds an OCR text layer to scanned PDF files, allowing them to be searched
       odin # A programming language for creating multi-platform apps
@@ -358,6 +360,7 @@ in
       peco # TUI fuzzy finder and selector
       pioneer # space exploration game
       pkg-config # for compiling C/C++
+      pnpm # efficient javascript package manager
       poppler_utils # PDF tools
       presenterm # A markdown-based terminal slideshow tool
       procps # Utilities that give information about processes
@@ -433,13 +436,13 @@ in
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       master.ollama # playing with LLM's
       unstable.vscode # nice gui editor
-      unstable.zed-editor # code editor
+      master.zed-editor # code editor
       unvanquished # FPS
       visidata # Terminal TUI spreadsheet multitool for discovering and arranging data
       vsce # Visual Studio Code extensions manager/tooling
       vlc # video player
       wdiff # A front end to diff for comparing files on a word per word basis
-      unstable.windsurf # the agentic AI code editor
+      master.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xlife # cellular automata
