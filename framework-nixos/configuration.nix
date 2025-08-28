@@ -154,9 +154,13 @@ in
   boot.kernelModules = [ "amdgpu" "radeon" ];
   boot.kernelParams = [ "radeon.si_support=0" "amdgpu.si_support=1" "radeon.cik_support=0" "amdgpu.cik_support=1" ];
   # boot.extraModulePackages = with config.boot.kernelPackages; [ linuxPackages.amdgpu ];
-  boot.extraModulePackages = [ pkgs.linuxKernel.packages.linux_6_6.amdgpu-pro ];
+  # boot.extraModulePackages = [ pkgs.linuxKernel.packages.linux_6_6.amdgpu-pro ];
   hardware.enableAllFirmware = true;
-
+  hardware.enableRedistributableFirmware = true;
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true; # for 32-bit apps (Steam, etc.)
+  };
 
   networking.hostName = "framework-nixos"; # Define your hostname.
   # Pick only one of the below networking options.
@@ -187,6 +191,7 @@ in
       layout = "us";
       # options = "eurosign:e,caps:escape";
     };
+    videoDrivers = [ "amdgpu" ];
   };
 
   # avahi bonjour service
@@ -217,8 +222,8 @@ in
   services.printing.enable = true;
 
   # Enable sound.
-  sound.enable = true;
-  hardware.pulseaudio.enable = false;
+  # sound.enable = true; # disabled in 25.05
+  services.pulseaudio.enable = false;
   services.pipewire = {
     enable = true;
     wireplumber.enable = true;
@@ -271,6 +276,7 @@ in
       audacious-plugins # audio player plugins
       audacity # audio editor
       bat # A cat clone with syntax highlighting and git integration
+      unstable.beyond-all-reason # Free Real Time Strategy Game with a grand scale and full physical simulation in a sci-fi setting
       bfs # better, breadth-first search
       blesh # Bash line editor with syntax highlighting
       bluemail # email client # doesn't currently work...
@@ -292,6 +298,7 @@ in
       delta #syntax highlighter for git
       dirb # Web content scanner for finding hidden files/directories
       discord # chat app for gamers
+      unstable.dosbox-staging # Modernized DOS emulator; DOSBox fork
       drawing # drawing program
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       egoboo # dungeon crawler
@@ -322,6 +329,7 @@ in
       harmonist # roguelike
       hyperfine # command-line benchmarking tool
       hyperrogue # roguelike
+      hyperscan # High-performance multiple regex matching library
       inkscape-with-extensions # Vector graphics editor with extensions
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
@@ -341,7 +349,7 @@ in
       meritous # platformer
       moar # a better "less"
       mono # for C#/.NET stuff
-      nasc # "do maths like a normal person", it says. I'm intrigued.
+      # nasc # "do maths like a normal person", it says. I'm intrigued. # Neat, but disabled due to build failures for now :(
       nethack # roguelike
       newtonwars # missile game with gravity as a core element
       nim # Nim programming language
@@ -420,8 +428,10 @@ in
       tesseract # OCR
       the-powder-toy # sandbox game
       ticker # stock market watcher, to replace the "markets" GUI
+      tickrs # Another TUI stock market watcher
       torcs # racing game
-      transmission-gtk # torrent client
+      # transmission-gtk # torrent client
+      transmission_4-gtk # torrent client
       treesheets # freeform data organizer
       trippy # Network diagnostic tool TUI
       trufflehog # scans github repos for possible secrets checked in by accident
@@ -445,6 +455,7 @@ in
       master.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
+      xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
       xlife # cellular automata
       xscreensaver # note that this seems to require setup in home manager
       zoom-us # the chinese spy network
@@ -510,15 +521,14 @@ in
       inter # great helvetica clone; https://rsms.me/inter/
       key-rebel-moon # my favorite monospaced proprietary font with obfuscated name
       liberation_ttf
-      nerdfonts
       noto-fonts
-      noto-fonts-cjk
+      noto-fonts-cjk-sans
       noto-fonts-emoji
       powerline-fonts
       source-code-pro
       tech-alive # another favorite sans serif font with obfuscated name
-      terminus-nerdfont
-    ];
+      # terminus-nerdfont
+    ] ++ builtins.filter lib.attrsets.isDerivation (builtins.attrValues pkgs.nerd-fonts);
   };
 
   # List packages installed in system profile. To search, run:
@@ -532,17 +542,7 @@ in
       gnome-photos
       gnome-tour
     ]) ++ (with pkgs.gnome; [
-      cheese # webcam tool
-      gnome-music
-      gnome-terminal
-      epiphany # web browser
-      # evince # document viewer
-      gnome-characters
-      totem # video player
-      tali # poker game
-      iagno # go game
-      hitori # sudoku game
-      atomix # puzzle game
+
     ]);
 
     # List packages installed in system profile. To search, run:
@@ -595,6 +595,7 @@ in
       cacert # for curl certificate verification
       cachix # for downloading pre-built binaries
       cargo # rust package manager
+      cheese # gnome webcam tool
       chez # Chez Scheme (useful for idris)
       chromium # like chrome but without the google
       clipgrab # for downloading videos from youtube and other sites
@@ -607,13 +608,15 @@ in
       curl # curl is better than wget because it supports more protocols
       dcfldd # dd with progress bar and inline hash verification
       dconf2nix # for converting dconf settings to nix
-      direnv # for loading environment variables from .env and .envrc files
+      # direnv # for loading environment variables from .env and .envrc files # Now added below
       dmd # Official reference compiler for d-lang
-      dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
+      # dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem # removed due to unmaintained
+      dool # replacement for dstat
       duc # disk usage visualization, highly configurable
       duf # really nice disk usage TUI
       efibootmgr # for managing EFI boot entries
       emacs # it's no vim
+      epiphany # gnome web browser
       et # A minimal (egg) timer TUI based on libnotify
       evince # gnome's document viewer (pdfs etc)
       eza # A modern replacement for ls (fork of exa)
@@ -630,11 +633,14 @@ in
       glib # seems to be an undeclared dependency of some gnome tweaks such as Night Theme Switcher
       glibcLocales # for locales
       gmp # GNU Multiple Precision Arithmetic Library
+      gnome-characters # gnome character map
+      gnome-music # music player
       gnome-solanum # timer GUI
-      gnome.dconf-editor # for editing gnome settings
-      gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
-      gnome.sushi # file previewer (just hit spacebar in Gnome Files)
-      gnome.zenity # for zenity, a GUI dialog box tool
+      gnome-terminal # terminal emulator
+      dconf-editor # for editing gnome settings
+      gnome-tweaks # may give warning about being outdated? only shows it once, though?
+      sushi # gnome file previewer (just hit spacebar in Gnome Files)
+      zenity # gnome zenity, a GUI dialog box tool
       gnomeExtensions.appindicator # for system tray icons
       gnomeExtensions.dash-to-dock # for moving the dock to the bottom
       gnomeExtensions.freon # for monitoring CPU and GPU temps
@@ -645,6 +651,11 @@ in
       gnomeExtensions.pop-shell # for tiling windows
       gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
       gnomeExtensions.vitals # for monitoring CPU and GPU temps
+      totem # gnome video player
+      tali # gnome poker game
+      iagno # gnome go game
+      hitori # gnome sudoku game
+      atomix # gnome puzzle game
       gnugrep # GNU implementation of the grep command
       gnumake # make
       gnused # GNU sed, a batch stream editor
@@ -687,7 +698,7 @@ in
       nethogs # network bandwidth monitor
       nitrogen # wallpaper/desktop image manager
       nix-bash-completions # bash completions for nix
-      nix-direnv # direnv integration for nix
+      # nix-direnv # direnv integration for nix # Now added below
       nix-index # also provides nix-locate
       nix-tree # show nixpkgs tree
       nixos-option # for searching options
@@ -702,7 +713,8 @@ in
       nmon # for monitoring system performance
       nordic # for nordic theme
       obsidian # a note-taking app based on plain markdown files
-      oil # A Posix shell that aims to replace Bash. We'll see...
+      # oil # A Posix shell that aims to replace Bash. We'll see...
+      oils-for-unix # A Posix shell that aims to replace Bash. We'll see...
       p7zip # 7zip
       pandoc # Universal markup converter
       par2cmdline-turbo # par2cmdline × ParPar: speed focused par2cmdline fork
@@ -810,6 +822,9 @@ in
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
+
+  programs.direnv.enable = true;
+
   programs.gnupg.agent = {
     enable = true;
     # enableSSHSupport = true;
