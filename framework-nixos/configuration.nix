@@ -320,6 +320,7 @@ in
       gamehub # game launcher
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
+      ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
       glxinfo
@@ -388,6 +389,7 @@ in
       qalculate-gtk # very cool calculator
       qFlipper # for Flipper Zero
       qpdf # C++ library and set of programs that inspect and manipulate the structure of PDF files
+      radare2 # reverse engineering framework/disassembler
       rclone # rsync for cloud storage
       rclone-browser # GUI for rclone
       recoll # full-text search tool
