@@ -286,6 +286,7 @@ in
       browsh # graphical web browser in the terminal
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
+      unstable.circumflex # Hacker News TUI (command: "clx")
       master.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
       clinfo
       colordiff # A tool to colorize diff output
