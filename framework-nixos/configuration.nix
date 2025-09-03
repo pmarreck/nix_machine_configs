@@ -449,7 +449,7 @@ in
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       master.ollama # playing with LLM's
       unstable.vscode # nice gui editor
-      master.zed-editor # code editor
+      unstable.zed-editor # code editor
       unvanquished # FPS
       visidata # Terminal TUI spreadsheet multitool for discovering and arranging data
       vsce # Visual Studio Code extensions manager/tooling
