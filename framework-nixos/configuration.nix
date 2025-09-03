@@ -845,6 +845,17 @@ in
     HandleLidSwitchDocked=ignore
   '';
 
+  # ZFS housekeeping
+  services.zfs = {
+    autoScrub = {
+      enable = true;
+      pools = [ "rpool" ];
+      interval = "monthly";   # systemd OnCalendar string
+    };
+    # Drop `zed.enable`. If you want tweaks, use zed.settings (optional):
+    # zed.settings = { ZED_NOTIFY_VERBOSE = "1"; };
+  };
+
   # Only valid for Home Manager
   # dconf.settings = {
   #   "org/gnome/settings-daemon/plugins/power" = {
