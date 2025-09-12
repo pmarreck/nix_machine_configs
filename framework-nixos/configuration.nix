@@ -281,13 +281,15 @@ in
       blesh # Bash line editor with syntax highlighting
       bluemail # email client # doesn't currently work...
       boinc # distributed computing
+      boohu # Break Out Of Hareka's Underground (Boohu) is a turn-based coffee-break roguelike game with a heavy focus on tactical positioning mechanisms. https://github.com/anaseto/boohu
       bottom # Like top but bottomer
-      brogue # roguelike
+      brogue-ce # Community-lead fork of the minimalist roguelike game Brogue, with many improvements
       browsh # graphical web browser in the terminal
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       unstable.circumflex # Hacker News TUI (command: "clx")
-      master.claude-code # An agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
+      master.claude-code # Anthropic's agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
+      master.codex # OpenAI's lightweight coding agent that runs in your terminal
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -302,7 +304,7 @@ in
       unstable.dosbox-staging # Modernized DOS emulator; DOSBox fork
       drawing # drawing program
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
-      egoboo # dungeon crawler
+      egoboo # 3D dungeon crawling adventure
       endless-sky # space exploration game
       exiftool # Tool to read, write and edit EXIF meta information
       fclones # Efficient duplicate file finder
@@ -321,6 +323,7 @@ in
       gamehub # game launcher
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
+      master.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
@@ -344,11 +347,12 @@ in
       libjxl # JPEG XL image format reference implementation
       libwebp # Library and tools for the WebP image format
       lightspark # Flash (ActionScript 3) runner
+      links2 # Small text-mode browser with some graphics support
       mailspring # nice open-source email client
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       master.signal-desktop # signal desktop client
       master.whatsapp-for-linux # whatsapp desktop clientrom
-      meritous # platformer
+      meritous # Action-adventure dungeon crawl game
       moar # a better "less"
       mono # for C#/.NET stuff
       # nasc # "do maths like a normal person", it says. I'm intrigued. # Neat, but disabled due to build failures for now :(
@@ -393,6 +397,7 @@ in
       radare2 # reverse engineering framework/disassembler
       rclone # rsync for cloud storage
       rclone-browser # GUI for rclone
+      reader # Lightweight tool offering better readability of web pages on the CLI
       recoll # full-text search tool
       rhythmbox # audio player
       ruffle # Flash (soon ActionScript 3) runner
@@ -401,14 +406,20 @@ in
       scorched3d # played the original version a lot in the military
       sd # Intuitive find & replace CLI tool
       sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice # downgraded to stable 6/13/2023 due to build failure on unstable
-      shattered-pixel-dungeon # roguelike
+      shattered-pixel-dungeon # Traditional roguelike game with pixel-art graphics and simple interface. Variants follow:
+        shorter-pixel-dungeon # A shorter fork of the Shattered Pixel Dungeon roguelike
+        summoning-pixel-dungeon # A fork of the Shattered Pixel Dungeon roguelike with added summoning mechanics
+        tower-pixel-dungeon # Turn-based tower defense game based on Shattered Pixel Dungeon
+        experienced-pixel-dungeon # A fork of the Shattered Pixel Dungeon roguelike without limits on experience and items
+        rkpd2 # Fork of popular roguelike game Shattered Pixel Dungeon that drastically buffs heroes and thus makes the game significantly easier
+        rat-king-adventure # An expansive fork of RKPD2, itself a fork of the Shattered Pixel Dungeon roguelike
       shortwave # internet radio
       shotwell # photo organizer like iPhoto
-      sil # roguelike
+      sil # Rogue-like game set in the First Age of Middle-earth
       slack # the chat app du jour
       sourceHighlight # Source code renderer with syntax highlighting
       speedread # speed reading
-      speedtest-cli
+      speedtest-cli # Internet speed test from the command line
       unstable.cudaPackages.cudatoolkit # for tensorflow
       unstable.curl-impersonate # Command-line tool to impersonate a browser
       stable.gimp-with-plugins # drawing program # forced stable on 1/20/2023 due to build failure on unstable
@@ -422,6 +433,7 @@ in
       stable.pbzip2 # Parallel implementation of bzip2 (pinned to stable)
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
+      silver-searcher # Code-searching tool similar to ack, but faster
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       stable.spotifyd # spotify streamer daemon
       starship # cool prompt
@@ -432,6 +444,7 @@ in
       the-powder-toy # sandbox game
       ticker # stock market watcher, to replace the "markets" GUI
       tickrs # Another TUI stock market watcher
+      # tome2 # A dungeon crawler similar to Angband, based on the works of Tolkien # disabled due to build failures
       torcs # racing game
       # transmission-gtk # torrent client
       transmission_4-gtk # torrent client
