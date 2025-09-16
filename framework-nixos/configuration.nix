@@ -45,7 +45,7 @@ let
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
   # which particular version of elixir and erlang I want globally
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
-  elixir = pkgs.beam.packages.erlangR26.elixir_1_16;
+  elixir = pkgs.beam.packages.erlangR28.elixir_1_18;
   # libretro = stable.libretro;
   comma = (import (pkgs.fetchFromGitHub {
     owner = "nix-community";
@@ -236,6 +236,10 @@ in
 
   # Enable touchpad support (enabled default in most desktopManager).
   services.libinput.enable = true;
+
+  # tailscale
+  services.tailscale.enable = true;
+  services.tailscale.openFirewall = true;  # opens 41641/udp etc.
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.pmarreck = {
