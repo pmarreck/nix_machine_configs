@@ -845,6 +845,9 @@ in
 
   programs.direnv.enable = true;
 
+  # Enable mosh (mobile shell) - a remote terminal that supports roaming and intermittent connectivity
+  programs.mosh.enable = true;
+
   programs.gnupg.agent = {
     enable = true;
     # enableSSHSupport = true;
