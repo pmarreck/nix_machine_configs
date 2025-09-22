@@ -748,6 +748,7 @@ in
       pv # pipe viewer
       ranger # file manager
       rdfind # finds dupes, optionally acts on them
+      reptyr # Reattach/reparent a running program to a new terminal (only works on Linux!)
       rescuetime # usage tracking; currently configured to run for all users, above
       ripgrep # rg, the best grep
       rund # Compiler-wrapper that runs and caches D-lang programs
@@ -766,6 +767,7 @@ in
       unrar # a rar extractor
       vim # it's no emacs
       vulkan-tools # for profiling
+      watchman # Watches files and takes action when they change
       wezterm # nerdy but very nice terminal
       wget # wget is better than curl because it will resume with exponential backoff
       whitesur-gtk-theme
