@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec {
   pname = "yuescript";
-  version = "0.29.2";
+  version = "0.29.4";
 
   src = fetchFromGitHub {
     owner = "IppClub";
     repo = "YueScript";
     rev = "v${version}";
-    sha256 = "sha256-rK2gfganKcv/dITHNnK0k79mX8qVK7uMZOKeO7Vsook=";
+    sha256 = "sha256-wbrqmsZbvgEHdvJ9QKBcSX2GBKBlqRWezoXNHTDdF6M=";
   };
 
   nativeBuildInputs = [ cmake ninja pkg-config ];
