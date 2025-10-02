@@ -150,6 +150,22 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # Provide compressed swap in RAM (minimal SSD wear, decent burst capacity).
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50; # ~32 GiB logical swap from 64 GiB RAM
+    priority = 100;
+  };
+
+  swapDevices = [
+    {
+      device = "/dev/zvol/rpool/swap";
+      priority = 50;
+    }
+  ];
+
+  boot.resumeDevice = "/dev/zvol/rpool/swap";
+
   # AMD support
   boot.kernelModules = [ "amdgpu" "radeon" ];
   boot.kernelParams = [ "radeon.si_support=0" "amdgpu.si_support=1" "radeon.cik_support=0" "amdgpu.cik_support=1" ];
@@ -478,6 +494,8 @@ in
       xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
       xlife # cellular automata
       xscreensaver # note that this seems to require setup in home manager
+      unstable.zellij # "Terminal workspace with batteries included" (basically a nicer tmux with a worse name. notably, uses webasm plugins)
+      unstable.zmate # instant terminal sharing, using Zellij
       zoom-us # the chinese spy network
       ## for retro gaming. this workaround was to fix the cores not installing properly
       ## (retroarch.override { cores = with libretro; [
