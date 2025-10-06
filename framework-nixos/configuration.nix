@@ -298,6 +298,7 @@ in
       bat # A cat clone with syntax highlighting and git integration
       unstable.beyond-all-reason # Free Real Time Strategy Game with a grand scale and full physical simulation in a sci-fi setting
       bfs # better, breadth-first search
+      unstable.binaryen # Compiler infrastructure and toolchain library for WebAssembly, in C++
       blesh # Bash line editor with syntax highlighting
       bluemail # email client # doesn't currently work...
       boinc # distributed computing
@@ -319,6 +320,7 @@ in
       curlpp # for curl bindings in C++
       darktable # photo editor # forced stable on 1/24/2023 due to build failure on unstable
       delta #syntax highlighter for git
+      unstable.deno # Secure runtime for JavaScript and TypeScript
       dirb # Web content scanner for finding hidden files/directories
       discord # chat app for gamers
       unstable.dosbox-staging # Modernized DOS emulator; DOSBox fork
@@ -487,6 +489,11 @@ in
       visidata # Terminal TUI spreadsheet multitool for discovering and arranging data
       vsce # Visual Studio Code extensions manager/tooling
       vlc # video player
+      unstable.wabt # WebAssembly Binary Toolkit
+      unstable.wasm-tools # Low level tooling for WebAssembly in Rust (very useful)
+      unstable.wasmedge # Lightweight, high-performance, and extensible WebAssembly runtime for cloud native, edge, and decentralized applications
+      unstable.wasmtime.out # wasm runtime
+      unstable.wazero # Zero dependency WebAssembly runtime written in Go, currently the fastest wasm runner
       wdiff # A front end to diff for comparing files on a word per word basis
       master.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
@@ -783,6 +790,7 @@ in
       uair # a minimal pomodoro timer GUI/TUI
       uget # a download manager GUI
       unrar # a rar extractor
+      unzip # how was this not installed by default?
       vim # it's no emacs
       vulkan-tools # for profiling
       watchman # Watches files and takes action when they change

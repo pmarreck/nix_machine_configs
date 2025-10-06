@@ -1,12 +1,12 @@
 { lib, fetchzip }:
 
 let
-  version = "1.1";
+  version = "2.0";
 in fetchzip rec {
 
   name = "key-rebel-moon-${version}";
 
-  url = "https://github.com/pmarreck/dotfiles/raw/0fce7d330beff005f75336fac2aeb75cbceb1691/bin/key-rebel-moon.zip";
+  url = "https://github.com/pmarreck/dotfiles/raw/cb5500c96722699a0cc7e0793a08f9b25236cb97/bin/data/key-rebel-moon.zip";
 
   postFetch = ''
     downloadedFile="/build/key-rebel-moon.zip"
@@ -16,7 +16,7 @@ in fetchzip rec {
     unzip -j $downloadedFile \*.otf -d $out/share/fonts/opentype
   '';
 
-  sha256 = "sha256-xU/NQmTkZdFpmfhlXW8iXapegtQ+hez3mFL78vpcSxg=";
+  sha256 = "sha256-29nLsGSKif4TSrH9RDQZOkAgIMEVoDOAPRvFlxdQ/JI=";
 
   meta = with lib; {
     homepage = "";
@@ -26,4 +26,3 @@ in fetchzip rec {
     maintainers = with maintainers; [ pmarreck ];
   };
 }
-
