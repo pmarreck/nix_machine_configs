@@ -53,6 +53,8 @@ let
     rev = "v1.6.0";
     sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
   })).default;
+  opencode = pkgs.callPackage ./opencode.nix { };
+  cfunge = pkgs.callPackage ./cfunge.nix { };
   # roc is dynamically compiled, so it's not usable in NixOS yet
   # roc = (import (pkgs.fetchFromGitHub {
   #   owner = "roc-lang";
@@ -116,11 +118,13 @@ let
       "./?.so"
     ]
   );
+
 in
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./low-memory-notify.nix
       <nixos-hardware/framework/16-inch/7040-amd>
     ];
 
@@ -155,6 +159,10 @@ in
     enable = true;
     memoryPercent = 50; # ~32 GiB logical swap from 64 GiB RAM
     priority = 100;
+  };
+
+  boot.kernel.sysctl = {
+    "kernel.sysrq" = 1;
   };
 
   swapDevices = [
@@ -522,7 +530,12 @@ in
       ##   snes9x2002 snes9x2005 snes9x2010 stella stella2014 tgbdual thepowdertoy tic80 vba-m vba-next vecx virtualjaguar yabause
       ##   # pcsx-rearmed
       ## ])
-    ];
+
+      # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
+      opencode # AI coding agent built for the terminal
+      cfunge # Fast Befunge interpreter
+      # IXNAY USER PACKAGES (pmarreck) END - DO NOT REMOVE
+      ];
   };
 
   programs = {
@@ -621,7 +634,6 @@ in
       # openrazer-daemon # for razer stuff
       # pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out... # https://github.com/NixOS/nixpkgs/commit/3d832dee59ed0338db4afb83b4c481a062163771
       # roc # Fast. Friendly. Functional.
-      # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       # ytmdl # for downloading music from youtube # build fail 5/12/2024
       alacritty # a super fast terminal
       alsa-utils # for alsa sound utilities
@@ -800,6 +812,8 @@ in
       whitesur-icon-theme
       winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
       wmctrl # for controlling window managers
+      wootility # Customization and management software for Wooting keyboards
+      wooting-udev-rules # udev rules that give NixOS permission to communicate with Wooting keyboards
       wsysmon # like Windows Task Manager but for Linux
       xclip # clipboard interaction
       xinetd # provides tftp etc. (originally installed to play with symbolics opengenera)
@@ -810,6 +824,7 @@ in
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
       zfs # the best filesystem on the planet
       zoxide # A smarter cd command inspired by z
+      sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
       zstd # Zstandard real-time compression algorithm
       (pkgs.callPackage ./yuescript.nix { })
