@@ -137,6 +137,8 @@ in
   # for ollama acceleration
   nixpkgs.config.rocmSupport = true;
 
+  nix.settings."warn-dirty" = false;
+
   # Overlays
   nixpkgs.overlays = [
     # use native cpu optimizations
@@ -269,7 +271,7 @@ in
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
-    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" ];
+    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" "disk" ];
     shell = pkgs.bash;
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
     # TODO: move these to home-manager
@@ -783,6 +785,7 @@ in
       protontricks # automates installing winetricks packages for proton
       psmisc # provides killall, fuser, prtstat, pslog, pstree, peekfd
       pv # pipe viewer
+      rage # Simple, secure and modern encryption tool with small explicit keys, no config options, and UNIX-style composability
       ranger # file manager
       rdfind # finds dupes, optionally acts on them
       reptyr # Reattach/reparent a running program to a new terminal (only works on Linux!)
