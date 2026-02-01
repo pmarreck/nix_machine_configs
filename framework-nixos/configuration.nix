@@ -137,7 +137,10 @@ in
   # for ollama acceleration
   nixpkgs.config.rocmSupport = true;
 
-  nix.settings."warn-dirty" = false;
+  nix.settings = {
+    download-buffer-size = 1048576000; # 1GB
+    "warn-dirty" = false;
+  };
 
   # Overlays
   nixpkgs.overlays = [
@@ -238,8 +241,8 @@ in
   services.power-profiles-daemon.enable = true;
 
   # Enable the GNOME Desktop Environment.
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # framework laptop
   services.fwupd.enable = true;
@@ -352,14 +355,14 @@ in
       fzf # fuzzy finder
       fzy # fuzzy finder that's faster/better than fzf
       galculator # calculator GUI
-      gamehub # game launcher
+      # gamehub # marked broken on nixos-25.11
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
       master.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
-      glxinfo
+      mesa-demos # provides glxinfo
       gmp # GNU Multiple Precision Arithmetic Library
       gravit # gravity simulator
       gthumb # image viewer
@@ -383,9 +386,9 @@ in
       mailspring # nice open-source email client
       master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       master.signal-desktop # signal desktop client
-      master.whatsapp-for-linux # whatsapp desktop clientrom
+      master.wasistlos # whatsapp desktop client
       meritous # Action-adventure dungeon crawl game
-      moar # a better "less"
+      moor # a better "less"
       mono # for C#/.NET stuff
       # nasc # "do maths like a normal person", it says. I'm intrigued. # Neat, but disabled due to build failures for now :(
       nethack # roguelike
@@ -407,10 +410,10 @@ in
       pioneer # space exploration game
       pkg-config # for compiling C/C++
       pnpm # efficient javascript package manager
-      poppler_utils # PDF tools
+      pkgs."poppler-utils" # PDF tools
       presenterm # A markdown-based terminal slideshow tool
       procps # Utilities that give information about processes
-      proton-caller # automates launching proton games
+      # proton-caller # removed in nixos-25.11 (unmaintained)
       python312Packages.pygments # Syntax highlighting library
       python311Packages.conda # python package manager (ew. but need it for LLM's)
       python311Packages.pandas # for data analysis
@@ -437,7 +440,7 @@ in
       sc-im # Spreadsheet Calculator Improved - terminal spreadsheet program
       scorched3d # played the original version a lot in the military
       sd # Intuitive find & replace CLI tool
-      sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice # downgraded to stable 6/13/2023 due to build failure on unstable
+      # sequeler # disabled on nixos-25.11 (libgda build fails: AM_ICONV)
       shattered-pixel-dungeon # Traditional roguelike game with pixel-art graphics and simple interface. Variants follow:
         shorter-pixel-dungeon # A shorter fork of the Shattered Pixel Dungeon roguelike
         summoning-pixel-dungeon # A fork of the Shattered Pixel Dungeon roguelike with added summoning mechanics
@@ -453,7 +456,7 @@ in
       speedread # speed reading
       speedtest-cli # Internet speed test from the command line
       unstable.cudaPackages.cudatoolkit # for tensorflow
-      unstable.curl-impersonate # Command-line tool to impersonate a browser
+      # unstable.curl-impersonate # Command-line tool to impersonate a browser
       stable.gimp-with-plugins # drawing program # forced stable on 1/20/2023 due to build failure on unstable
       stable.gitkraken # git gui (as opposed to "git gud" I guess) # downgraded to stable 10/20/2024 due to build failure
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
@@ -491,7 +494,7 @@ in
       unstable.ghostty # mitchell hashimoto's new Zig-written cross-platform terminal emulator
       unstable.gnome-builder # code editor
       unstable.micro # sort of an enhanced nano
-      unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
+      unstable.orbiton # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       master.ollama # playing with LLM's
       unstable.vscode # nice gui editor
       unstable.zed-editor # code editor
@@ -534,8 +537,9 @@ in
       ## ])
 
       # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
-      opencode # AI coding agent built for the terminal
+      unstable.antigravity # Agentic development platform, evolving the IDE into the agent-first era
       cfunge # Fast Befunge interpreter
+      opencode # AI coding agent built for the terminal
       # IXNAY USER PACKAGES (pmarreck) END - DO NOT REMOVE
       ];
   };
@@ -551,7 +555,7 @@ in
       ];
     };
     ssh = {
-      startAgent = true;
+      startAgent = false; # GNOME enables gcr-ssh-agent; avoid conflicting SSH agents
       extraConfig = ''
         Host *
           AddKeysToAgent yes
@@ -583,7 +587,7 @@ in
       liberation_ttf
       noto-fonts
       noto-fonts-cjk-sans
-      noto-fonts-emoji
+      noto-fonts-color-emoji
       powerline-fonts
       source-code-pro
       tech-alive # another favorite sans serif font with obfuscated name
@@ -657,7 +661,7 @@ in
       cheese # gnome webcam tool
       chez # Chez Scheme (useful for idris)
       chromium # like chrome but without the google
-      clipgrab # for downloading videos from youtube and other sites
+      # clipgrab # disabled on nixos-25.11 (qtwebengine-5.15.x is marked insecure)
       comma # for trying out software, see "let" section above
       conky # system monitor
       cool-retro-term # a retro terminal emulator
@@ -681,7 +685,7 @@ in
       eza # A modern replacement for ls (fork of exa)
       fd # a better "find"
       file # file type identification
-      frawk # An efficient AWK-like language
+      # frawk # An efficient AWK-like language # fails to build as of december 2025
       fzf # fuzzy finder
       gcc # C compiler
       gdu # go disk usage, great way to visualize disk usage
@@ -704,7 +708,7 @@ in
       gnomeExtensions.dash-to-dock # for moving the dock to the bottom
       gnomeExtensions.freon # for monitoring CPU and GPU temps
       gnomeExtensions.lock-keys # for showing caps lock etc
-      gnomeExtensions.miniview # for quick window previews
+      # gnomeExtensions.miniview # missing in nixos-25.11
       gnomeExtensions.night-theme-switcher # for automatically switching between light and dark themes
       gnomeExtensions.paperwm # Tiling window manager with a twist!
       gnomeExtensions.pop-shell # for tiling windows
@@ -765,7 +769,7 @@ in
       nufmt # A formatter for nushell
       nushell # Modern shell written in Rust
       nushellPlugins.gstat # A nushell plugin to show git status
-      nushellPlugins.net # Network plugins for nushell
+      # nushellPlugins.net # broken on nixos-25.11 (nu_plugin_net marked broken)
       nushellPlugins.query # Nushell plugin to query JSON, XML, and various web data
       # nushellPlugins.skim # A nushell plugin that integrates the skim fuzzy finder # it couldn't find it on 5/7/2025
       # nushellPlugins.units # A nushell plugin to convert units # it couldn't find it on 5/7/2025
@@ -906,10 +910,10 @@ in
   services.openssh.enable = true;
 
   # Disable default lid-closed behavior
-  services.logind.extraConfig = ''
-    HandleLidSwitch=ignore
-    HandleLidSwitchDocked=ignore
-  '';
+  services.logind.settings.Login = {
+    HandleLidSwitch = "ignore";
+    HandleLidSwitchDocked = "ignore";
+  };
 
   # ZFS housekeeping
   services.zfs = {
