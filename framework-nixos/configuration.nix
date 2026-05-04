@@ -174,10 +174,14 @@ in
     {
       device = "/dev/zvol/rpool/swap";
       priority = 50;
+      options = [ "nofail" "x-systemd.device-timeout=5s" ];
     }
   ];
 
-  boot.resumeDevice = "/dev/zvol/rpool/swap";
+  # boot.resumeDevice removed: was forcing initrd to wait ~58s for the zvol
+  # device node to appear just to check for a hibernation resume image.
+  # Hibernation will no longer resume; zram + zvol swap remain for paging.
+  # boot.resumeDevice = "/dev/zvol/rpool/swap";
 
   # AMD support
   boot.kernelModules = [ "amdgpu" "radeon" ];
@@ -322,8 +326,7 @@ in
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       unstable.circumflex # Hacker News TUI (command: "clx")
-      master.claude-code # Anthropic's agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster
-      master.codex # OpenAI's lightweight coding agent that runs in your terminal
+      # claude-code and codex removed (installed via pipx/npm instead)
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -358,7 +361,7 @@ in
       # gamehub # marked broken on nixos-25.11
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
-      master.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
+      unstable.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
@@ -384,9 +387,9 @@ in
       lightspark # Flash (ActionScript 3) runner
       links2 # Small text-mode browser with some graphics support
       mailspring # nice open-source email client
-      master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
-      master.signal-desktop # signal desktop client
-      master.wasistlos # whatsapp desktop client
+      unstable.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
+      unstable.signal-desktop # signal desktop client
+      unstable.wasistlos # whatsapp desktop client
       meritous # Action-adventure dungeon crawl game
       moor # a better "less"
       mono # for C#/.NET stuff
@@ -473,7 +476,7 @@ in
       stable.spotifyd # spotify streamer daemon
       starship # cool prompt
       taoup # The Tao of Unix Programming
-      telegram-desktop # chat app
+      stable.telegram-desktop # chat app
       unstable.television # Blazingly fast general purpose fuzzy finder TUI
       tesseract # OCR
       the-powder-toy # sandbox game
@@ -495,7 +498,7 @@ in
       unstable.gnome-builder # code editor
       unstable.micro # sort of an enhanced nano
       unstable.orbiton # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
-      master.ollama # playing with LLM's
+      unstable.ollama # playing with LLM's
       unstable.vscode # nice gui editor
       unstable.zed-editor # code editor
       unvanquished # FPS
@@ -508,7 +511,7 @@ in
       unstable.wasmtime.out # wasm runtime
       unstable.wazero # Zero dependency WebAssembly runtime written in Go, currently the fastest wasm runner
       wdiff # A front end to diff for comparing files on a word per word basis
-      master.windsurf # the agentic AI code editor
+      unstable.windsurf # the agentic AI code editor
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
@@ -539,6 +542,7 @@ in
       # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
       unstable.antigravity # Agentic development platform, evolving the IDE into the agent-first era
       cfunge # Fast Befunge interpreter
+      unstable.gh # warning: ignoring untrusted substituter 'https://cache.garnix.io', you are not a trusted user. Run `man nix.conf` for more information on the `substituters` configuration option. warning: ignoring the client-specified setting 'trusted-public-keys', because it is a restricted setting and you are not a trusted user warning: ignoring untrusted substituter 'https://cache.garnix.io', you are not a trusted user. Run `man nix.conf` for more information on the `substituters` configuration option. warning: ignoring the client-specified setting 'trusted-public-keys', because it is a restricted setting and you are not a trusted user GitHub CLI tool
       opencode # AI coding agent built for the terminal
       # IXNAY USER PACKAGES (pmarreck) END - DO NOT REMOVE
       ];
@@ -564,6 +568,7 @@ in
     };
     gamemode.enable = true; # for steam
     dconf.enable = true;
+    nix-ld.enable = true;
   };
 
   # Fonts!
@@ -748,8 +753,8 @@ in
       lsof # for listing open files and ports
       luajit # High-performance JIT compiler for Lua 5.1
       lz4 # Extremely fast compression algorithm
-      master.visidata # https://github.com/saulpw/visidata
-      master.yt-dlp # for downloading videos from youtube and other sites
+      unstable.visidata # https://github.com/saulpw/visidata
+      unstable.yt-dlp # for downloading videos from youtube and other sites
       mcfly # fantastic replacement for control-R history search
       meld # visual diff and merge tool
       mkpasswd # for generating passwords
@@ -936,8 +941,8 @@ in
 
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
+  networking.firewall.allowedTCPPorts = [ 8200 ]; # DLNA (minidlna) for cast-to-tv
+  networking.firewall.allowedUDPPorts = [ 1900 ]; # SSDP/UPnP discovery for DLNA
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
