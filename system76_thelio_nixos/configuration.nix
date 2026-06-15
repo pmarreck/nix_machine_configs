@@ -3,7 +3,7 @@
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
 # { config, pkgs, nixpkgs, stable, unstable, trunk, lib, home-manager, nixos-hardware, ... }:
-{ config, pkgs, lib, ... }:
+{ options, config, pkgs, lib, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -107,12 +107,12 @@ in
     # Firefox Nightly
     (import ./firefox-overlay.nix)
     (import ./packages)
-    (self: super: { nix-direnv = super.nix-direnv.override { enableFlakes = true; }; } )
   ];
 
   # Any temporarily-allowed insecure packages.
   nixpkgs.config.permittedInsecurePackages = [
     "xrdp-0.9.9" # added 1/5/2023
+    "mailspring-1.11.0" # added 10/9/2023
   ];
 
   # Early console config. Note: Replaced by kmscon
@@ -165,6 +165,9 @@ in
       # efi.canTouchEfiVariables = true; # zfs config specifies false, so...
       # efi.efiSysMountPoint = "/boot/efi";
       # swraid.enable = false; # due to a bug, this defaulted to true, see: https://github.com/NixOS/nixpkgs/issues/254807
+    };
+    ${if options.boot ? swraid then "swraid" else null} = {
+      enable = false;
     };
     # Boot using the latest kernel: pkgs.linuxPackages_latest
     # Boot with bcachefs test: pkgs.linuxPackages_testing_bcachefs
@@ -411,7 +414,7 @@ in
                 { name = "Source Code Pro"; package = pkgs.source-code-pro; }
                 { name = "Fira Code"; package = pkgs.fira-code; }
                ];
-      extraOptions = "--term xterm-256color --font-size 16";
+      extraOptions = "--term xterm-256color --font-size 12";
     };
 
     # Enable the X11 windowing system.
@@ -865,6 +868,8 @@ in
   # };
   # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta; #vulkan_beta;
+  hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
+  services.xserver.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -903,6 +908,7 @@ in
       # python3Full # added with an overridden pkg, above
       # nodejs # for javascript spaghetticode
       # pcre # perl-compatible regex
+      jdk # java
       openssl # security
       curlpp # for curl bindings in C++
       pkg-config # for compiling C/C++
@@ -940,6 +946,7 @@ in
       jq # json query
       fzf # fuzzy finder
       fzy # fuzzy finder that's faster/better than fzf
+      broot # TUI-navigable file browser
       peco # TUI fuzzy finder and selector
       fortune # fortune cookie
       taoup # The Tao of Unix Programming
@@ -955,6 +962,7 @@ in
       free42 # hp-42S reverse-engineered from the ground up
       # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
+      unstable.ollama # llms in the terminal
       # mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
@@ -1079,6 +1087,7 @@ in
       trufflehog # scans github repos for possible secrets checked in by accident
       inkscape-with-extensions # Vector graphics editor with extensions
       drawing # drawing program
+      libjxl # JPEG XL image format reference implementation
       nasc # "do maths like a normal person", it says. I'm intrigued.
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
@@ -1095,6 +1104,7 @@ in
     ssh.startAgent = true;
     gamemode.enable = true; # for steam
     dconf.enable = true;
+    direnv.enable = true;
   };
 
   # Fonts!
@@ -1236,6 +1246,7 @@ in
       ripgrep # rg, the best grep
       fd # a better "find"
       rdfind # finds dupes, optionally acts on them
+      socat # netcat on steroids
       mcfly # fantastic replacement for control-R history search
       atuin # a better history search, with sync and fuzzy search
       # exa # a better ls # deprecated and replaced 9/2023 with eza due to being unmaintained
@@ -1251,7 +1262,8 @@ in
       cowsay # a classic
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
-      latest.firefox-nightly-bin # firefox
+      # latest.firefox-nightly-bin # firefox # had to disable for now due to segfault on unstable: https://github.com/NixOS/patchelf/issues/520
+      firefox-beta
       chromium # like chrome but without the google
       wezterm # nerdy but very nice terminal
       kitty # another nice terminal emulator
@@ -1347,8 +1359,8 @@ in
         wineRelease = "staging";
         mingwSupport = true;
       })
-      winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
-      protontricks # automates installing winetricks packages for proton
+      master.winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
+      master.protontricks # automates installing winetricks packages for proton
       ## end WINE stuff
 
       # stuff for my specific hardware
@@ -1488,6 +1500,8 @@ in
       # flakes
       experimental-features = [ "nix-command" "flakes" ];
       warn-dirty = false;
+      substituters = lib.mkBefore [ "https://ai.cachix.org" ];
+      trusted-users = [ "@root" "@wheel" ];
     };
     # automatically run gc?
     gc = {
