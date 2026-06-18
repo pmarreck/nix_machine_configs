@@ -351,11 +351,12 @@ in
       "autovt@tty1".enable = false;
     };
     # https://discourse.nixos.org/t/desktop-oriented-kernel-scheduler/12588/3
-    extraConfig = ''
-      DefaultCPUAccounting=yes
-      DefaultMemoryAccounting=yes
-      DefaultIOAccounting=yes
-    '';
+    # migrated from systemd.extraConfig (removed) to systemd.settings.Manager
+    settings.Manager = {
+      DefaultCPUAccounting = true;
+      DefaultMemoryAccounting = true;
+      DefaultIOAccounting = true;
+    };
     # the following doesn't seem to do anything but add extra duplicate lines to /etc/systemd/system.conf
     # user.extraConfig = ''
     #   DefaultCPUAccounting=yes
@@ -407,15 +408,12 @@ in
     kmscon = {
       enable = true;
       hwRender = true;
-      autologinUser = "pmarreck";
-      fonts = [
-                { name = "Terminus NerdFont"; package = pkgs.terminus-nerdfont; }
-                { name = "Powerline Fonts"; package = pkgs.powerline-fonts; }
-                { name = "Source Code Pro"; package = pkgs.source-code-pro; }
-                { name = "Fira Code"; package = pkgs.fira-code; }
-               ];
+      # `autologinUser` removed -> moved to services.getty.autologinUser below.
+      # `fonts` list removed -> font set via config.font-name (install fonts via fonts.packages if you want this exact one).
+      config.font-name = "Terminus NerdFont";
       extraOptions = "--term xterm-256color --font-size 12";
     };
+    getty.autologinUser = "pmarreck"; # replaces removed services.kmscon.autologinUser
 
     # Enable the X11 windowing system.
     xserver = {
@@ -454,8 +452,8 @@ in
         sort-directories-first=false
       '';
         # mouse-button-modifier='<Alt>'
-      # wayland wonky with nvidia, still
-      displayManager.gdm.wayland = false;
+      # wayland wonky with nvidia, still — but disabling gdm.wayland is unsupported with GNOME 50 (option removed)
+      # displayManager.gdm.wayland = false;
       # use nvidia card for xserver
       videoDrivers = ["nvidia"];
       # Configure keymap in X11
@@ -589,7 +587,7 @@ in
     openssh.enable = true;
 
     # gnome daemons
-    udev.packages = with pkgs; [ gnome.gnome-settings-daemon ];
+    udev.packages = with pkgs; [ gnome-settings-daemon ];
 
     # RDP
     xrdp.enable = true;
@@ -623,51 +621,55 @@ in
     samba = {
       enable = true;
       enableWinbindd = true;
-      extraConfig = ''
-        [global]
-        workgroup = WORKGROUP
-        server string = Samba Server %v
-        netbios name = nixos
-        security = user
-        map to guest = bad user
-        dns proxy = no
-        bind interfaces only = yes
-        interfaces = lo enp68s0 wlo2 wlp69s0
-        log file = /var/log/samba/log.%m
-        max log size = 1000
-        syslog = 0
-        panic action = /usr/share/samba/panic-action %d
-        server role = standalone server
-        passdb backend = tdbsam
-        obey pam restrictions = yes
-        unix password sync = yes
-        passwd program = /usr/bin/passwd %u
-        passwd chat = *Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .
-        pam password change = yes
-        map to guest = bad user
-        usershare allow guests = yes
-        [homes]
-        comment = Home Directories
-        browseable = no
-        read only = no
-        create mask = 0700
-        directory mask = 0700
-        valid users = %S
-        [printers]
-        comment = All Printers
-        browseable = no
-        path = /var/spool/samba
-        printable = yes
-        guest ok = no
-        read only = yes
-        create mask = 0700
-        [print$]
-        comment = Printer Drivers
-        path = /var/lib/samba/printers
-        browseable = yes
-        read only = yes
-        guest ok = no
-      '';
+      # migrated from services.samba.extraConfig (removed) to services.samba.settings
+      settings = {
+        global = {
+          "workgroup" = "WORKGROUP";
+          "server string" = "Samba Server %v";
+          "netbios name" = "nixos";
+          "security" = "user";
+          "map to guest" = "bad user";
+          "dns proxy" = "no";
+          "bind interfaces only" = "yes";
+          "interfaces" = "lo enp68s0 wlo2 wlp69s0";
+          "log file" = "/var/log/samba/log.%m";
+          "max log size" = 1000;
+          "syslog" = 0;
+          "panic action" = "/usr/share/samba/panic-action %d";
+          "server role" = "standalone server";
+          "passdb backend" = "tdbsam";
+          "obey pam restrictions" = "yes";
+          "unix password sync" = "yes";
+          "passwd program" = "/usr/bin/passwd %u";
+          "passwd chat" = ''*Enter\snew\s*\spassword:* %n\n *Retype\snew\s*\spassword:* %n\n *password\supdated\ssuccessfully* .'';
+          "pam password change" = "yes";
+          "usershare allow guests" = "yes";
+        };
+        "homes" = {
+          "comment" = "Home Directories";
+          "browseable" = "no";
+          "read only" = "no";
+          "create mask" = "0700";
+          "directory mask" = "0700";
+          "valid users" = "%S";
+        };
+        "printers" = {
+          "comment" = "All Printers";
+          "browseable" = "no";
+          "path" = "/var/spool/samba";
+          "printable" = "yes";
+          "guest ok" = "no";
+          "read only" = "yes";
+          "create mask" = "0700";
+        };
+        "print$" = {
+          "comment" = "Printer Drivers";
+          "path" = "/var/lib/samba/printers";
+          "browseable" = "yes";
+          "read only" = "yes";
+          "guest ok" = "no";
+        };
+      };
     };
 
     # Fartpak
@@ -869,12 +871,14 @@ in
   # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta; #vulkan_beta;
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
+  hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
+  services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
   services.xserver.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
   # sound.enable = true;
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false; # renamed from hardware.pulseaudio in newer nixos
   security.rtkit.enable = true;
 
   # Enable the OpenRazer driver for my Razer stuff
@@ -935,7 +939,7 @@ in
       parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
-      spotify-tui # spotify terminal UI
+      # spotify-tui # REMOVED from nixpkgs (unmaintained upstream); successor is `spotify-player`
       slack # the chat app du jour
       zoom-us # the chinese spy network
       # matrix clients [
@@ -983,7 +987,7 @@ in
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       # lutris # It always struck me as wonky, but I'm including this game launcher for now. EDIT: Nope, still wonky AF. Bye.
       # protonup # automates updating GloriousEggroll's Proton-GE # currently borked, see: https://github.com/AUNaseef/protonup/issues/25
-      proton-caller # automates launching proton games
+      # proton-caller # REMOVED from nixpkgs (unmaintained upstream)
       # bottles
       # gnutls # possibly needed for bottles to work correctly with battle.net launcher?
       discord # chat app for gamers
@@ -992,7 +996,7 @@ in
       master.whatsapp-for-linux # whatsapp desktop client
       master.signal-desktop # signal desktop client
       telegram-desktop # chat app
-      transmission-gtk # torrent client
+      transmission_4-gtk # torrent client (renamed from transmission-gtk in 24.11)
       bfs # better, breadth-first search
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       boinc # distributed computing
@@ -1052,7 +1056,7 @@ in
       abuse # classic side-scrolling shooter customizable with LISP
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
-      gamehub # game launcher
+      # gamehub # REMOVED from nixpkgs (archived upstream, old webkitgtk 4.0)
       gravit # gravity simulator
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
@@ -1088,7 +1092,7 @@ in
       inkscape-with-extensions # Vector graphics editor with extensions
       drawing # drawing program
       libjxl # JPEG XL image format reference implementation
-      nasc # "do maths like a normal person", it says. I'm intrigued.
+      # nasc # REMOVED from nixpkgs (unmaintained, deprecated webkitgtk_4_0)
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
     ];
@@ -1118,14 +1122,17 @@ in
       powerline-fonts
       google-fonts
       noto-fonts
-      noto-fonts-cjk
-      noto-fonts-emoji
+      noto-fonts-cjk-sans # renamed from noto-fonts-cjk (split sans/serif)
+      noto-fonts-color-emoji # renamed from noto-fonts-emoji
       fira-code
       fira-code-symbols
       font-awesome
       hack-font
-      nerdfonts
-      terminus-nerdfont
+      # `nerdfonts` bundle was split into per-font `nerd-fonts.*` in 24.11; picking a sensible subset:
+      nerd-fonts.symbols-only
+      nerd-fonts.fira-code
+      nerd-fonts.hack
+      nerd-fonts.terminess-ttf # "Terminus Nerd Font" (was terminus-nerdfont) — matches kmscon config.font-name
       source-code-pro
       hasklig # source code pro plus more ligatures, https://github.com/i-tu/Hasklig
       gentium # https://software.sil.org/gentium/
@@ -1145,7 +1152,7 @@ in
     gnome.excludePackages = (with pkgs; [
       gnome-photos
       gnome-tour
-    ]) ++ (with pkgs.gnome; [
+    ]) ++ (with pkgs; [
       cheese # webcam tool
       gnome-music
       gnome-terminal
@@ -1173,7 +1180,7 @@ in
       # bash-completion # Programmable completion for the bash shell # note: caused problems
       # bash-preexec # Bash preexec and precmd functions # disabled since it's pulled in via a dotfile function now
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
-      oil # A Posix shell that aims to replace Bash. We'll see...
+      oils-for-unix # A Posix shell that aims to replace Bash (was `oil`). We'll see...
       shellcheck # A static analysis tool for shell scripts
       nix-bash-completions # bash completions for nix
       nixos-option # for searching options
@@ -1196,7 +1203,7 @@ in
       curl # curl is better than wget because it supports more protocols
       master.youtube-dl # for downloading videos from youtube and other sites
       ytmdl # for downloading music from youtube
-      clipgrab # for downloading videos from youtube and other sites
+      # clipgrab # REMOVED from nixpkgs (unmaintained since 2022, vulnerable qt5 webengine); use yt-dlp instead
       sshfs # for mounting remote filesystems
       cachix # for downloading pre-built binaries
       comma # for trying out software, see "let" section above
@@ -1229,7 +1236,7 @@ in
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
       stable.nvtop # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
-      dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem
+      dool # dstat's maintained fork (dstat removed from nixpkgs). e.g.: dool -cdnpmgs --top-bio --top-cpu --top-mem
       duc # disk usage visualization, highly configurable
       gdu # go disk usage, great way to visualize disk usage
       baobab # radial treemap of disk usage
@@ -1240,7 +1247,7 @@ in
       kmon # kernel module monitor
       lsof # for listing open files and ports
       # for showing off nixos:
-      neofetch # system info
+      fastfetch # system info (neofetch was removed from nixpkgs; fastfetch is the maintained replacement)
       nix-tree # show nixpkgs tree
       hydra-check # show hydra status
       ripgrep # rg, the best grep
@@ -1269,14 +1276,14 @@ in
       kitty # another nice terminal emulator
       alacritty # a super fast terminal
       cool-retro-term # a retro terminal emulator
-      gnome.gnome-tweaks # may give warning about being outdated? only shows it once, though?
+      gnome-tweaks # may give warning about being outdated? only shows it once, though?
       glib # seems to be an undeclared dependency of some gnome tweaks such as Night Theme Switcher
       gnomeExtensions.appindicator # for system tray icons
       # gnomeExtensions.clipboard-indicator # "incompatible with current Gnome version"
       gnomeExtensions.dash-to-dock # for moving the dock to the bottom
       # gnomeExtensions.dash-to-dock-toggle # "incompatible with current Gnome version"
       # gnomeExtensions.dash-to-dock-animator # "incompatible with current Gnome version"
-      gnomeExtensions.miniview # for quick window previews
+      # gnomeExtensions.miniview # REMOVED (incompatible with GNOME 50, dropped from nixpkgs)
       gnomeExtensions.freon # for monitoring CPU and GPU temps
       # gnomeExtensions.gamemode # "incompatible with current Gnome version"
       # gnomeExtensions.hide-top-bar # may be leading to instability with alt-tabbing freezing the GUI from fullscreen apps (games)
@@ -1294,10 +1301,10 @@ in
       bucklespring # for keyboard sounds
       # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
       # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
-      gnome.sushi # file previewer (just hit spacebar in Gnome Files)
+      sushi # file previewer (just hit spacebar in Gnome Files)
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
-      gnome.dconf-editor # for editing gnome settings
-      gnome.zenity # for zenity, a GUI dialog box tool
+      dconf-editor # for editing gnome settings
+      zenity # for zenity, a GUI dialog box tool
       nitrogen # wallpaper/desktop image manager
       dconf2nix # for converting dconf settings to nix
       home-manager # for managing user settings in Nix
@@ -1311,7 +1318,7 @@ in
       chez # Chez Scheme (useful for idris)
       gmp # GNU Multiple Precision Arithmetic Library
       # gnupg # installed separately in config elsewhere
-      pinentry # for gpg/gnupg password entry GUI. why does it not install this itself? ah, found out...
+      pinentry-gnome3 # gpg/gnupg password entry GUI (pkgs.pinentry meta removed; pick a flavor)
                # https://github.com/NixOS/nixpkgs/commit/3d832dee59ed0338db4afb83b4c481a062163771
       pkg-config # for compiling stuff
       # $%&* locales...

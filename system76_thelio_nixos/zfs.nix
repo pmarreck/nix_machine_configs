@@ -19,12 +19,12 @@
     mount /boot/efi
   '';
   boot.loader.grub.extraInstallCommands = ''
-  ESP_MIRROR=$(mktemp -d)
-  cp -r /boot/efi/EFI $ESP_MIRROR
-  for i in /boot/efis/*; do
-  cp -r $ESP_MIRROR/EFI $i
-  done
-  rm -rf $ESP_MIRROR
+    ESP_MIRROR=$(${pkgs.coreutils}/bin/mktemp -d)
+    ${pkgs.coreutils}/bin/cp -r /boot/efi/EFI $ESP_MIRROR
+    for i in /boot/efis/*; do
+     ${pkgs.coreutils}/bin/cp -r $ESP_MIRROR/EFI $i
+    done
+    ${pkgs.coreutils}/bin/rm -rf $ESP_MIRROR
   '';
   boot.loader.grub.devices = [
         "/dev/disk/by-id/ata-WDC_WD101FZBX-00ATAA0_VCKR0UGP"
