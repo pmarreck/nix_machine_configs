@@ -1572,6 +1572,20 @@ in
     # enableSSHSupport = true;
   };
 
+  # nix-ld: lets unpatched, generic-Linux dynamically-linked binaries run on
+  # NixOS — e.g. the official Claude Code install at ~/.local/bin/claude, whose
+  # ELF interpreter is /lib64/ld-linux-x86-64.so.2. Enabling this installs the
+  # real nix-ld loader there (replacing stub-ld) and auto-exports NIX_LD and
+  # NIX_LD_LIBRARY_PATH via sessionVariables (so you do NOT hand-set those).
+  # Add libraries here as `ldd <binary>` / runtime errors reveal missing .so's.
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      stdenv.cc.cc.lib # libstdc++ / libgcc_s (what most node/bun binaries need)
+      zlib
+    ];
+  };
+
   security = {
     # Don't ask for my password quite as often
     sudo.extraConfig = "Defaults timestamp_timeout=60";
