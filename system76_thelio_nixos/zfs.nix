@@ -2,6 +2,12 @@
 
 { boot.supportedFilesystems = [ "zfs" ];
   networking.hostId = "a3e8353c";
+  # Explicit (silences the 26.11 warning whose new default is false). Kept true:
+  # this is a single-host root pool, so force-importing lets it mount after an
+  # unclean shutdown (e.g. power loss) instead of dropping to an unbootable
+  # prompt. The data-loss risk of `true` is the multi-host shared-pool case,
+  # which does not apply here. Flip to false if this pool is ever shared.
+  boot.zfs.forceImportRoot = true;
   boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
   boot.loader.efi.efiSysMountPoint = "/boot/efi";
   boot.loader.efi.canTouchEfiVariables = false;

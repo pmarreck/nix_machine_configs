@@ -437,7 +437,7 @@ in
     # ...I'm not actually sure if this is working as advertised. Needs to be tested.
     kmscon = {
       enable = true;
-      hwRender = true;
+      config.hwaccel = true; # was services.kmscon.hwRender (renamed to config.hwaccel)
       # `autologinUser` removed -> moved to services.getty.autologinUser below.
       # `fonts` list removed -> font set via config.font-name (install fonts via fonts.packages if you want this exact one).
       config.font-name = "Terminus NerdFont";
@@ -448,58 +448,62 @@ in
     # Enable the X11 windowing system.
     xserver = {
       enable = true;
-      # Enable the GNOME Desktop Environment.
-      displayManager.gdm.enable = true;
-      desktopManager.gnome.enable = true;
-      # Reinstate the minimize/maximize buttons!
-      # To list all possible settings, try this:
-      # > gsettings list-schemas
-      # then pick one and use it here:
-      # > gsettings list-recursively <schema-name>
-      # Try to keep the settings groups in alphabetical order.
-      desktopManager.gnome.extraGSettingsOverrides = ''
-        [org.gnome.desktop.interface]
-        gtk-theme='Nordic'
-        text-scaling-factor=1.25
-
-        [org.gnome.desktop.wm.preferences]
-        button-layout=':minimize,maximize,close'
-        resize-with-right-button=true
-        theme='Nordic'
-
-        [org.gnome.nautilus.preferences]
-        always-use-location-entry=true
-
-        [org.gnome.settings-daemon.plugins.color]
-        night-light-enabled=true
-        night-light-temperature=2500
-        night-light-schedule-automatic=true
-
-        [org.gnome.SessionManager]
-        auto-save-session=true
-
-        [org.gtk.Settings.FileChooser]
-        sort-directories-first=false
-      '';
-        # mouse-button-modifier='<Alt>'
       # wayland wonky with nvidia, still — but disabling gdm.wayland is unsupported with GNOME 50 (option removed)
       # displayManager.gdm.wayland = false;
       # use nvidia card for xserver
       videoDrivers = ["nvidia"];
-      # Configure keymap in X11
-      xkbOptions = "mod_led:compose,compose:ralt,terminate:ctrl_alt_bksp,shift:breaks_caps";
-      layout = "us";
-      xkbVariant = "";
-      # Enable automatic login for the user.
-      displayManager.autoLogin.enable = false;
-      # if above is true, you'd still need to unlock the keyring anyway and sometimes that modal dialog gets stuck, forcing a reboot
-      displayManager.autoLogin.user = "pmarreck";
+      # Configure keymap in X11 (renamed: services.xserver.xkb.*)
+      xkb.options = "mod_led:compose,compose:ralt,terminate:ctrl_alt_bksp,shift:breaks_caps";
+      xkb.layout = "us";
+      xkb.variant = "";
       # Enable touchpad support (enabled default in most desktopManager).
       # libinput.enable = true;
       # try out windowmaker!
       # windowManager.windowmaker.enable = true;
       # displayManager.defaultSession = "none+windowmaker";
     };
+
+    # Display & desktop managers were renamed OUT of services.xserver.* in
+    # nixpkgs: services.xserver.displayManager.* -> services.displayManager.*,
+    # and services.xserver.desktopManager.gnome -> services.desktopManager.gnome.
+    # Enable GDM + the GNOME Desktop Environment.
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+    # Enable automatic login for the user.
+    displayManager.autoLogin.enable = false;
+    # if above is true, you'd still need to unlock the keyring anyway and sometimes that modal dialog gets stuck, forcing a reboot
+    displayManager.autoLogin.user = "pmarreck";
+    # Reinstate the minimize/maximize buttons!
+    # To list all possible settings, try this:
+    # > gsettings list-schemas
+    # then pick one and use it here:
+    # > gsettings list-recursively <schema-name>
+    # Try to keep the settings groups in alphabetical order.
+    desktopManager.gnome.extraGSettingsOverrides = ''
+      [org.gnome.desktop.interface]
+      gtk-theme='Nordic'
+      text-scaling-factor=1.25
+
+      [org.gnome.desktop.wm.preferences]
+      button-layout=':minimize,maximize,close'
+      resize-with-right-button=true
+      theme='Nordic'
+
+      [org.gnome.nautilus.preferences]
+      always-use-location-entry=true
+
+      [org.gnome.settings-daemon.plugins.color]
+      night-light-enabled=true
+      night-light-temperature=2500
+      night-light-schedule-automatic=true
+
+      [org.gnome.SessionManager]
+      auto-save-session=true
+
+      [org.gtk.Settings.FileChooser]
+      sort-directories-first=false
+    '';
+      # mouse-button-modifier='<Alt>'
 
     # Enable CUPS to print documents.
     printing.enable = true;
@@ -650,7 +654,7 @@ in
     # Samba
     samba = {
       enable = true;
-      enableWinbindd = true;
+      winbindd.enable = true; # was services.samba.enableWinbindd (renamed)
       # migrated from services.samba.extraConfig (removed) to services.samba.settings
       settings = {
         global = {
@@ -906,7 +910,7 @@ in
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
   hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
   services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
-  services.xserver.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen
+  services.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen (renamed out of services.xserver)
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
   # Enable sound with pipewire.
@@ -1045,7 +1049,7 @@ in
       # thunderbird # the venerable email client
       # evolutionWithPlugins # email client
       recoll # full-text search tool
-      moar # a better "less"
+      moor # a better "less" (moar was renamed to moor upstream in v2.0.0)
       stable.sequeler # gui for postgresql/mariadb/mysql/sqlite; very nice # downgraded to stable 6/13/2023 due to build failure on unstable
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
       gitkraken # git gui (as opposed to "git gud" I guess)
@@ -1078,7 +1082,7 @@ in
         hyperrogue # roguelike
         crawl # roguelike
         crawlTiles # roguelike
-        brogue # roguelike
+        brogue-ce # roguelike (use brogue-ce instead of brogue for updated releases)
         meritous # platformer
         egoboo # dungeon crawler
         sil # roguelike
@@ -1404,7 +1408,7 @@ in
       tree # view directory structure
       tokei # fast LOC counter
       p7zip # 7zip
-      xxHash # very fast hash
+      xxhash # very fast hash (renamed from xxHash)
       dcfldd # dd with progress bar and inline hash verification
       unrar # a rar extractor
       xclip # clipboard interaction
@@ -1451,7 +1455,7 @@ in
       nitrogen # wallpaper/desktop image manager
       dconf2nix # for converting dconf settings to nix
       home-manager # for managing user settings in Nix
-      xorg.xbacklight # for controlling screen brightness
+      xbacklight # for controlling screen brightness (renamed from xorg.xbacklight)
       cargo # rust package manager
       rustc # rust compiler
       gcc # C compiler
@@ -1494,18 +1498,18 @@ in
       openrazer-daemon # for razer stuff
       ## start WINE stuff
       # support both 32- and 64-bit applications
-      # wineWowPackages.unstableFull
+      # wineWow64Packages.unstableFull
       # support 32-bit only
       # wine
       # support 64-bit only
       # (wine.override { wineBuild = "wine64"; })
       # wine-staging (version with experimental features)
-      # wineWowPackages.staging
+      # wineWow64Packages.staging
       # winetricks (all versions)
       # winetricks
       # native wayland support (unstable)
-      # wineWowPackages.waylandFull
-      (wineWowPackages.unstableFull.override {
+      # wineWow64Packages.waylandFull
+      (wineWow64Packages.unstableFull.override {
         wineRelease = "staging";
         mingwSupport = true;
       })
