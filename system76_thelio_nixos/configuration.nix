@@ -1226,6 +1226,10 @@ in
       # system-wide in /etc/nix/nix.conf). TO UPDATE: bump the rev below to a newer
       # modem-dev/hunk commit, then `ixnay reify`. (When thelio finally migrates to
       # a flake-based config, replace this with a proper `inputs.hunk` + follows.)
+      # NB: evaluating this external flake instantiates nixpkgs across all default
+      # systems, so it (and ONLY it) emits the harmless "26.05 last to support
+      # x86_64-darwin" eval warning. Confirmed 2026-06-24 by toggling it off.
+      # Accepted — hunk stays. Don't go re-hunting that warning's source.
       (builtins.getFlake "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe").packages.x86_64-linux.default
 
       # ── app-parity batch (from ~/tower-app-parity.txt, 2026-06-13) ──────────────
