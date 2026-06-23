@@ -1301,8 +1301,16 @@ in
       # nix-darwin Mac) assume these. thelio (freshly resurrected) lacked them,
       # so `env: luajit: No such file or directory` aborted ~half of shell init
       # ("half my functions not loading"). luajit is the critical one.
-      luajit
-      luajitPackages.moonscript # `moonc` for moonrun/yuerun helpers
+      # NOTE: NOT plain `luajit` — it ships ZERO lua modules, so `require("lfs")`
+      # (LuaFileSystem) throws and breaks rm-safe + other dotfiles luajit scripts,
+      # even for env-scrubbed subprocess invocations. `luajit.withPackages` bakes the
+      # modules into luajit's OWN package.path/cpath so require() resolves anywhere.
+      # Mirrors ~/.config/nix/flake.nix `luajitWithPackages` (the synced Mac config).
+      (pkgs.luajit.withPackages (ps: with ps; [
+        alt-getopt basexx busted cjson lpeg lua_cliargs luabitop luacheck
+        luafilesystem luarocks luasocket luasystem moonscript penlight sqlite tl
+      ]))
+      luajitPackages.moonscript # `moonc` CLI for moonrun/yuerun (separate from the baked module)
       sd # sed-alternative the dotfiles call
       # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
       nordic # for nordic theme
