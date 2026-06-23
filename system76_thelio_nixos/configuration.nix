@@ -202,6 +202,24 @@ in
                      "rd.udev.log_level=2"
                      "udev.log_priority=2"
                      "nvidia_drm.modeset=1"
+                     # ┌─ GPU-HIDE TOGGLE (Darktide / dual-GPU XWayland fix) ─────────────┐
+                     # │ Hides the RTX 2080 Ti (PCI 21:00.0, vendor:device 10de:1e07) from │
+                     # │ the nvidia driver by handing it to pci_stub at boot. WHY: with    │
+                     # │ BOTH NVIDIA GPUs visible under GNOME 50 / Wayland, vkd3d-proton    │
+                     # │ logs "DXGI: monitors not associated with any adapter, using       │
+                     # │ fallback" (x17) and then "Surface is not supported for            │
+                     # │ presentation" -> swapchain create fails -> Darktide crashes at    │
+                     # │ startup. The monitor lives on the 3080 Ti (10de:2208); with two   │
+                     # │ adapters present, DXGI can't prove which one owns the surface.    │
+                     # │ Collapsing to a single visible GPU removes the ambiguity. This    │
+                     # │ worked implicitly on real Xorg in 2023 (single-adapter path).     │
+                     # │ COST: the 2080 Ti is unavailable for compute/offload while this   │
+                     # │ line is active. Pairs with pci_stub in initrd.kernelModules above │
+                     # │ (which must load FIRST). Comment this line out to restore the     │
+                     # │ 2080 Ti for compute. The 3080 Ti device-id is 10de:2208 (do NOT   │
+                     # │ stub that one — it drives the display).                           │
+                     # └───────────────────────────────────────────────────────────────────┘
+                     "pci-stub.ids=10de:1e07"
                      "video=3440x1440@100" # for virtual console resolution
                      "systemd.unified_cgroup_hierarchy=yes"
                      "systemd.gpt_auto=0" # so that systemd doesn't try to mount my zfs root before zfs is loaded
@@ -233,7 +251,12 @@ in
     # modules to load early in the boot process, for nicer boot splash at correct rez
     initrd = {
       verbose = false;
-      kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+      # NOTE: pci_stub is listed FIRST on purpose. It pairs with the
+      # "pci-stub.ids=10de:1e07" kernelParam below (the GPU-HIDE TOGGLE) and must
+      # claim the 2080 Ti before the nvidia driver probes it, or nvidia wins the
+      # race and the device stays visible. Order in this list = load order.
+      # Harmless when the pci-stub.ids param is absent (pci_stub just claims nothing).
+      kernelModules = [ "pci_stub" "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
     };
 
     # this may fix some zfs issues, but with something so important, caveat emptor
@@ -288,6 +311,13 @@ in
   };
 
   systemd = {
+    # Shutdown was hanging ~90s on a stuck unit, tempting a hard power-off (bad on
+    # a ZFS root). Drop the default stop timeout so a wedged unit is force-killed
+    # after 30s instead of 90s. Per-unit TimeoutStopSec / infinity still override.
+    # Applies on next rebuild + reboot. (If a hang recurs, read the console line
+    # "A stop job is running for <unit>" — that names the culprit to fix at root.)
+    # NB: nixpkgs-unstable removed `systemd.extraConfig`; use settings.Manager.
+    settings.Manager.DefaultTimeoutStopSec = "30s";
     user = {
       services = {
         # my custom grandfather clock gong script
@@ -869,7 +899,10 @@ in
   #   driSupport32Bit = true;
   # };
   # possible options for the following: https://discourse.nixos.org/t/solved-what-are-the-options-for-hardware-nvidia-package-docs-seem-out-of-date/14251
-  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.beta; #vulkan_beta;
+  # Rolled beta(595.45.04) -> production(595.80) 2026-06-22 to test whether the beta
+  # driver regressed NVIDIA Vulkan XWayland surface presentation (Darktide
+  # "Surface is not supported for presentation"). production is newer AND keeps both GPUs.
+  hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.production; # was .beta (595.45.04); .vulkan_beta also possible
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
   hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
   services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
@@ -1099,12 +1132,24 @@ in
   };
 
   programs = {
-    # Enable Steam # Note: using via flatpak for now due to incompatibilities
-    # steam = {
-    #   # enable = true;
-    #   remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    #   # dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-    # };
+    # Native Steam (FHS-wrapped) — migrating OFF flatpak 2026-06-20. The FHS
+    # env synthesizes the /usr/lib layout Steam expects, with full home/disk
+    # access (the thing flatpak's sandbox kept getting in the way of). Auto-
+    # enables 32-bit graphics libs.
+    steam = {
+      enable = true;
+      remotePlay.openFirewall = true; # Open ports for Steam Remote Play
+      # dedicatedServer.openFirewall = true;
+    };
+    # gamescope micro-compositor: gives games a presentable Vulkan surface,
+    # fixing the vkd3d "Surface is not supported for presentation" crash that
+    # NVIDIA + XWayland produces since GNOME 50 forced this box onto Wayland.
+    # Validated on the RTX 3080 Ti (vkcube renders). Launch games via Steam
+    # opts: gamescope --backend sdl -W 3440 -H 1440 -f -- %command%
+    gamescope = {
+      enable = true;
+      capSysNice = true;
+    };
     ssh.startAgent = true;
     gamemode.enable = true; # for steam
     dconf.enable = true;
@@ -1170,6 +1215,95 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
+      # hunk (github.com/modem-dev/hunk) — terminal-first diff viewer. It's a
+      # Bun/bun2nix FLAKE, not in nixpkgs. This machine is CHANNEL-based (no flake
+      # inputs), so we pull it declaratively via a REV-PINNED builtins.getFlake
+      # (the pin keeps `nixos-rebuild` eval pure/reproducible; flakes are enabled
+      # system-wide in /etc/nix/nix.conf). TO UPDATE: bump the rev below to a newer
+      # modem-dev/hunk commit, then `ixnay reify`. (When thelio finally migrates to
+      # a flake-based config, replace this with a proper `inputs.hunk` + follows.)
+      (builtins.getFlake "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe").packages.x86_64-linux.default
+
+      # ── app-parity batch (from ~/tower-app-parity.txt, 2026-06-13) ──────────────
+      # Present on BOTH the framework laptop AND the Mac but missing here after
+      # thelio sat untouched ~2.5 years. Each name mechanically verified to resolve
+      # in the current channel (nix eval) before adding; `mkdir` (not a pkg) and
+      # `sd` (already listed above) excluded. The laptop-only (93) and mac-only (31)
+      # tiers in that file are still pending deliberate selection.
+      zed-editor                    # the editor Peter asked for
+      jujutsu                       # jj — finally declarative (was ephemeral `nix run`)
+      coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
+      gh
+      bun
+      pnpm
+      nim
+      nixd
+      gemini-cli
+      aspell
+      bashInteractive
+      bat
+      capstone
+      circumflex
+      colordiff
+      dirb
+      exiftool
+      fclones
+      ffmpeg
+      fontconfig
+      gawkInteractive
+      ghostscript
+      gnugrep
+      gnused
+      jjui
+      less
+      libheif
+      libwebp
+      lz4
+      murex
+      nmap
+      nnn
+      nufmt
+      nushell
+      nushellPlugins.gstat
+      nushellPlugins.query
+      pandoc
+      par2cmdline-turbo
+      presenterm
+      procps
+      python312Packages.pygments
+      qpdf
+      sampler
+      sc-im
+      sourceHighlight
+      television
+      tesseract
+      trippy
+      unzip
+      vsce
+      wasm-tools
+      wazero
+      wdiff
+      wiper
+      xz
+      zoxide
+      zstd
+      # ────────────────────────────────────────────────────────────────────────────
+
+      # PaperWM — scrollable/carousel tiling for GNOME (the laptop's WM; line 106 of
+      # tower-app-parity.txt). Runs on GNOME *Wayland*, so GNOME dropping X11 does NOT
+      # force a switch to Niri, and the GNOME app/settings ecosystem stays. Package is
+      # channel-matched to GNOME 50; enable it in GNOME Extensions after reify.
+      gnomeExtensions.paperwm
+
+      tmux # system-wide so the fleet's non-interactive SSH (and the dorktide agent session) find it on PATH — no abs-path hack
+      # Lua toolchain — the SHARED dotfiles (also on framework-nixos + the
+      # nix-darwin Mac) assume these. thelio (freshly resurrected) lacked them,
+      # so `env: luajit: No such file or directory` aborted ~half of shell init
+      # ("half my functions not loading"). luajit is the critical one.
+      luajit
+      luajitPackages.moonscript # `moonc` for moonrun/yuerun helpers
+      sd # sed-alternative the dotfiles call
+      # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
       nordic # for nordic theme
       whitesur-gtk-theme
       whitesur-icon-theme
