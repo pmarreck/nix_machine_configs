@@ -1231,6 +1231,7 @@ in
       # `sd` (already listed above) excluded. The laptop-only (93) and mac-only (31)
       # tiers in that file are still pending deliberate selection.
       zed-editor                    # the editor Peter asked for
+      ghostty                       # terminal emulator (laptop-only tier; added on request)
       jujutsu                       # jj — finally declarative (was ephemeral `nix run`)
       coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
       gh
