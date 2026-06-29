@@ -139,6 +139,12 @@ in
       cleanOnBoot = true;
     };
     crashDump.enable = true;
+    # NFS client support: pulls in nfs-utils so `mount.nfs` exists. Without it,
+    # `mount -t nfs` (e.g. the `nas` helper) falls back to the in-kernel
+    # fsconfig() API and dies with "NFS: mount program didn't pass remote
+    # address". This is the userland mount helper, NOT a server. (nixpkgs
+    # nfs.nix: supportedFilesystems.nfs => system.fsPackages = [ nfs-utils ].)
+    supportedFilesystems = [ "nfs" ];
     loader = {
       ## I switched from systemd-boot to grub2 when I figured out how to get onto zfs root,
       ## and the defaults seemed to work fine, don't know enough about boot/EFI yet to mess with it
