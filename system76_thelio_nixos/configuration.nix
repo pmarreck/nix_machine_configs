@@ -1051,7 +1051,7 @@ in
       stable.gimp-with-plugins # drawing program # forced stable on 1/20/2023 due to build failure on unstable
       dunst # notification daemon for x11; wayland has "mako"; discord may crash without one of these
       # bluemail # email client # doesn't currently work...
-      mailspring # nice open-source email client
+      stable.mailspring # nice open-source email client # forced stable on 6/29/2026: base channel's mailspring 1.22.0 deadlocks at electron-packager during source build (self-pipe hang); stable channel (nixos-26.05) ships 1.21.1 as a cached binary, no source build
       # thunderbird # the venerable email client
       # evolutionWithPlugins # email client
       recoll # full-text search tool
@@ -1657,7 +1657,7 @@ in
     # autoupgrade?
     autoUpgrade.enable = false;
     autoUpgrade.allowReboot = false; # reboot if kernel changes?
-    autoUpgrade.channel = https://nixos.org/channels/nixos-22.05;
+    autoUpgrade.channel = https://nixos.org/channels/nixos-26.05; # bumped from stale 22.05 on 6/29/2026
   };
 
   ### Nix settings
