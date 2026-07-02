@@ -26,8 +26,17 @@ let
   # (I don't believe this should cause any problems)
   # and added a "stable" scope for any packages that break in unstable
   # so I can just downgrade them to stable on a case by case basis
+  # Shared nixpkgs config for the extra scopes (unstable/stable/master). Each is
+  # its own nixpkgs instantiation, so the base `nixpkgs.config` does NOT reach
+  # them — insecure/unfree permits must be declared here too. olm is an
+  # insecure-but-unavoidable transitive dep of the Matrix clients (stable.nheko,
+  # unstable.fluffychat).
+  scopeConfig = {
+    allowUnfree = true;
+    permittedInsecurePackages = [ "olm-3.2.16" ];
+  };
   unstable = import <nixos-unstable> {
-    config = { allowUnfree = true; };
+    config = scopeConfig;
     # overlays = [
     # # use native cpu optimizations
     # # note: NOT PURE
@@ -36,11 +45,19 @@ let
     #   })
     # ];
   };
-  stable = import <nixos-stable> {
-    config = { allowUnfree = true; };
-  };
+  # `stable` repointed 2026-07-02 from the EOL <nixos-stable> channel to a PINNED
+  # nixpkgs release-26.05 tarball — an in-config pin with NO nix-channel
+  # dependency: the light first step off channels toward flakes. This scope now
+  # serves stable.limo (mod manager) plus the existing stable.cudaPackages /
+  # stable.ripgrep-all, which modernize off the dead 22.11 snapshot.
+  # Bump rev+sha256 by hand, OR have `ixnay reify` auto-refresh all pins to
+  # simulate a rolling release (see pins-updater discussion).
+  stable = import (builtins.fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/721be2608f425037939026ef94839680fe67b9a4.tar.gz";
+    sha256 = "1sasm59a04cjvm3269ykir48fqqgh71dj4s5s4isp726jrx15nf5";
+  }) { config = scopeConfig; };
   master = import <nixos-master> {
-    config = { allowUnfree = true; };
+    config = scopeConfig;
   };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
@@ -113,6 +130,7 @@ in
   nixpkgs.config.permittedInsecurePackages = [
     "xrdp-0.9.9" # added 1/5/2023
     "mailspring-1.11.0" # added 10/9/2023
+    "olm-3.2.16" # added 2026-07-02 — transitive dep of nheko/fluffychat (Matrix); olm is deprecated-but-unavoidable for those clients until they move to vodozemac
   ];
 
   # Early console config. Note: Replaced by kmscon
@@ -916,6 +934,18 @@ in
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
   hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
   services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
+
+  # Tailscale (added 2026-07-02). Mesh VPN / WireGuard. After the first rebuild
+  # authenticate once with `sudo tailscale up` (opens a browser login). The
+  # `openFirewall` opens the UDP port used for direct (non-DERP-relayed)
+  # connections. `useRoutingFeatures = "both"` lets this box act as an exit node
+  # AND accept subnet routes; if you only ever use it as a plain client, "client"
+  # is enough. To advertise as an exit node: `sudo tailscale up --advertise-exit-node`.
+  services.tailscale = {
+    enable = true;
+    openFirewall = true;
+    useRoutingFeatures = "both";
+  };
   services.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen (renamed out of services.xserver)
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
@@ -965,7 +995,7 @@ in
       patchelf # for fixing up binaries in nix
       stable.cudaPackages.cudatoolkit # for tensorflow
       mono # for C#/.NET stuff
-      unstable.vscode # nice gui editor
+      # unstable.vscode # removed 2026-07-02 — migrated to Zed; VSCode only opened a blank window here anyway
       unstable.gnome-builder # code editor
       unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
       unstable.micro # sort of an enhanced nano
@@ -1081,7 +1111,7 @@ in
       # TUI and/or RPG games [
         angband # roguelike
         # zangband # error: Package ‘zangband-2.7.4b’ in ... is marked as broken, refusing to evaluate.
-        stable.tome2 # roguelike
+        # tome2 # roguelike — DISABLED 2026-07-02: broken across ALL scopes (stable/base 2.4-unstable-2025 snapshot fails on vendored jsoncons; unstable 2.4 fails on std::map/boost-mp11) — old C++ that won't compile under 26.05-era GCC. Re-enable via a stdenv/GCC-downgrade override or a pinned old nixpkgs rev where it last built.
         nethack # roguelike
         unnethack # roguelike
         harmonist # roguelike
@@ -1138,6 +1168,8 @@ in
       # nasc # REMOVED from nixpkgs (unmaintained, deprecated webkitgtk_4_0)
       csvkit # Various tools for working with CSV files such as csvlook, csvcut, csvsort, csvgrep, csvjoin, csvstat, csvsql, etc.
       unstable.csvquote # Wraps each field in a CSV file in quotes and escapes existing quotes and commas in the fields
+      stable.limo # Linux-native, Proton-prefix-aware mod manager (added 2026-07-02; from pinned nixpkgs release-26.05 via the `stable` scope)
+      libnotify # provides notify-send — desktop notifications for the peon-ping Claude hook (added 2026-07-05; pw-play/wpctl already cover its audio)
     ];
   };
 
@@ -1391,7 +1423,7 @@ in
       fzf # fuzzy finder
       master.visidata # https://github.com/saulpw/visidata
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
-      stable.nvtop # for GPU info # downgraded to stable on 6/23/2023 due to build failure on unstable
+      stable.nvtopPackages.nvidia # for GPU info # nvtop was restructured into nvtopPackages.* upstream; .nvidia matches this box's GPUs (was bare `stable.nvtop`, gone in 26.05)
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       dool # dstat's maintained fork (dstat removed from nixpkgs). e.g.: dool -cdnpmgs --top-bio --top-cpu --top-mem
       duc # disk usage visualization, highly configurable
