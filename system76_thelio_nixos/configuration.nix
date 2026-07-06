@@ -3,7 +3,10 @@
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
 # { config, pkgs, nixpkgs, stable, unstable, trunk, lib, home-manager, nixos-hardware, ... }:
-{ options, config, pkgs, lib, ... }:
+# `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix) — replaces
+# the old <nixos-unstable>/<nixos-master> NIX_PATH channel lookups. `system` is threaded to each
+# scope `import` because pure flake eval has no `builtins.currentSystem`. Migrated to flake 2026-07-05.
+{ options, config, pkgs, lib, inputs, system, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -35,7 +38,10 @@ let
     allowUnfree = true;
     permittedInsecurePackages = [ "olm-3.2.16" ];
   };
-  unstable = import <nixos-unstable> {
+  # `unstable` reuses the base flake input (nixos-unstable), instantiated separately with
+  # scopeConfig (no overlays) — matches the old `import <nixos-unstable> { config = scopeConfig; }`.
+  unstable = import inputs.nixpkgs {
+    inherit system;
     config = scopeConfig;
     # overlays = [
     # # use native cpu optimizations
@@ -45,20 +51,13 @@ let
     #   })
     # ];
   };
-  # `stable` repointed 2026-07-02 from the EOL <nixos-stable> channel to a PINNED
-  # nixpkgs release-26.05 tarball — an in-config pin with NO nix-channel
-  # dependency: the light first step off channels toward flakes. This scope now
-  # serves stable.limo (mod manager) plus the existing stable.cudaPackages /
-  # stable.ripgrep-all, which modernize off the dead 22.11 snapshot.
-  # Bump rev+sha256 by hand, OR have `ixnay reify` auto-refresh all pins to
-  # simulate a rolling release (see pins-updater discussion).
-  stable = import (builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/721be2608f425037939026ef94839680fe67b9a4.tar.gz";
-    sha256 = "1sasm59a04cjvm3269ykir48fqqgh71dj4s5s4isp726jrx15nf5";
-  }) { config = scopeConfig; };
-  master = import <nixos-master> {
-    config = scopeConfig;
-  };
+  # `stable` now follows the flake input `nixpkgs-2605` (release-26.05 branch — see
+  # /etc/nixos/flake.nix); `nix flake update` / `ixnay reify --upgrade` rolls it. This
+  # supersedes the previous in-config tarball pin (rev 721be26… release-26.05). Serves
+  # stable.limo (mod manager) plus stable.cudaPackages / stable.ripgrep-all.
+  stable = import inputs.nixpkgs-2605 { inherit system; config = scopeConfig; };
+  # `master` scope dropped 2026-07-05 during the flake migration — on an unstable base it
+  # bought little and risked eval breakage. Its former refs now use `unstable.*`.
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
@@ -66,12 +65,11 @@ let
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR26.elixir_1_15;
   # libretro = stable.libretro;
-  comma = (import (pkgs.fetchFromGitHub {
-    owner = "nix-community";
-    repo = "comma";
-    rev = "v1.6.0";
-    sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
-  })).default;
+  # `comma` (run any nixpkgs program without installing) is packaged in nixpkgs itself now, so
+  # use pkgs.comma directly. The old GitHub import (nix-community/comma v1.6.0) was a flake-compat
+  # shim relying on impure eval (`builtins.currentSystem`); it broke under pure flake eval with
+  # "attribute 'default' missing". Now tracks the maintained nixpkgs build. 2026-07-05 flake migration.
+  comma = pkgs.comma;
   # nix-software-center = (import (pkgs.fetchFromGitHub {
   #   owner = "vlinkz";
   #   repo = "nix-software-center";
@@ -346,8 +344,12 @@ in
       services = {
         # my custom grandfather clock gong script
         clocksound = let
-          scriptUrl = "https://gist.githubusercontent.com/pmarreck/2a2de1a5227383625829fdaf9b50c4a3/raw/d0a987055b83bf2fa5a0500ce2c948fd175fa4f1/grandfather_clock_chime.bash";
-          scriptContent = builtins.readFile (builtins.fetchurl scriptUrl);
+          # Vendored 2026-07-05 from the pinned gist permalink to make this pure/self-contained
+          # under flake eval (was `builtins.readFile (builtins.fetchurl scriptUrl)` — an eval-time
+          # network fetch that breaks pure eval). Source gist:
+          # https://gist.github.com/pmarreck/2a2de1a5227383625829fdaf9b50c4a3
+          # Refresh by re-fetching the raw gist into ./clocksound.bash.
+          scriptContent = builtins.readFile ./clocksound.bash;
           scriptFile = pkgs.writeShellScriptBin "clocksound" ''
             export PATH="${pkgs.mpv}/bin:$PATH"
             ${scriptContent}
@@ -997,9 +999,9 @@ in
       mono # for C#/.NET stuff
       # unstable.vscode # removed 2026-07-02 — migrated to Zed; VSCode only opened a blank window here anyway
       unstable.gnome-builder # code editor
-      unstable.o # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
+      unstable.orbiton # Simple text editor/IDE intentionally limited to VT100 (pkg `o` renamed to `orbiton`); https://github.com/xyproto/o
       unstable.micro # sort of an enhanced nano
-      master.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
+      unstable.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       # postgresql # the premier open-source database # we are only using project-based pg's for now
       # asdf-vm # version manager for many languages
       python311Packages.pygments # syntax highlighting for 565 languages in terminal
@@ -1066,8 +1068,11 @@ in
       discord # chat app for gamers
       # razergenie # razer mouse/keyboard config tool. disabled because seems lamer than polychromatic
       polychromatic # razer mouse/keyboard config tool
-      master.whatsapp-for-linux # whatsapp desktop client
-      master.signal-desktop # signal desktop client
+      # whatsapp-for-linux REMOVED from nixpkgs 2026 (unmaintained, archived upstream) during the
+      # flake migration. nixpkgs suggests `karere` as a replacement, but that's a DIFFERENT client —
+      # left for Peter to choose (adopt karere, or just use web.whatsapp.com). Was: unstable.whatsapp-for-linux
+      # unstable.karere # whatsapp desktop client (uncomment to adopt the suggested replacement)
+      unstable.signal-desktop # signal desktop client
       telegram-desktop # chat app
       transmission_4-gtk # torrent client (renamed from transmission-gtk in 24.11)
       bfs # better, breadth-first search
@@ -1390,7 +1395,7 @@ in
       # obtaining files:
       wget # wget is better than curl because it will resume with exponential backoff
       curl # curl is better than wget because it supports more protocols
-      master.youtube-dl # for downloading videos from youtube and other sites
+      unstable.yt-dlp # for downloading videos from youtube and other sites (youtube-dl was marked insecure/EOL — last release 2021; yt-dlp is the maintained drop-in fork, matching this file's own "use yt-dlp instead" guidance below). 2026-07-05 flake migration
       ytmdl # for downloading music from youtube
       # clipgrab # REMOVED from nixpkgs (unmaintained since 2022, vulnerable qt5 webengine); use yt-dlp instead
       sshfs # for mounting remote filesystems
@@ -1421,7 +1426,7 @@ in
       sysz # An fzf-based terminal UI for systemctl
       ranger # file manager
       fzf # fuzzy finder
-      master.visidata # https://github.com/saulpw/visidata
+      unstable.visidata # https://github.com/saulpw/visidata
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
       stable.nvtopPackages.nvidia # for GPU info # nvtop was restructured into nvtopPackages.* upstream; .nvidia matches this box's GPUs (was bare `stable.nvtop`, gone in 26.05)
       # sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
@@ -1555,8 +1560,8 @@ in
         wineRelease = "staging";
         mingwSupport = true;
       })
-      master.winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
-      master.protontricks # automates installing winetricks packages for proton
+      unstable.winetricks # winetricks is a helper script to download and install various redistributable runtime libraries needed to run some programs in Wine.
+      unstable.protontricks # automates installing winetricks packages for proton
       ## end WINE stuff
 
       # stuff for my specific hardware
@@ -1672,11 +1677,11 @@ in
   ##### System level configs
 
   system = {
-    # Copy the NixOS configuration file and link it from the resulting system
-    # (/run/current-system/configuration.nix). This is useful in case you
-    # accidentally delete configuration.nix (which you should have source-controlled, anyway!).
-    # Note: Also source-control hardware-configuration.nix, FYI!
-    copySystemConfiguration = true;
+    # copySystemConfiguration copied /etc/nixos/configuration.nix into the system closure.
+    # It is UNSUPPORTED under flakes (a flake is a whole tree, not one file) and now hard-errors,
+    # so it is disabled by the flake migration (2026-07-05). The config is source-controlled here
+    # (jj repo at /etc/nixos) which supersedes the "in case you delete it" rationale anyway.
+    copySystemConfiguration = false;
 
     # This value determines the NixOS release from which the default
     # settings for stateful data, like file locations and database versions
@@ -1686,10 +1691,12 @@ in
     # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
     stateVersion = "22.05"; # Did you read the comment?
 
-    # autoupgrade?
+    # autoupgrade? (disabled — `ixnay reify` is the sole rebuild path)
     autoUpgrade.enable = false;
     autoUpgrade.allowReboot = false; # reboot if kernel changes?
-    autoUpgrade.channel = https://nixos.org/channels/nixos-26.05; # bumped from stale 22.05 on 6/29/2026
+    # Flake-based target (replaces the meaningless-under-flakes `autoUpgrade.channel`).
+    # Only consulted if autoUpgrade.enable is ever flipped to true.
+    autoUpgrade.flake = "/etc/nixos#nixos";
   };
 
   ### Nix settings

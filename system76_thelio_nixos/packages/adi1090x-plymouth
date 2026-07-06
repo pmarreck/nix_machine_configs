@@ -1,17 +1,16 @@
-{
-  pkgs ? import <nixpkgs> {}
-}:
-pkgs.stdenv.mkDerivation rec {
+{ stdenv, fetchFromGitHub }:
+stdenv.mkDerivation rec {
   pname = "adi1090x-plymouth";
   version = "0.0.1";
 
-  src = builtins.fetchGit {
-    url = "https://github.com/adi1090x/plymouth-themes";
+  # Pinned 2026-07-05 for pure flake eval (was a hashless builtins.fetchGit).
+  # rev = current HEAD of the (unchanged since 2024) master branch.
+  src = fetchFromGitHub {
+    owner = "adi1090x";
+    repo = "plymouth-themes";
+    rev = "5d8817458d764bff4ff9daae94cf1bbaabf16ede";
+    sha256 = "1v0fx2d6am33bswq13ck5kmlq0nd88jcnyaab2f443kkh2052ybv";
   };
-
-  buildInputs = [
-    pkgs.git
-  ];
 
   configurePhase = ''
     mkdir -p $out/share/plymouth/themes/
