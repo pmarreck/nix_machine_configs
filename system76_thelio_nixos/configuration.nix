@@ -108,6 +108,10 @@ in
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./zfs.nix
+      ./ollama.nix   # local inference backend for codescan (Ollama-CUDA, 2× NVIDIA) — Einstein 2026-07-07
+      ./mechatron-prime-attic.nix   # tailnet-local binary cache for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
@@ -974,7 +978,7 @@ in
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
-    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" ];
+    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" "kvm" ];
     shell = pkgs.bash;
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
 
@@ -1038,10 +1042,13 @@ in
       filezilla # it's no Transmit.app, but it'll do
       rclone # rsync for cloud storage
       rclone-browser # GUI for rclone
+      remmina # remote-desktop client (VNC/RDP/SSH/SPICE) — e.g. connect to a Mac's built-in Screen Sharing (VNC) over Tailscale
+      rustdesk # modern P2P remote-desktop (own fast codec, clipboard/file xfer) — smoother than VNC for the Mac; ride Tailscale w/ direct connection
       free42 # hp-42S reverse-engineered from the ground up
       # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
       unstable.ollama # llms in the terminal
+      unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)
       # mathematica # because why the heck not?
       # actually, NOPE:
       # This nix expression requires that Mathematica_13.0.1_BNDL_LINUX.sh is
@@ -1340,6 +1347,12 @@ in
       zoxide
       zstd
       # ────────────────────────────────────────────────────────────────────────────
+
+      # QEMU/KVM VM tooling. Quickemu covers Windows/Linux guests and can also
+      # drive macOS guests; virtio-win/win-spice provide Windows guest drivers.
+      quickemu
+      virtio-win
+      win-spice
 
       # PaperWM — scrollable/carousel tiling for GNOME (the laptop's WM; line 106 of
       # tower-app-parity.txt). Runs on GNOME *Wayland*, so GNOME dropping X11 does NOT
@@ -1650,6 +1663,10 @@ in
     #   }
     # ];
   };
+
+  # Quickemu/QEMU guest conveniences. This installs the SPICE USB helper so
+  # unprivileged sessions can redirect selected USB devices into VMs.
+  virtualisation.spiceUSBRedirection.enable = true;
 
   # Docker and other VM options
   virtualisation.docker = {
