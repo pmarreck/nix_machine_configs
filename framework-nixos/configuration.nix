@@ -125,6 +125,9 @@ in
     trusted-users = [ "root" "pmarreck" ];
   };
 
+  # Avoid building fragile package HTML docs as part of the system profile.
+  documentation.doc.enable = false;
+
   # Overlays
   nixpkgs.overlays = [
     # use native cpu optimizations
