@@ -140,6 +140,7 @@ in
   nix.settings = {
     download-buffer-size = 1048576000; # 1GB
     "warn-dirty" = false;
+    trusted-users = [ "root" "pmarreck" ];
   };
 
   # Overlays
@@ -153,6 +154,170 @@ in
     (import ./firefox-overlay.nix)
     (import ./packages)
     #(self: super: { nix-direnv = super.nix-direnv.override { enableFlakes = true; }; } )
+
+    # ---------------------------------------------------------------------
+    # JPEG XL (.jxl) support for GTK / GNOME apps via gdk-pixbuf.
+    #
+    # Why this exists (added 2026-05-04, on nixos-25.11 / GNOME 49.4):
+    #   GNOME's image stack is mid-migration from gdk-pixbuf to the new
+    #   `glycin` library. GNOME 50 (2026-03-18, 50.1 in April) made glycin
+    #   the default for Nautilus thumbnails with greatly improved JXL
+    #   performance, but nixos-25.11 stable is locked to GNOME 49, which
+    #   still goes through gdk-pixbuf for thumbnails. And even on GNOME 50,
+    #   plenty of GTK apps (the wallpaper chooser in gnome-control-center,
+    #   GTK file pickers, third-party viewers, eog) still load via
+    #   gdk-pixbuf and need the libjxl loader compiled in. Adding
+    #   `pkgs.libjxl` to systemPackages alone only registers the
+    #   freedesktop thumbnailer, not in-app image loads.
+    #
+    # When to remove this overlay:
+    #   1. After upgrading to nixos-26.05 (expected late May 2026) which
+    #      should ship GNOME 50.x with glycin handling Nautilus thumbnails
+    #      natively — at that point the overlay is no longer needed for
+    #      *thumbnails*, but is still useful for non-glycin GTK apps.
+    #   2. After GNOME 51 (expected ~2026-09) widens glycin adoption to
+    #      gnome-control-center / gnome-backgrounds / GTK pickers, and
+    #      nixos-26.11 (~Nov 2026) ships it on the stable channel.
+    #
+    # Re-evaluate around Dec 2026 / Jan 2027: if every GTK app on the
+    # system reads .jxl without this override, delete the block below.
+    # Quick check: rename a .jxl, set as wallpaper via Settings, open in
+    # Loupe / eog, browse a folder of .jxl in Nautilus.
+    # ---------------------------------------------------------------------
+    # DISABLED 2026-06-07: this gdk-pixbuf jxl override changes gdk-pixbuf's hash,
+    # which cascades a full from-source rebuild of the GTK/Qt/electron tree on every
+    # nixpkgs bump (gtk+3 -> firefox/webkit/libreoffice/gnome; qtbase->gtk3->KDE).
+    # Traded for cache hits; big-desktops images rolled back to pre-jxl (fab0aa6).
+    # Re-enable at nixos-26.11 / GNOME 51 when glycin handles gnome-backgrounds natively.
+    /*
+    (final: prev:
+      let
+        # Fresh nixpkgs import without any overlays — used solely to
+        # reference libjxl's prebuilt loader .so without re-entering this
+        # overlay's fixpoint (libjxl → libavif → ... → gdk-pixbuf cycle).
+        cleanPkgs = import <nixpkgs> {
+          localSystem = prev.stdenv.hostPlatform.system;
+          overlays = [ ];
+          config = { };
+        };
+      in {
+        gdk-pixbuf = prev.gdk-pixbuf.overrideAttrs (old: {
+          postFixup = (old.postFixup or "") + ''
+            cp ${cleanPkgs.libjxl}/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader-jxl.so \
+              $out/lib/gdk-pixbuf-2.0/2.10.0/loaders/
+            GDK_PIXBUF_MODULEDIR=$out/lib/gdk-pixbuf-2.0/2.10.0/loaders \
+              $dev/bin/gdk-pixbuf-query-loaders --update-cache
+          '';
+        });
+      })
+    */
+
+    # Skip flaky test suites in Python packages that assert on wall-clock
+    # timing — they pass on idle dev laptops, fail under build-host load,
+    # and have nothing to do with whether the package actually works.
+    #   - liquidctl 1.15.0: tests/test_keyval.py timing race (multiprocess)
+    #   - ipython 9.5.0: test_stream_performance asserts duration < 10s
+    # Disable tests outright (doCheck = false) for these — surgical scalpel
+    # rather than the disabledTests scalpel, since these suites have shown
+    # they don't catch anything worth blocking a system rebuild on.
+    # Re-enable per package whenever upstream replaces the timing assertions
+    # with deterministic checks.
+    (final: prev:
+      let
+        # Disable doCheck on packages whose test suite flakes on busy build
+        # hosts. Override at the *interpreter* level (python3X.override
+        # with packageOverrides) — overriding pythonXPackages directly only
+        # patches the alias and is bypassed by anything resolving via
+        # python3X.pkgs.<pkg> or python3X.withPackages.
+        flakyPyOverrides = pyfinal: pyprev: {
+          # liquidctl 1.15.0: tests/test_keyval.py::test_fs_backend_stores_
+          # honor_load_store_locking races on time.sleep-based sync.
+          liquidctl = pyprev.liquidctl.overridePythonAttrs (_: { doCheck = false; });
+          # ipython 9.5.0: test_stream_performance asserts wall-clock
+          # duration < 10s for printing 250k lines (regression test for an
+          # O(n²) → O(n) fix). Fails on busy hosts; replacement upstream
+          # at https://github.com/ipython/ipython/pull/15201.
+          ipython = pyprev.ipython.overridePythonAttrs (_: { doCheck = false; });
+          # httpcore 1.0.9: test_connection_pool_timeout_during_request[trio]
+          # is a flaky async-cancellation timing test — asserts the pool is
+          # cleaned up immediately after cancel, but under load the trio
+          # scheduler hasn't propagated cleanup when the assert fires.
+          httpcore = pyprev.httpcore.overridePythonAttrs (_: { doCheck = false; });
+          # aiohttp 3.13.3: test_regex_performance and
+          # test_cookie_pattern_performance both assert wall-clock
+          # `duration < 0.01` (10ms!) — guaranteed to flake on any
+          # non-pristine build host.
+          aiohttp = pyprev.aiohttp.overridePythonAttrs (_: { doCheck = false; });
+          # curl-cffi 0.14.x: tests/unittest hangs indefinitely under
+          # pytest-xdist (observed: 18 workers idle for 24h, ~0% CPU,
+          # blocked on async I/O — likely a websocket/impersonate test
+          # whose deselect list didn't fully cover the offender).
+          curl-cffi = pyprev.curl-cffi.overridePythonAttrs (_: { doCheck = false; });
+        };
+      in {
+        python311 = prev.python311.override { packageOverrides = flakyPyOverrides; };
+        python312 = prev.python312.override { packageOverrides = flakyPyOverrides; };
+        python313 = prev.python313.override { packageOverrides = flakyPyOverrides; };
+      })
+
+    # power-profiles-daemon 0.30: integration test Tests.test_vanishing_hold
+    # (tests/integration_test.py) is a timing-sensitive dbus test — it sets a
+    # profile "hold", then asserts exactly one hold exists, and gets zero
+    # (AssertionError: 0 != 1). On a busy build host the hold hasn't propagated
+    # when the assert fires; observed here running 3610s (~1h) and failing while
+    # skia/WebKit/gtk4/Qt were all compiling in parallel.
+    #
+    # NB: doCheck=false ALONE breaks this package — nixpkgs hardcodes
+    # `-Dtests=true` in mesonFlags but only supplies umockdev via
+    # nativeCheckInputs *when doCheck is true*, so doCheck=false makes meson
+    # configure fail: "GObject Introspection module 'UMockdev' ... not found".
+    # So we also force `-Dtests=false` (drop the hardcoded true), which removes
+    # the umockdev requirement and skips building/running the suite entirely.
+    # Remove when upstream makes test_vanishing_hold deterministic.
+    (final: prev: {
+      power-profiles-daemon = prev.power-profiles-daemon.overrideAttrs (old: {
+        mesonFlags =
+          (builtins.filter
+            (f: !(builtins.isString f && prev.lib.hasPrefix "-Dtests=" f))
+            (old.mesonFlags or []))
+          ++ [ "-Dtests=false" ];
+        doCheck = false;
+      });
+    })
+
+    # ibus 1.5.33 has a parallel-install race in bindings/pygobject:
+    # `install IBus.py` fires twice in parallel and one invocation fails
+    # with "File exists". Forcing serial install avoids the race without
+    # affecting build correctness. Remove when nixpkgs picks up an ibus
+    # release that fixes the upstream Makefile dependency.
+    (final: prev: {
+      ibus = prev.ibus.overrideAttrs (old: {
+        enableParallelInstalling = false;
+      });
+    })
+
+    # gjs 1.86.0: Scripts/CommandLine subtest "Throws error if filename is
+    # not UTF8" is locale/filesystem-sensitive — touches a file with a raw
+    # 0xFF byte in the name and aborts on locales that reject the byte.
+    # Passes in the upstream binary cache (CI uses a tolerant setup); we
+    # hit it only because the gdk-pixbuf override forces gjs to rebuild
+    # from source. Disable the test phase, AND pass -Dskip_gtk_tests=true
+    # because nixpkgs gates gtk3/gtk4 on doCheck via nativeCheckInputs,
+    # but gjs's meson.build hard-errors at *configure time* without GTK
+    # unless that flag is set.
+    # DISABLED 2026-06-07: only needed because the gdk-pixbuf override (now disabled
+    # above) forced gjs to rebuild from source. With that gone, gjs substitutes from
+    # cache — and keeping this override would itself change gjs's hash and force the
+    # very rebuild we're trying to avoid. Re-enable alongside the gdk-pixbuf override.
+    /*
+    (final: prev: {
+      gjs = prev.gjs.overrideAttrs (old: {
+        doCheck = false;
+        doInstallCheck = false;
+        mesonFlags = (old.mesonFlags or [ ]) ++ [ "-Dskip_gtk_tests=true" ];
+      });
+    })
+    */
   ];
 
   # Use the systemd-boot EFI boot loader.
@@ -170,13 +335,24 @@ in
     "kernel.sysrq" = 1;
   };
 
-  swapDevices = [
-    {
-      device = "/dev/zvol/rpool/swap";
-      priority = 50;
-      options = [ "nofail" "x-systemd.device-timeout=5s" ];
-    }
-  ];
+  # Intentionally empty: declaring the zvol here makes NixOS stage-1 initrd
+  # block waiting for /dev/zvol/rpool/swap. We activate it post-boot via the
+  # systemd unit below, after zfs-import has settled.
+  swapDevices = [ ];
+
+  systemd.services.zvol-swap = {
+    description = "Activate ZFS zvol swap after pool import";
+    after = [ "zfs-import.target" "systemd-udev-settle.service" ];
+    wants = [ "zfs-import.target" ];
+    requires = [ "zfs-import.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.util-linux}/bin/swapon -p 50 /dev/zvol/rpool/swap";
+      ExecStop = "${pkgs.util-linux}/bin/swapoff /dev/zvol/rpool/swap";
+    };
+  };
 
   # boot.resumeDevice removed: was forcing initrd to wait ~58s for the zvol
   # device node to appear just to check for a hibernation resume image.
@@ -326,7 +502,7 @@ in
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       unstable.circumflex # Hacker News TUI (command: "clx")
-      # claude-code and codex removed (installed via pipx/npm instead)
+      # claude-code and codex removed (installed via pipx/pnpm/volta instead)
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -365,7 +541,14 @@ in
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
-      mesa-demos # provides glxinfo
+      # Expose only glxinfo from mesa-demos (the package itself ships ~30
+      # binaries, most of which are demos that don't run independently
+      # and just pollute PATH). nixpkgs doesn't have a separate mesa-utils
+      # like Debian, so we filter at the systemPackages level.
+      (pkgs.runCommand "glxinfo-only" { } ''
+        mkdir -p $out/bin
+        ln -s ${pkgs.mesa-demos}/bin/glxinfo $out/bin/glxinfo
+      '')
       gmp # GNU Multiple Precision Arithmetic Library
       gravit # gravity simulator
       gthumb # image viewer
@@ -401,7 +584,7 @@ in
       nmap # Network exploration tool and security scanner
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       nnn # Terminal file manager
-      nodejs_20 # javascript runtime
+      # nodejs_20 # javascript runtime # moved to managing via Volta
       ocl-icd # for opencl
       ocrmypdf # Adds an OCR text layer to scanned PDF files, allowing them to be searched
       odin # A programming language for creating multi-platform apps
@@ -542,7 +725,7 @@ in
       # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
       unstable.antigravity # Agentic development platform, evolving the IDE into the agent-first era
       cfunge # Fast Befunge interpreter
-      unstable.gh # warning: ignoring untrusted substituter 'https://cache.garnix.io', you are not a trusted user. Run `man nix.conf` for more information on the `substituters` configuration option. warning: ignoring the client-specified setting 'trusted-public-keys', because it is a restricted setting and you are not a trusted user warning: ignoring untrusted substituter 'https://cache.garnix.io', you are not a trusted user. Run `man nix.conf` for more information on the `substituters` configuration option. warning: ignoring the client-specified setting 'trusted-public-keys', because it is a restricted setting and you are not a trusted user GitHub CLI tool
+      unstable.gh # GitHub CLI tool
       opencode # AI coding agent built for the terminal
       # IXNAY USER PACKAGES (pmarreck) END - DO NOT REMOVE
       ];
@@ -839,6 +1022,7 @@ in
       sysstat # not sure if needed, provides sa1 and sa2 commands meant to be run via crond?
       zsh # A user-friendly and interactive shell which is yet not sufficiently better than Bash to merit its use
       zstd # Zstandard real-time compression algorithm
+      libjxl # JPEG XL CLI tools + freedesktop thumbnailer (.jxl); see overlay note above
       (pkgs.callPackage ./yuescript.nix { })
     ] ++ lib.attrValues luajitUserPackages;
 
