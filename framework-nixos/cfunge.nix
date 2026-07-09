@@ -1,29 +1,22 @@
 { lib
 , stdenv
+, fetchFromGitHub
 , cmake
 , pkg-config
 , ncurses
 , libbsd
 }:
 
-let
-  src = builtins.fetchGit {
-    url = "https://github.com/VorpalBlade/cfunge";
-    ref = "master";
-  };
-
-  shortRev =
-    lib.optionalString (src ? rev)
-      (lib.substring 0 7 src.rev);
-
-  version =
-    if shortRev == ""
-    then "unstable"
-    else "unstable-${shortRev}";
-in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   pname = "cfunge";
-  inherit version src;
+  version = "unstable-29e4cfa";
+
+  src = fetchFromGitHub {
+    owner = "VorpalBlade";
+    repo = "cfunge";
+    rev = "29e4cfa1cc1f4553bf0e2908f819e913c32dfda8";
+    hash = "sha256-Vb1Cg4h+uDk4I8XFnTnoS1LsHQVH1xg58wDpEeZF/R8=";
+  };
 
   nativeBuildInputs = [
     cmake

@@ -2,30 +2,22 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, ... }:
-# add unstable channel definition for select packages, with unfree permitted
-# Note that prior to this working you need to run:
-# sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
-# to add to global channels and for user channels run
-# nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
-# for hardware-specific packages
-# sudo nix-channel --add https://github.com/NixOS/nixos-hardware/archive/master.tar.gz nixos-hardware
-# sudo nix-channel --update
-
-# ❯ sudo nix-channel --list
-# nixos https://nixos.org/channels/nixos-unstable
-# nixos-hardware https://github.com/NixOS/nixos-hardware/archive/master.tar.gz
-# nixos-master https://github.com/NixOS/nixpkgs/archive/master.tar.gz
-# nixos-stable https://nixos.org/channels/nixos-22.11
-# nixos-unstable https://nixos.org/channels/nixos-unstable
+{ config, lib, pkgs, inputs, system, ... }:
+# `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix).
+# This replaces the old <nixos-unstable>/<nixos-stable>/<nixos-hardware> channel
+# lookups while keeping the host-specific package scopes in this module.
 let
   # FYI: My system got switched to unstable,
   # but I left in the unstable scoping for my original "unstable" packages
   # (I don't believe this should cause any problems)
   # and added a "stable" scope for any packages that break in unstable
   # so I can just downgrade them to stable on a case by case basis
-  unstable = import <nixos-unstable> {
-    config = { allowUnfree = true; };
+  scopeConfig = {
+    allowUnfree = true;
+  };
+  unstable = import inputs.nixpkgs {
+    inherit system;
+    config = scopeConfig;
     # overlays = [
     # # use native cpu optimizations
     # # note: NOT PURE
@@ -34,12 +26,7 @@ let
     #   })
     # ];
   };
-  stable = import <nixos-stable> {
-    config = { allowUnfree = true; };
-  };
-  master = import <nixos-master> {
-    config = { allowUnfree = true; };
-  };
+  stable = import inputs.nixpkgs-2605 { inherit system; config = scopeConfig; };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
@@ -47,12 +34,7 @@ let
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR28.elixir_1_18;
   # libretro = stable.libretro;
-  comma = (import (pkgs.fetchFromGitHub {
-    owner = "nix-community";
-    repo = "comma";
-    rev = "v1.6.0";
-    sha256 = "sha256-5HNH/Lqj8OU/piH3tvPRkINXHHkt6bRp0QYYR4xOybE=";
-  })).default;
+  comma = pkgs.comma;
   opencode = pkgs.callPackage ./opencode.nix { };
   cfunge = pkgs.callPackage ./cfunge.nix { };
   # roc is dynamically compiled, so it's not usable in NixOS yet
@@ -125,7 +107,7 @@ in
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./low-memory-notify.nix
-      <nixos-hardware/framework/16-inch/7040-amd>
+      inputs.nixos-hardware.nixosModules.framework-16-7040-amd
     ];
 
   nixpkgs.config.allowUnfree = true;
@@ -323,6 +305,9 @@ in
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  # Preserve the pre-26.11 root-pool import behavior explicitly. This is a
+  # single-host root pool; set false if the pool is ever shared across machines.
+  boot.zfs.forceImportRoot = true;
 
   # Provide compressed swap in RAM (minimal SSD wear, decent burst capacity).
   zramSwap = {
@@ -572,7 +557,8 @@ in
       mailspring # nice open-source email client
       unstable.gum # looks like a super cool TUI tool for shell scripts: https://github.com/charmbracelet/gum
       unstable.signal-desktop # signal desktop client
-      unstable.wasistlos # whatsapp desktop client
+      # wasistlos was removed from nixpkgs after upstream archived it.
+      # unstable.karere # whatsapp desktop client replacement; enable if wanted
       meritous # Action-adventure dungeon crawl game
       moor # a better "less"
       mono # for C#/.NET stuff
@@ -601,16 +587,16 @@ in
       procps # Utilities that give information about processes
       # proton-caller # removed in nixos-25.11 (unmaintained)
       python312Packages.pygments # Syntax highlighting library
-      python311Packages.conda # python package manager (ew. but need it for LLM's)
+      conda # python package manager (ew. but need it for LLM's)
       python311Packages.pandas # for data analysis
       python311Packages.pillow # for image processing
       python311Packages.pip # for pip
       python311Packages.pygments # syntax highlighting for 565 languages in terminal
       python311Packages.python # python interpreter
       python311Packages.tkinter # for tkinter
-      python311Packages.torch-bin
-      python311Packages.torchaudio-bin
-      python311Packages.torchvision-bin
+      # python311Packages.torch-bin # disabled on 26.x: PyTorch expects newer CUDA bindings than nixpkgs provides
+      # python311Packages.torchaudio-bin
+      # python311Packages.torchvision-bin
       python311Packages.virtualenv # for virtualenv
       qalculate-gtk # very cool calculator
       qFlipper # for Flipper Zero
@@ -654,7 +640,7 @@ in
       stable.pbzip2 # Parallel implementation of bzip2 (pinned to stable)
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
-      silver-searcher # Code-searching tool similar to ack, but faster
+      silver-searcher-ng # Maintained fork of silver-searcher with PCRE2 support
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       stable.spotifyd # spotify streamer daemon
       starship # cool prompt
@@ -694,7 +680,7 @@ in
       unstable.wasmtime.out # wasm runtime
       unstable.wazero # Zero dependency WebAssembly runtime written in Go, currently the fastest wasm runner
       wdiff # A front end to diff for comparing files on a word per word basis
-      unstable.windsurf # the agentic AI code editor
+      unstable.devin-desktop # windsurf was rebranded/replaced
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
@@ -800,7 +786,7 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
-      (wineWowPackages.unstableFull.override { wineRelease = "staging"; mingwSupport = true; })
+      (wineWow64Packages.unstableFull.override { wineRelease = "staging"; mingwSupport = true; })
       # (callPackage ./cursor.nix {}) # for cursor editor
       # bash-completion # Programmable completion for the bash shell # note: caused problems
       # bash-preexec # Bash preexec and precmd functions # disabled since it's pulled in via a dotfile function now
@@ -930,7 +916,7 @@ in
       iotop iotop-c # iotop-c is a fork of iotop with a curses interface
       kitty # another nice terminal emulator
       kmon # kernel module monitor
-      latest.firefox-nightly-bin # firefox
+      firefox-beta # firefox nightly overlay fetches live Mozilla metadata, which is not flake-pure
       ldc # d-lang LLVM compiler
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       lsof # for listing open files and ports
@@ -945,7 +931,7 @@ in
       mpv # media player
       murex # awesome looking shell, see murex.rocks
       ncdu # "ncurses du (disk usage)"
-      neofetch # system info
+      fastfetch # system info (neofetch was removed from nixpkgs)
       nethogs # network bandwidth monitor
       nitrogen # wallpaper/desktop image manager
       nix-bash-completions # bash completions for nix
@@ -1012,8 +998,8 @@ in
       wsysmon # like Windows Task Manager but for Linux
       xclip # clipboard interaction
       xinetd # provides tftp etc. (originally installed to play with symbolics opengenera)
-      xorg.xbacklight # for controlling screen brightness
-      xxHash # Extremely fast hash algorithm
+      xbacklight # for controlling screen brightness
+      xxhash # Extremely fast hash algorithm
       xz # Library and command-line tools for LZMA2 compression
       zathura # a better document viewer (pdf's etc)
       zenith-nvidia # zoom-able charts (there is also a non-nvidia version)
@@ -1130,10 +1116,9 @@ in
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
-  # Copy the NixOS configuration file and link it from the resulting system
-  # (/run/current-system/configuration.nix). This is useful in case you
-  # accidentally delete configuration.nix.
-  system.copySystemConfiguration = true;
+  # Unsupported under flakes: a flake is a source tree, not one configuration file.
+  # The config is source-controlled here, which supersedes the old copy hook.
+  system.copySystemConfiguration = false;
 
   # This option defines the first version of NixOS you have installed on this particular machine,
   # and is used to maintain compatibility with application data (e.g. databases) created on older NixOS versions.

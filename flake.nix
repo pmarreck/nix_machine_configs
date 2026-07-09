@@ -1,5 +1,5 @@
 {
-  description = "Peter's thelio NixOS system";
+  description = "Peter's NixOS systems";
 
   inputs = {
     # Base system + the `unstable` scope (rolling nixos-unstable — matches the
@@ -11,24 +11,30 @@
     # pin (rev 721be2608f425037939026ef94839680fe67b9a4). Swap to a rev pin here for
     # full determinism if a rolling stable ever proves too lively.
     nixpkgs-2605.url = "github:NixOS/nixpkgs/release-26.05";
+
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2605, ... }@inputs:
+  outputs = { self, nixpkgs, nixpkgs-2605, nixos-hardware, ... }@inputs:
     let
       system = "x86_64-linux";
-    in {
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      mkHost = module: nixpkgs.lib.nixosSystem {
         inherit system;
 
-        # `inputs` + `system` reach configuration.nix via specialArgs. The host module
-        # builds its own base `pkgs` from `nixpkgs.config`/`nixpkgs.overlays` (so allowUnfree,
-        # permittedInsecurePackages and both overlays keep working) and instantiates the
-        # `unstable`/`stable` scopes itself from these inputs — passing `system` explicitly
-        # because pure flake eval has no `builtins.currentSystem` fallback. All host-specific
-        # nixpkgs config stays in the host module rather than being duplicated in this flake.
+        # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
+        # build their own extra nixpkgs scopes from these flake inputs so host-specific
+        # nixpkgs config stays in the host module rather than being duplicated here.
         specialArgs = { inherit inputs system; };
 
-        modules = [ ./system76_thelio_nixos/configuration.nix ];
+        modules = [ module ];
+      };
+    in {
+      nixosConfigurations = {
+        nixos = mkHost ./system76_thelio_nixos/configuration.nix;
+        framework-nixos = mkHost ./framework-nixos/configuration.nix;
       };
     };
 }
