@@ -849,7 +849,7 @@ in
       dcfldd # dd with progress bar and inline hash verification
       dconf2nix # for converting dconf settings to nix
       # direnv # for loading environment variables from .env and .envrc files # Now added below
-      dmd # Official reference compiler for d-lang
+      # dmd # fails to build with GCC 15 headers; ldc below remains available for D.
       # dstat # example use: dstat -cdnpmgs --top-bio --top-cpu --top-mem # removed due to unmaintained
       dool # replacement for dstat
       duc # disk usage visualization, highly configurable
