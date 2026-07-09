@@ -1293,8 +1293,11 @@ in
       jujutsu                       # jj — finally declarative (was ephemeral `nix run`)
       coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
       gh
+      nodejs_24
+      corepack
       bun
       pnpm
+      volta
       nim
       nixd
       gemini-cli
@@ -1339,7 +1342,12 @@ in
       trippy
       unzip
       vsce
+      binaryen
+      wabt
+      wasm-bindgen-cli
       wasm-tools
+      wasmedge
+      wasmtime
       wazero
       wdiff
       wiper
