@@ -1205,6 +1205,10 @@ in
       capSysNice = true;
     };
     ssh.startAgent = true;
+    mosh = {
+      enable = true;
+      openFirewall = true;
+    };
     gamemode.enable = true; # for steam
     dconf.enable = true;
     direnv.enable = true;

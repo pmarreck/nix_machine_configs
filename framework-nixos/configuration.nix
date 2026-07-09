@@ -1071,7 +1071,10 @@ in
   programs.direnv.enable = true;
 
   # Enable mosh (mobile shell) - a remote terminal that supports roaming and intermittent connectivity
-  programs.mosh.enable = true;
+  programs.mosh = {
+    enable = true;
+    openFirewall = true;
+  };
 
   programs.gnupg.agent = {
     enable = true;
