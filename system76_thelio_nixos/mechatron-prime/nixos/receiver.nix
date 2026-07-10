@@ -51,11 +51,21 @@ let
               {source: "payload", name: "after", envname: "GITHUB_SHA"}
             ],
             "trigger-rule": {
-              match: {
-                type: "payload-hmac-sha256",
-                secret: $secret,
-                parameter: {source: "header", name: "X-Hub-Signature-256"}
-              }
+              and: [
+                {
+                  match: {
+                    type: "payload-hmac-sha256",
+                    secret: $secret,
+                    parameter: {source: "header", name: "X-Hub-Signature-256"}
+                  }
+                },
+                {
+                  match: {
+                    type: "value", value: "push",
+                    parameter: {source: "header", name: "X-GitHub-Event"}
+                  }
+                }
+              ]
             }
           }
         ]

@@ -20,9 +20,11 @@
     "checks.x86_64-linux.target-windows-aarch64"
   ];
 
-  # capy has no package/check output yet. Keeping the intended default target
-  # makes an attempted build fail honestly until its flake repair lands.
-  "pmarreck/capy" = [ "packages.x86_64-linux.default" ];
+  "pmarreck/capy" = [
+    "packages.x86_64-linux.default"
+    "checks.x86_64-linux.build"
+    "checks.x86_64-linux.test"
+  ];
 
   "pmarreck/chardetz" = [
     "packages.x86_64-linux.aarch64-macos"
@@ -114,6 +116,7 @@
   "pmarreck/progrez" = [
     "packages.x86_64-linux.default"
     "checks.x86_64-linux.test"
+    "checks.x86_64-linux.package-reproducibility"
   ];
   "pmarreck/rarz" = [
     "packages.x86_64-linux.default"
