@@ -28,6 +28,14 @@ let
       + builtins.readFile ../scripts/receiver.bash;
   };
 
+  badgeSeeder = pkgs.writeShellApplication {
+    name = "mechatron-prime-badge-seed";
+    runtimeInputs = [ pkgs.coreutils pkgs.jq ];
+    text = builtins.readFile ../scripts/policy.bash
+      + "\n"
+      + builtins.readFile ../scripts/seed-badges.bash;
+  };
+
   renderHooks = pkgs.writeShellApplication {
     name = "mechatron-prime-render-hooks";
     runtimeInputs = [ pkgs.jq ];
@@ -137,7 +145,8 @@ in
   systemd.services.mechatron-prime-badges = {
     description = "Mechatron Prime public read-only badge endpoint";
     wantedBy = [ "multi-user.target" ];
-    after = [ "systemd-tmpfiles-setup.service" ];
+    after = [ "systemd-tmpfiles-setup.service" "mechatron-prime-badge-seed.service" ];
+    requires = [ "mechatron-prime-badge-seed.service" ];
     serviceConfig = {
       User = "mechatron-prime-badges";
       Group = "mechatron-prime-badges";
@@ -152,6 +161,37 @@ in
       ReadOnlyPaths = [ publicDirectory ];
       InaccessiblePaths = [ "/var/lib/mechatron-prime" "/etc/mechatron-prime" "/etc/nix" ];
       RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
+    };
+  };
+
+  systemd.services.mechatron-prime-badge-seed = {
+    description = "Repair malformed Mechatron Prime badge seeds";
+    after = [ "systemd-tmpfiles-setup.service" ];
+    before = [ "mechatron-prime-badges.service" ];
+    environment = {
+      MECHATRON_REPOS_ALLOWLIST = allowlistPath;
+      MECHATRON_BADGE_DIR = badgeDirectory;
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      User = "mechatron-prime";
+      Group = "mechatron-prime";
+      ExecStart = "${badgeSeeder}/bin/mechatron-prime-badge-seed";
+      RemainAfterExit = true;
+      NoNewPrivileges = true;
+      PrivateDevices = true;
+      PrivateTmp = true;
+      ProtectHome = true;
+      ProtectSystem = "strict";
+      ReadOnlyPaths = [ allowlistPath ];
+      ReadWritePaths = [ badgeDirectory ];
+      InaccessiblePaths = [
+        "/etc/mechatron-prime/github-webhook.env"
+        "/etc/mechatron-prime/targets"
+        "/etc/nix"
+        "/var/lib/mechatron-prime"
+      ];
+      IPAddressDeny = "any";
     };
   };
 }

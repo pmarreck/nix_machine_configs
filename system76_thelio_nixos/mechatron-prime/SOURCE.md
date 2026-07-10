@@ -2,7 +2,7 @@
 
 The files under `nixos/` and `scripts/` are copied byte-for-byte from
 `pmarreck/mechatron-prime` commit
-`b2b8cceae069faf34595bf819fa23266a6666f7d`.
+`1525b72dc5e09c5d083f131d79a398f4ce1ae3c2`.
 
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
@@ -10,5 +10,5 @@ root) before committing an integration update. The check pins every vendored
 file's SHA-256 digest and the two stable module-import wrappers.
 
 Update the source repository first, obtain a green source commit, then update
-the six files and their recorded digests together. Do not patch the vendored
+all vendored files and their recorded digests together. Do not patch the vendored
 implementation independently; that would split the source of truth.

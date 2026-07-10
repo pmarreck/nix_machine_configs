@@ -9,5 +9,6 @@ annotate=[
 	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime b83a195 NixOS modules and scripts
 	system76_thelio_nixos/mechatron-prime/nixos = Receiver, fleet target matrix, badge service, and sequential worker modules
 	system76_thelio_nixos/mechatron-prime/scripts = Pure policy plus webhook receiver and queued Nix-build worker implementations
+	system76_thelio_nixos/mechatron-prime/scripts/seed-badges.bash = Vendored Mechatron startup repair for malformed or missing public Shields badge documents.
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports
 ]
