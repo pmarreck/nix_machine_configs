@@ -14,7 +14,8 @@ let
       let
         repoName = lib.last (lib.splitString "/" repo);
         seed = pkgs.writeText "mechatron-prime-${repoName}-badge.json"
-          ''{"schemaVersion":1,"label":"🤖 Mechatron Prime","message":"UNKNOWN","color":"lightgrey","isError":false}\n'';
+          ''{"schemaVersion":1,"label":"🤖 Mechatron Prime","message":"UNKNOWN","color":"lightgrey","isError":false}
+'';
       in
         "C ${badgeDirectory}/${repoName}.json 0640 mechatron-prime mechatron-prime-badges - ${seed}")
     repoPolicies;

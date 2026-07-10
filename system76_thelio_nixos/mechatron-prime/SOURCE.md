@@ -2,7 +2,7 @@
 
 The files under `nixos/` and `scripts/` are copied byte-for-byte from
 `pmarreck/mechatron-prime` commit
-`b83a1953266cfa13dbf35f127dfa3477c3148938`.
+`b2b8cceae069faf34595bf819fa23266a6666f7d`.
 
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
