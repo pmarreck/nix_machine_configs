@@ -558,8 +558,6 @@ in
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
       jq # json query
-      unstable.jjui # A TUI for Jujutsu VCS
-      unstable.jujutsu # A Git-compatible DVCS that is both simple and powerful
       krita # drawing program
       less # GNU terminal based program for paging text files or output
       libheif # ISO/IEC 23008-12:2017 HEIF file format decoder and encoder

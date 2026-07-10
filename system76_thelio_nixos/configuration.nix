@@ -1293,7 +1293,6 @@ in
       # tiers in that file are still pending deliberate selection.
       zed-editor                    # the editor Peter asked for
       ghostty                       # terminal emulator (laptop-only tier; added on request)
-      jujutsu                       # jj — finally declarative (was ephemeral `nix run`)
       coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
       gh
       nodejs_24
@@ -1708,7 +1707,7 @@ in
     # copySystemConfiguration copied /etc/nixos/configuration.nix into the system closure.
     # It is UNSUPPORTED under flakes (a flake is a whole tree, not one file) and now hard-errors,
     # so it is disabled by the flake migration (2026-07-05). The config is source-controlled here
-    # (jj repo at /etc/nixos) which supersedes the "in case you delete it" rationale anyway.
+    # (Git repository at /etc/nixos) which supersedes the "in case you delete it" rationale anyway.
     copySystemConfiguration = false;
 
     # This value determines the NixOS release from which the default
