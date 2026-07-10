@@ -20,6 +20,7 @@ queue_lock="$state_dir/queue/.builds.lock"
 results_file="$state_dir/results.ndjson"
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
+substituters="${MECHATRON_SUBSTITUTERS:-}"
 
 case "$build_timeout" in
 	""|*[!0-9]*|0) printf 'Invalid build timeout\n' >&2; exit 1 ;;
@@ -126,12 +127,16 @@ while IFS= read -r item; do
 					flake="github:$repo/$sha"
 					while IFS= read -r target; do
 						target_paths="$state_dir/work/$repo_name-$run_id-$target.paths"
+						nix_options=()
+						if [ -n "$substituters" ]; then
+							nix_options=(--option substituters "$substituters")
+						fi
 						{
 							printf '\n=== nix build %s#%s ===\n' "$flake" "$target"
 							date -u +%Y-%m-%dT%H:%M:%SZ
 						} >> "$log_file"
 						MECHATRON_CURRENT_REPO_NAME="$repo_name" timeout "$build_timeout" \
-							nix build --no-link --print-out-paths "$flake#$target" \
+							nix build "${nix_options[@]}" --no-link --print-out-paths "$flake#$target" \
 							> "$target_paths" 2>> "$log_file"
 						build_status=$?
 						if [ "$build_status" -ne 0 ]; then

@@ -97,8 +97,10 @@
     "checks.x86_64-linux.test"
   ];
 
-  # llvm-lsp remains package-only until its real check is repaired.
-  "pmarreck/llvm-lsp" = [ "packages.x86_64-linux.default" ];
+  "pmarreck/llvm-lsp" = [
+    "packages.x86_64-linux.default"
+    "checks.x86_64-linux.test"
+  ];
 
   "pmarreck/mandelbrot-zig-tui" = [
     "packages.x86_64-linux.default"

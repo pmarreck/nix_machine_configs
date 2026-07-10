@@ -61,6 +61,9 @@ in
       MECHATRON_TARGETS_DIR = targetDirectory;
       MECHATRON_BADGE_DIR = badgeDirectory;
       MECHATRON_BUILD_TIMEOUT_SECONDS = "7200";
+      # CI must remain independent of Garnix even while the global host
+      # configuration still lists its soon-to-disappear substituter.
+      MECHATRON_SUBSTITUTERS = "http://100.96.171.61:8080/fleet https://cache.nixos.org/";
       # Keep fleet CI honest while native Zig flakes are audited for explicit
       # baseline CPUs. The local Nix store still reuses successful builds.
       MECHATRON_CACHE_PUSH = "false";

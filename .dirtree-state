@@ -6,7 +6,7 @@ show=[
 
 annotate=[
 	PLAN.md = Current machine-configuration work and activation safety gates
-	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime NixOS modules and runtime scripts
+	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime 097b596 NixOS modules and scripts
 	system76_thelio_nixos/mechatron-prime/nixos = Receiver, fleet target matrix, badge service, and sequential worker modules
 	system76_thelio_nixos/mechatron-prime/scripts = Pure policy plus webhook receiver and queued Nix-build worker implementations
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports

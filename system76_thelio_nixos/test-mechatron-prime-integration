@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime 13870e9"
+		fail "$relative differs from Mechatron Prime 097b596"
 	fi
 }
 
@@ -39,11 +39,11 @@ check_wrapper() {
 }
 
 check_sha256 nixos/receiver.nix 068381ddcb484ce19636d07e69d60655d72988bb06dede2f2870d6579be4a92f
-check_sha256 nixos/repos.nix 06443083d81cdb87beec3e4cff68145a0b78cc92a8caade7f49ef39e67b12b81
-check_sha256 nixos/worker.nix 3d1b64d065f5079ebd9a9ab431995a26c3acb76cad8244db3dc3b6f8728f9afd
+check_sha256 nixos/repos.nix f3a21b2f7af1b7e4fa03c5c5789add44d3d2821dbf141e67977d88faa8b581a1
+check_sha256 nixos/worker.nix cb499ca98981112b7dd9e00de36d6802d03becd1d9efc2fb1f4fbc1fc1b354b0
 check_sha256 scripts/policy.bash a78b6a7767a4cbf16e2ccc09fdc1e74853f475be042782ad6854808b4e67c479
 check_sha256 scripts/receiver.bash a8dac3229c61686607206c8e4c7320ebc6ecddfb1d4dbde2daefc765c08ed45b
-check_sha256 scripts/worker.bash 3c3f368c63204029dc69f2bd244a98f8b4369eda4b8b4df519e8228424aa8d08
+check_sha256 scripts/worker.bash e70159743178246599185c839e9d331e8acca3fce92b7bd450af95ada5e11873
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
@@ -53,4 +53,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit 13870e9\n'
+printf 'Mechatron Prime integration matches source commit 097b596\n'
