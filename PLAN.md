@@ -10,6 +10,7 @@
 - [x] Build source commit `b83a195` from a third clean committed-tree worktree. Completed 2026-07-10 13:42 EDT.
 - [x] Activate source commit `b83a195` from the clean deployment worktree on the Thelio. Completed 2026-07-10 13:48 EDT.
 - [x] Replace the broad Funnel root proxy with explicit `/hooks/github` and `/badges` mounts. Completed 2026-07-10 13:51 EDT.
-- [ ] Build and activate source commit `af3440b` so canonical allowlist and target policy replace stale pilot files. Curiosity poke: parse every served seed with `jq`, not merely inspect its source text.
+- [x] Build and activate source commit `af3440b` so canonical allowlist and target policy replace stale pilot files. Completed 2026-07-10 16:20 EDT.
+  - Curiosity poke: parse every served seed with `jq`, not merely inspect its source text.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.
