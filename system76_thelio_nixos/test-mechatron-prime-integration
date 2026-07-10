@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -u
+
+root="$(cd "$(dirname "$0")" && pwd)"
+vendored="$root/mechatron-prime"
+failures=0
+
+fail() {
+	printf 'FAIL: %s\n' "$1" >&2
+	failures=$((failures + 1))
+}
+
+check_sha256() {
+	local relative="$1"
+	local expected="$2"
+	local path="$vendored/$relative"
+	local actual
+
+	if [ ! -f "$path" ]; then
+		fail "missing vendored file: $relative"
+		return
+	fi
+
+	actual="$(sha256sum "$path" | cut -d' ' -f1)"
+	if [ "$actual" != "$expected" ]; then
+		fail "$relative differs from Mechatron Prime 13870e9"
+	fi
+}
+
+check_wrapper() {
+	local path="$1"
+	local expected="$2"
+	local actual
+
+	actual="$(tr -d '\n' < "$path")"
+	if [ "$actual" != "$expected" ]; then
+		fail "$(basename "$path") does not import the vendored module"
+	fi
+}
+
+check_sha256 nixos/receiver.nix 068381ddcb484ce19636d07e69d60655d72988bb06dede2f2870d6579be4a92f
+check_sha256 nixos/repos.nix 06443083d81cdb87beec3e4cff68145a0b78cc92a8caade7f49ef39e67b12b81
+check_sha256 nixos/worker.nix 3d1b64d065f5079ebd9a9ab431995a26c3acb76cad8244db3dc3b6f8728f9afd
+check_sha256 scripts/policy.bash a78b6a7767a4cbf16e2ccc09fdc1e74853f475be042782ad6854808b4e67c479
+check_sha256 scripts/receiver.bash a8dac3229c61686607206c8e4c7320ebc6ecddfb1d4dbde2daefc765c08ed45b
+check_sha256 scripts/worker.bash 3c3f368c63204029dc69f2bd244a98f8b4369eda4b8b4df519e8228424aa8d08
+
+check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
+check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
+
+if [ "$failures" -ne 0 ]; then
+	printf '%d Mechatron Prime integration check(s) failed\n' "$failures" >&2
+	exit 1
+fi
+
+printf 'Mechatron Prime integration matches source commit 13870e9\n'
