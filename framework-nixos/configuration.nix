@@ -925,7 +925,6 @@ in
       lsof # for listing open files and ports
       luajit # High-performance JIT compiler for Lua 5.1
       lz4 # Extremely fast compression algorithm
-      unstable.visidata # https://github.com/saulpw/visidata
       unstable.yt-dlp # for downloading videos from youtube and other sites
       mcfly # fantastic replacement for control-R history search
       meld # visual diff and merge tool
