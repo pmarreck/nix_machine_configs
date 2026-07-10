@@ -1014,7 +1014,6 @@ in
       glow # markdown viewer
       delta #syntax highlighter for git
       stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
-      fsearch # file search GUI
       parallel # parallelize shell commands
       stable.spotifyd # spotify streamer daemon
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
