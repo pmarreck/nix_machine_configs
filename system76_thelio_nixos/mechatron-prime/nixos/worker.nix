@@ -13,7 +13,7 @@ let
         seed = pkgs.writeText "mechatron-prime-${repoName}-targets"
           (lib.concatStringsSep "\n" targets + "\n");
       in
-        "C+ ${targetDirectory}/${repoName}.targets 0640 root mechatron-prime - ${seed}")
+        "L+ ${targetDirectory}/${repoName}.targets - - - - ${seed}")
     repoPolicies;
 
   worker = pkgs.writeShellApplication {

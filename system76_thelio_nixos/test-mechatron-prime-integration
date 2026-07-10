@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime 1525b72"
+		fail "$relative differs from Mechatron Prime af3440b"
 	fi
 }
 
@@ -38,9 +38,9 @@ check_wrapper() {
 	fi
 }
 
-check_sha256 nixos/receiver.nix f981963d1961eb3620145ab65125cb3c43a5428180bc335ed14c14f382a5fd3d
+check_sha256 nixos/receiver.nix 4a8d4bc76134796b18d23959608bc9c1c68edde15079f16f7519ef68930401b8
 check_sha256 nixos/repos.nix 46fdce97d7f117b2e54f367d74b9e1942ba451750866c07de21ccbaf79c53490
-check_sha256 nixos/worker.nix cb499ca98981112b7dd9e00de36d6802d03becd1d9efc2fb1f4fbc1fc1b354b0
+check_sha256 nixos/worker.nix 82d3f9d923fbbd953110e2c82b59f78025cd9c67902fbf69b3469bac8543e31a
 check_sha256 scripts/policy.bash a78b6a7767a4cbf16e2ccc09fdc1e74853f475be042782ad6854808b4e67c479
 check_sha256 scripts/receiver.bash a8dac3229c61686607206c8e4c7320ebc6ecddfb1d4dbde2daefc765c08ed45b
 check_sha256 scripts/seed-badges.bash 736c6f13ecd83075a6338fd5ea261e0498527916a70f959a9f38a93d6e3e34ba
@@ -54,4 +54,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit 1525b72\n'
+printf 'Mechatron Prime integration matches source commit af3440b\n'

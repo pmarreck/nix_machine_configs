@@ -100,8 +100,7 @@ in
 
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
-    "C+ /etc/mechatron-prime/repos.allowlist - - - - ${allowlistSeedFile}"
-    "z /etc/mechatron-prime/repos.allowlist 0640 root mechatron-prime - -"
+    "L+ /etc/mechatron-prime/repos.allowlist - - - - ${allowlistSeedFile}"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/logs 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/queue 0750 mechatron-prime mechatron-prime - -"
