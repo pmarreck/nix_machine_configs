@@ -84,6 +84,15 @@ function M.dispatch(request, dependencies)
 		if not ok then
 			return json_response(502, {status = "error", error = action_error or "action failed"})
 		end
+		if action.present_result then
+			local response = {
+				status = 200,
+				headers = headers("text/html; charset=utf-8"),
+				body = render.action_result(action.id, action_error or ""),
+			}
+			response.headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+			return response
+		end
 		return {
 			status = 303,
 			headers = {Location = "/ops/", ["Cache-Control"] = "no-store"},

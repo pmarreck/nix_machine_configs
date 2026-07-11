@@ -27,7 +27,20 @@
   </head>
   <body>
     <main>
-      <img src="mechatron-prime.png" alt="Mechatron Prime, the build and CI bot for Mecha LLC, created and maintained by Peter Marreck and an army of chaotic-good AI agents">
+      <img id="mechatron-prime-art" src="mecha-T2-B.jxl" alt="Mechatron Prime, the build and CI bot for Mecha LLC, created and maintained by Peter Marreck and an army of chaotic-good AI agents">
     </main>
+    <script>
+      const images = [
+        "mecha-T2-B.jxl",
+        "mecha-T2.jxl",
+        "mecha-bjork-all-is-full-of-mecha.jxl",
+        "mecha-d-in-a-box.jxl",
+        "mecha-knight-rider.jxl",
+        "mecha-starfighter.jxl",
+        "mecha-wopr.jxl",
+      ];
+      const image = document.getElementById("mechatron-prime-art");
+      image.src = images[Math.floor(Math.random() * images.length)];
+    </script>
   </body>
 </html>

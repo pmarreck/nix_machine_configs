@@ -19,6 +19,11 @@ local service_specs = {
 	{scope = "user", unit = "wireplumber.service", id = "wireplumber", label = "WirePlumber", expected = "active", severity = "critical", detail = "audio session policy"},
 	{scope = "user", unit = "pipewire-pulse.service", id = "pipewire-pulse", label = "PipeWire PulseAudio", expected = "active", severity = "critical", detail = "desktop audio compatibility endpoint"},
 	{scope = "user", unit = "rescuetime.service", id = "rescuetime", label = "RescueTime", expected = "active", severity = "warning", health = false, detail = "optional time tracker; billing issue unresolved"},
+	{probe = "codex_remote_control", id = "codex-remote-control", label = "Codex remote-control", expected = "active", health = false, detail = "experimental remote app-server daemon", actions = {
+		{label = "Start", path = "/ops/actions/codex-remote-control/start"},
+		{label = "Stop", path = "/ops/actions/codex-remote-control/stop", danger = true},
+		{label = "Pair", path = "/ops/actions/codex-remote-control/pair"},
+	}},
 }
 
 local function trim(text)
@@ -43,13 +48,23 @@ local function format_pools(pools)
 	return table.concat(lines, "\n")
 end
 
+--- RescueTime remains observable during its billing decision, but neither its
+--- expected service failure nor its repeated crash journal line is host health.
+local function health_journal_errors(errors)
+	local included = {}
+	for _, message in ipairs(errors or {}) do
+		if not message:lower():find("rescuetime", 1, true) then included[#included + 1] = message end
+	end
+	return included
+end
+
 --- Assemble one immutable UI model from injected host adapters; parsing and
 --- classification stay deterministic while I/O remains replaceable in tests.
 function M.collect(source)
 	local services = {}
 	local health_services = {}
 	for _, spec in ipairs(service_specs) do
-		local state = source.service(spec.scope, spec.unit)
+		local state = spec.probe and source[spec.probe]() or source.service(spec.scope, spec.unit)
 		services[#services + 1] = {id = spec.id, label = spec.label, state = state, detail = spec.detail, actions = spec.actions}
 		if spec.health ~= false then
 			health_services[#health_services + 1] = {id = spec.id, label = spec.label, state = state, expected = spec.expected, severity = spec.severity}
@@ -89,7 +104,7 @@ function M.collect(source)
 		disks = disks,
 		cpu = cpu,
 		zfs = {state = zfs_state, detail = trim(zpool_summary)},
-		journal = {recent_errors = recent_errors},
+		journal = {recent_errors = health_journal_errors(recent_errors)},
 	})
 
 	local steam_shader_output = trim(source.run("steam_shader"))

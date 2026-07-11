@@ -1,6 +1,7 @@
 local actions = require("ops.actions")
 local probes = require("ops.probes")
 local default_adapter = require("ops.process")
+local cjson = require("cjson.safe")
 
 local M = {}
 
@@ -13,6 +14,9 @@ local fixed_commands = {
 	steam_shader = {"pgrep", "-af", "fossilize_replay|steam.*shader|shader.*precache"},
 	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-1 hour", "-n", "20", "--no-pager", "--output=short-iso"},
 }
+
+local codex_pid_path = "/home/pmarreck/.codex/app-server-daemon/app-server.pid"
+local codex_binary = "/home/pmarreck/.local/bin/codex"
 
 local function trim(text)
 	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -35,14 +39,30 @@ function M.new(adapter)
 		return adapter.capture(command)
 	end
 
-	local function user_command(argv)
+	local function user_command(argv, needs_home)
 		local command = {}
 		if adapter.euid() == 0 then
 			append(command, {"runuser", "-u", "pmarreck", "--"})
 		end
-		append(command, {"env", "XDG_RUNTIME_DIR=/run/user/1000"})
+		local environment = {"env"}
+		if needs_home then environment[#environment + 1] = "HOME=/home/pmarreck" end
+		environment[#environment + 1] = "XDG_RUNTIME_DIR=/run/user/1000"
+		append(command, environment)
 		append(command, argv)
 		return command
+	end
+
+	--- Validate Codex's own numeric PID record against /proc so a stale record
+	--- after reboot cannot masquerade as a running remote-control daemon.
+	function system.codex_remote_control()
+		local record = cjson.decode(adapter.read(codex_pid_path) or "")
+		local pid = record and record.pid
+		if type(pid) ~= "number" or pid < 1 or pid % 1 ~= 0 then return "inactive" end
+		local command_line = adapter.read("/proc/" .. pid .. "/cmdline")
+		if not command_line or not command_line:find("codex", 1, true) or not command_line:find("app-server", 1, true) then
+			return "inactive"
+		end
+		return "active"
 	end
 
 	function system.read(path)
@@ -94,6 +114,11 @@ function M.new(adapter)
 	function system.execute_action(action_id)
 		local action = actions.resolve_id(action_id)
 		if not action then return false, "action is not allowlisted" end
+		if action.kind == "codex-remote-control" then
+			local output, ok = timed(user_command({codex_binary, "remote-control", action.verb, "--json"}, true))
+			if not ok then return false, trim(output) ~= "" and trim(output) or "Codex remote-control action failed" end
+			return true, trim(output)
+		end
 		local argv = {"systemctl", "--no-block", action.verb, action.unit}
 		if action.scope == "user" then
 			argv = user_command({"systemctl", "--user", "--no-block", action.verb, action.unit})

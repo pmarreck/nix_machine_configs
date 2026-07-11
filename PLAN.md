@@ -12,5 +12,8 @@
 - [x] Replace the broad Funnel root proxy with explicit `/hooks/github` and `/badges` mounts. Completed 2026-07-10 13:51 EDT.
 - [x] Build and activate source commit `af3440b` so canonical allowlist and target policy replace stale pilot files. Completed 2026-07-10 16:20 EDT.
   - Curiosity poke: parse every served seed with `jq`, not merely inspect its source text.
+- [x] Vendor Mechatron Prime source commit `fac63a6`, including operations-console refinements and randomized JPEG XL explainer assets. Completed 2026-07-11 13:42 EDT.
+  - Curiosity poke: every vendored runtime file must remain byte-for-byte tied to the declared source commit.
+- [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.

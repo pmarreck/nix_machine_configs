@@ -99,7 +99,7 @@ function M.page(model)
 		:root { color-scheme: dark; --bg:#090d14; --panel:#111925; --line:#263449; --text:#e8eef7; --muted:#94a3b8; --accent:#63d6a4; --warn:#f4c56a; --bad:#ff7474; }
 		* { box-sizing:border-box; }
 		body { margin:0; background:radial-gradient(circle at top,#162235 0,#090d14 48%%); color:var(--text); font:15px/1.5 system-ui,sans-serif; }
-		main { width:min(1180px,calc(100%% - 32px)); margin:32px auto 64px; }
+		main { width:min(1600px,calc(100%% - 32px)); margin:32px auto 64px; }
 		header { display:flex; align-items:end; justify-content:space-between; gap:24px; margin-bottom:24px; }
 		h1 { margin:0; font-size:clamp(1.7rem,4vw,2.7rem); letter-spacing:-.04em; }
 		h2,h3,p { margin-top:0; }
@@ -111,6 +111,7 @@ function M.page(model)
 		.panel { display:none; padding-top:22px; }
 		.panel.active { display:block; }
 		.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; }
+		.stack { display:grid; grid-template-columns:minmax(0,1fr); gap:14px; }
 		.card { min-width:0; padding:18px; border:1px solid var(--line); border-radius:13px; background:linear-gradient(145deg,rgba(20,31,46,.96),rgba(13,20,31,.96)); box-shadow:0 14px 40px rgba(0,0,0,.18); }
 		.card-heading { display:flex; justify-content:space-between; gap:12px; align-items:start; }
 		.card h3 { margin-bottom:8px; font-size:1rem; }
@@ -154,8 +155,8 @@ function M.page(model)
 		<h2>Recent errors</h2>%s
 	</section>
 	<section class="panel" data-panel="os"><article class="card"><dl><dt>NixOS</dt><dd>%s</dd><dt>Uptime</dt><dd>%s</dd><dt>Memory</dt><dd>%s</dd><dt>Filesystems</dt><dd>%s</dd></dl></article></section>
-	<section class="panel" data-panel="zfs"><div class="grid"><article class="card"><div class="card-heading"><h3>Pool health</h3>%s</div><p>%s</p></article><article class="card"><h3>Pools</h3><pre>%s</pre></article></div></section>
-	<section class="panel" data-panel="resources"><div class="grid"><article class="card"><h3>hogs</h3><pre>%s</pre></article><article class="card"><h3>Network hogs</h3><pre>%s</pre></article><article class="card"><h3>Steam shader precomputation</h3>%s</article></div></section>
+	<section class="panel" data-panel="zfs"><div class="stack"><article class="card"><div class="card-heading"><h3>Pool health</h3>%s</div><p>%s</p></article><article class="card"><h3>Pools</h3><pre>%s</pre></article></div></section>
+	<section class="panel" data-panel="resources"><div class="stack"><article class="card"><h3>hogs</h3><pre>%s</pre></article><article class="card"><h3>Network hogs</h3><pre>%s</pre></article><article class="card"><h3>Steam shader precomputation</h3>%s</article></div></section>
 </main>
 <script>
 document.querySelectorAll('.tabs button').forEach((button) => button.addEventListener('click', () => {
@@ -200,6 +201,16 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 		html_escape(model.resources.network_hogs),
 		status_badge(model.resources.steam_shader)
 	)
+end
+
+--- Render a short-lived action result, notably a Codex pairing code, behind
+--- the same escaping boundary as host probe output.
+function M.action_result(title, result)
+	return string.format([[<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title>
+<style>:root{color-scheme:dark}body{margin:0;background:#090d14;color:#e8eef7;font:16px/1.5 system-ui,sans-serif}main{width:min(720px,calc(100%% - 32px));margin:12vh auto}.card{padding:24px;border:1px solid #263449;border-radius:13px;background:#111925}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#070a0f;border-radius:8px}a{color:#63d6a4}</style></head>
+<body><main><article class="card"><h1>%s</h1><pre>%s</pre><p><a href="/ops/">Return to Operations</a></p></article></main></body></html>]],
+		html_escape(title), html_escape(title), html_escape(result ~= "" and result or "Completed."))
 end
 
 return M

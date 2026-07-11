@@ -7,6 +7,9 @@ local by_path = {
 	["/ops/actions/mechatron-worker/start"] = {id = "mechatron-worker-start", scope = "system", unit = "mechatron-prime-worker.service", verb = "start"},
 	["/ops/actions/mechatron-worker/stop"] = {id = "mechatron-worker-stop", scope = "system", unit = "mechatron-prime-worker.service", verb = "stop"},
 	["/ops/actions/fsearch/run"] = {id = "fsearch-run", scope = "user", unit = "fsearch-update.service", verb = "start"},
+	["/ops/actions/codex-remote-control/start"] = {id = "codex-remote-control-start", kind = "codex-remote-control", verb = "start"},
+	["/ops/actions/codex-remote-control/stop"] = {id = "codex-remote-control-stop", kind = "codex-remote-control", verb = "stop"},
+	["/ops/actions/codex-remote-control/pair"] = {id = "codex-remote-control-pair", kind = "codex-remote-control", verb = "pair", present_result = true},
 }
 
 local by_id = {}
