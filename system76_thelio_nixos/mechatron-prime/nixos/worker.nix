@@ -45,6 +45,7 @@ in
     "d /var/lib/mechatron-prime/work 0750 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/queue/builds.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
+    "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
   ] ++ targetSeedRules;
 
   systemd.services.mechatron-prime-worker = {

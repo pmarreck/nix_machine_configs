@@ -18,6 +18,7 @@ badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
 queue_lock="$state_dir/queue/.builds.lock"
 results_file="$state_dir/results.ndjson"
+current_file="$state_dir/current.json"
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
@@ -35,6 +36,35 @@ touch "$queue_file" "$results_file" || exit 1
 chmod 0640 "$queue_file" "$results_file" || exit 1
 [ -d "$badge_dir" ] || { printf 'Badge directory is missing\n' >&2; exit 1; }
 
+publish_current() {
+	local state="$1"
+	local repo="${2:-}"
+	local sha="${3:-}"
+	local target="${4:-}"
+	local started_at="${5:-}"
+	local pending="${6:-0}"
+	local temporary
+	temporary="$(mktemp "$state_dir/.current.json.XXXXXX")" || return 1
+	if ! jq -cn \
+		--arg state "$state" \
+		--arg repo "$repo" \
+		--arg sha "$sha" \
+		--arg target "$target" \
+		--arg started_at "$started_at" \
+		--argjson pending "$pending" \
+		'{state:$state,repo:$repo,sha:$sha,target:$target,started_at:$started_at,pending:$pending}' \
+		> "$temporary"
+	then
+		rm -f "$temporary"
+		return 1
+	fi
+	chmod 0640 "$temporary" || { rm -f "$temporary"; return 1; }
+	mv -f "$temporary" "$current_file"
+}
+
+publish_current idle || exit 1
+trap 'publish_current idle >/dev/null 2>&1 || true' EXIT
+
 batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 batch="$state_dir/batches/builds-$batch_id.ndjson"
 exec 9> "$queue_lock" || exit 1
@@ -48,11 +78,17 @@ mv "$queue_file" "$batch" || exit 1
 chmod 0640 "$batch" "$queue_file" || exit 1
 exec 9>&-
 
+batch_total=0
+while IFS= read -r queued_item; do
+	[ -n "$queued_item" ] && batch_total=$((batch_total + 1))
+done < "$batch"
+
 overall_failures=0
 item_number=0
 while IFS= read -r item; do
 	[ -n "$item" ] || continue
 	item_number=$((item_number + 1))
+	publish_current idle || exit 1
 	started_at="$(now_utc)"
 	repo=""
 	ref=""
@@ -126,6 +162,8 @@ while IFS= read -r item; do
 					failure_detail=""
 					flake="github:$repo/$sha"
 					while IFS= read -r target; do
+						pending=$((batch_total - item_number))
+						publish_current building "$repo" "$sha" "$target" "$started_at" "$pending" || exit 1
 						target_paths="$state_dir/work/$repo_name-$run_id-$target.paths"
 						nix_options=()
 						if [ -n "$substituters" ]; then

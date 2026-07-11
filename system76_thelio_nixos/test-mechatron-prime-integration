@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime d0e353c"
+		fail "$relative differs from Mechatron Prime 3f855f9"
 	fi
 }
 
@@ -40,18 +40,31 @@ check_wrapper() {
 
 check_sha256 nixos/receiver.nix 388c94cf0200b8b8f8f5f8917c506bec253859ef0583b91e12f7e7bb239f6442
 check_sha256 nixos/repos.nix 46fdce97d7f117b2e54f367d74b9e1942ba451750866c07de21ccbaf79c53490
-check_sha256 nixos/worker.nix 82d3f9d923fbbd953110e2c82b59f78025cd9c67902fbf69b3469bac8543e31a
+check_sha256 nixos/worker.nix 340277dcd370a1cc241de0ad1adcffdf62529eeabefae055c6f56ffea7a7de02
+check_sha256 nixos/ops.nix cab7f93aa7690023076f021c0abd2e5ef1ff17cf73f300217f27c107104e82ce
 check_sha256 assets/mechatron-prime/index.html 77de2be71905c84db92063b8171dcb451a835af2fd827500bc1ef565907befd4
 check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
 check_sha256 scripts/policy.bash a78b6a7767a4cbf16e2ccc09fdc1e74853f475be042782ad6854808b4e67c479
 check_sha256 scripts/receiver.bash a8dac3229c61686607206c8e4c7320ebc6ecddfb1d4dbde2daefc765c08ed45b
 check_sha256 scripts/seed-badges.bash 736c6f13ecd83075a6338fd5ea261e0498527916a70f959a9f38a93d6e3e34ba
-check_sha256 scripts/worker.bash e70159743178246599185c839e9d331e8acca3fce92b7bd450af95ada5e11873
+check_sha256 scripts/worker.bash 83dcb2dd80063617e9bbc56c4049f69f2765907bf74cfb57bb73accbe24353f5
+check_sha256 ops/actions.lua 9e5984555f2225e4c80625f0a030e42c196796938a1e01b72ec7a5c07f678a08
+check_sha256 ops/app.lua 11f61444d2b754b76a80b2087b65e6e1ad2e7370f1eab6cb4013f9a1b1903bd1
+check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
+check_sha256 ops/http.lua 510adad17bf8d7f981e93fa478f80438f3056debbc4d4a243eec179f2c65d154
+check_sha256 ops/live.lua aa5b43ecfa5f73d4c1bfbb80ee4089c2e4a0261ce133ced67165cd542f626d5e
+check_sha256 ops/probes.lua 9e0744e37aa885f25b91462a7e827fb7a0b15575fdb45805aa6de530a62d4876
+check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da2756ce0885c77
+check_sha256 ops/render.lua 9f7541684437bc1718b3ac2dbd423bea4c6b75ddcac87734fa694a0ea6d29014
+check_sha256 ops/router.lua 87913baf3641dea5d6a5233789078559f4d721cb93bae726e8843ff1b1f59369
+check_sha256 ops/server.lua f7ae752b7bf74cc501308a54079300916f7ab267617943cd30c05f075466a304
+check_sha256 ops/system.lua 7b411a4cc7198b7f2c49a325d6ccadce3522873581c306abf1bf2e24316f2578
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
+check_wrapper "$root/mechatron-prime-ops.nix" 'import ./mechatron-prime/nixos/ops.nix'
 
-if ! rg -Fq 'd0e353c7810da03cec2ea378633d2590139762f7' "$vendored/SOURCE.md"; then
+if ! rg -Fq '3f855f9bc4b411e2859fcbb006918c231ef6295f' "$vendored/SOURCE.md"; then
 	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
 fi
 
@@ -60,4 +73,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit d0e353c\n'
+printf 'Mechatron Prime integration matches source commit 3f855f9\n'

@@ -3,7 +3,7 @@
 The runtime files under `nixos/`, `scripts/`, and `assets/mechatron-prime/`
 are copied byte-for-byte from
 `pmarreck/mechatron-prime` commit
-`d0e353c7810da03cec2ea378633d2590139762f7`.
+`3f855f9bc4b411e2859fcbb006918c231ef6295f`.
 
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository

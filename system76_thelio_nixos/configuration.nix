@@ -112,6 +112,7 @@ in
       ./mechatron-prime-attic.nix   # tailnet-local binary cache for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];

@@ -1,0 +1,109 @@
+local actions = require("ops.actions")
+local probes = require("ops.probes")
+local default_adapter = require("ops.process")
+
+local M = {}
+
+local fixed_commands = {
+	nixos_version = {"nixos-version"},
+	df = {"df", "-P", "/", "/home"},
+	zpool_summary = {"zpool", "status", "-x"},
+	zpool_status = {"zpool", "status"},
+	zpool_list = {"zpool", "list", "-H", "-o", "name,health,size,alloc,free,cap,frag"},
+	steam_shader = {"pgrep", "-af", "fossilize_replay|steam.*shader|shader.*precache"},
+	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-1 hour", "-n", "20", "--no-pager", "--output=short-iso"},
+}
+
+local function trim(text)
+	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+local function append(destination, values)
+	for _, value in ipairs(values) do destination[#destination + 1] = value end
+	return destination
+end
+
+--- Construct the privileged host adapter from an injected process boundary;
+--- exact command vectors remain inspectable and deterministic in unit tests.
+function M.new(adapter)
+	adapter = adapter or default_adapter
+	local system = {}
+
+	local function timed(argv)
+		local command = {"timeout", "5"}
+		append(command, argv)
+		return adapter.capture(command)
+	end
+
+	local function user_command(argv)
+		local command = {}
+		if adapter.euid() == 0 then
+			append(command, {"runuser", "-u", "pmarreck", "--"})
+		end
+		append(command, {"env", "XDG_RUNTIME_DIR=/run/user/1000"})
+		append(command, argv)
+		return command
+	end
+
+	function system.read(path)
+		return adapter.read(path)
+	end
+
+	function system.now()
+		return adapter.now()
+	end
+
+	function system.cpu_count()
+		local cpuinfo = adapter.read("/proc/cpuinfo") or ""
+		local count = 0
+		for _ in cpuinfo:gmatch("\nprocessor%s*:") do count = count + 1 end
+		if cpuinfo:match("^processor%s*:") then count = count + 1 end
+		return math.max(1, count)
+	end
+
+	function system.service(scope, unit)
+		local argv = {"systemctl", "is-active", unit}
+		if scope == "user" then argv = user_command({"systemctl", "--user", "is-active", unit}) end
+		local output = timed(argv)
+		local state = trim(output)
+		return state == "" and "unknown" or state
+	end
+
+	function system.timer(unit)
+		local argv = user_command({"systemctl", "--user", "show", unit, "-p", "ActiveState", "-p", "SubState", "-p", "NextElapseUSecRealtime", "--no-pager"})
+		local output = timed(argv)
+		local properties = probes.parse_properties(output or "")
+		return {
+			state = properties.SubState or properties.ActiveState or "unknown",
+			next_run = properties.NextElapseUSecRealtime ~= "" and properties.NextElapseUSecRealtime or "unknown",
+		}
+	end
+
+	function system.run(name)
+		local argv = fixed_commands[name]
+		if name == "hogs" then
+			argv = user_command({"bash", "-lc", "source /home/pmarreck/dotfiles/.aliases; hr; echo 'Memhogs:'; memhogs; hr; echo 'CPU hogs:'; cpuhogs; hr"})
+		elseif name == "network_hogs" then
+			return nil
+		end
+		if not argv then return nil end
+		local output = timed(argv)
+		return output
+	end
+
+	function system.execute_action(action_id)
+		local action = actions.resolve_id(action_id)
+		if not action then return false, "action is not allowlisted" end
+		local argv = {"systemctl", "--no-block", action.verb, action.unit}
+		if action.scope == "user" then
+			argv = user_command({"systemctl", "--user", "--no-block", action.verb, action.unit})
+		end
+		local output, ok = timed(argv)
+		if not ok then return false, trim(output) ~= "" and trim(output) or "systemctl action failed" end
+		return true
+	end
+
+	return system
+end
+
+return M
