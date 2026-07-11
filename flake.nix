@@ -33,7 +33,7 @@
       };
     in {
       nixosConfigurations = {
-        nixos = mkHost ./system76_thelio_nixos/configuration.nix;
+        thelio-nixos = mkHost ./system76_thelio_nixos/configuration.nix;
         framework-nixos = mkHost ./framework-nixos/configuration.nix;
       };
     };

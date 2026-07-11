@@ -44,7 +44,7 @@ Flakes evaluate **only git-tracked files**. jj colocated repos: any `jj` command
 
 ## 1. `flake.nix` design (git-track it, then build — never boot first)
 
-Create `/etc/nixos/flake.nix` at the repo root (so `--flake /etc/nixos#nixos` resolves and the symlinks keep working):
+Create `/etc/nixos/flake.nix` at the repo root (so `--flake /etc/nixos#thelio-nixos` resolves and the symlinks keep working):
 
 ```nix
 {
@@ -61,7 +61,7 @@ Create `/etc/nixos/flake.nix` at the repo root (so `--flake /etc/nixos#nixos` re
       system = "x86_64-linux";
       mkUnfree = src: import src { inherit system; config.allowUnfree = true; };
     in {
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.thelio-nixos = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = {
           inherit inputs;
@@ -89,16 +89,16 @@ Steps: create `flake.nix` → `jj status` (snapshot so the flake sees itself; co
 - [ ] **Delete the three `let` bindings** now injected: `unstable` (29–38), `stable` (46–49), `master` (50–52). Keep `key-rebel-moon`, `tech-alive`, `erlang = unstable.erlang`, `elixir`, `comma`.
 - [ ] **Re-grep for residual `<…>`** after editing.
 - [ ] **Apply the two blocker fixes** (clocksound 340; plymouth fetchGit).
-- [ ] **`system.autoUpgrade`** (1680–1681): `autoUpgrade.channel = …nixos-26.05;` is meaningless under flakes → `autoUpgrade.flake = "/etc/nixos#nixos";` (+ optional `flags = [ "--update-input" "nixpkgs" ]`), or disable and let `ixnay reify` be the sole path.
+- [ ] **`system.autoUpgrade`** (1680–1681): `autoUpgrade.channel = …nixos-26.05;` is meaningless under flakes → `autoUpgrade.flake = "/etc/nixos#thelio-nixos";` (+ optional `flags = [ "--update-input" "nixpkgs" ]`), or disable and let `ixnay reify` be the sole path.
 - [ ] **Leave `nix.settings` as-is** (1685–1704). Optionally add `nix.registry.nixpkgs.flake = inputs.nixpkgs;` so ad-hoc `nix run nixpkgs#…` matches the system.
 
 ---
 
 ## 3. Build-before-boot gate (the "test")
 
-- [ ] **Realize without activating:** `nixos-rebuild build --flake /etc/nixos#nixos` (or `nix build /etc/nixos#nixosConfigurations.nixos.config.system.build.toplevel`). Produces `./result`; touches nothing live. This is the failing-test-first gate.
+- [ ] **Realize without activating:** `nixos-rebuild build --flake /etc/nixos#thelio-nixos` (or `nix build /etc/nixos#nixosConfigurations.thelio-nixos.config.system.build.toplevel`). Produces `./result`; touches nothing live. This is the failing-test-first gate.
 - [ ] **Diff candidate vs. live BEFORE boot:** `nvd diff /run/current-system ./result` (or `nix store diff-closures …`). Independent check that the flake reproduces today's closure — unexpected package moves surface here.
-- [ ] **Only after clean build + sane diff:** `sudo nixos-rebuild boot --flake /etc/nixos#nixos`, then reboot. Prefer `boot` over `switch` for the first cutover (ZFS-root safe; matches ixnay's default).
+- [ ] **Only after clean build + sane diff:** `sudo nixos-rebuild boot --flake /etc/nixos#thelio-nixos`, then reboot. Prefer `boot` over `switch` for the first cutover (ZFS-root safe; matches ixnay's default).
 
 ---
 
@@ -115,12 +115,12 @@ Steps: create `flake.nix` → `jj status` (snapshot so the flake sees itself; co
 
 `reify` command lines 443–496; rebuild invocations 472–480; `SWITCH_OR_BOOT` default line 261.
 
-- [ ] **Reify no-upgrade (474):** `sudo nixos-rebuild $SWITCH_OR_BOOT` → `… --flake /etc/nixos#nixos`.
-- [ ] **Reify upgrade (478–480):** `--upgrade` is a channel concept → replace with `sudo nix flake update --flake /etc/nixos && sudo nixos-rebuild $SWITCH_OR_BOOT --flake /etc/nixos#nixos`. This IS "roll" for a flake.
+- [ ] **Reify no-upgrade (474):** `sudo nixos-rebuild $SWITCH_OR_BOOT` → `… --flake /etc/nixos#thelio-nixos`.
+- [ ] **Reify upgrade (478–480):** `--upgrade` is a channel concept → replace with `sudo nix flake update --flake /etc/nixos && sudo nixos-rebuild $SWITCH_OR_BOOT --flake /etc/nixos#thelio-nixos`. This IS "roll" for a flake.
 - [ ] **Optional targeted roll:** `--update-input nixpkgs` (base only) vs full `nix flake update` (all scopes) — matches the "simulate rolling release" intent.
 - [ ] Leave the macOS/nix-darwin branch (497–517) — already flake-based.
 - [ ] `rollback|rb` (783–790) is user-profile; document that *system* rollback is the GRUB previous-generation menu; optionally add `nixos-rebuild --rollback`/`list-generations`.
-- [ ] Update `#help` + add a CLI test asserting the emitted command contains `--flake /etc/nixos#nixos` and no `--upgrade` on NixOS (ixnay renders the command before running — cheaply DRY_RUN-testable).
+- [ ] Update `#help` + add a CLI test asserting the emitted command contains `--flake /etc/nixos#thelio-nixos` and no `--upgrade` on NixOS (ixnay renders the command before running — cheaply DRY_RUN-testable).
 
 ---
 

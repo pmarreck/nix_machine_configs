@@ -25,7 +25,7 @@ channels (they silently rotted — `nixos-unstable` was stuck 500k commits back,
 ## Hard guardrails (this is a daily-driver boot config on ZFS root)
 - **jj ONLY, never raw git** (a hook blocks it). Main bookmark `yolo`.
 - **jj-track every referenced file BEFORE building** — flakes see only git-tracked files; an untracked one aborts eval with a confusing "No such file or directory". The plan's §0 lists them.
-- **Build, do NOT boot.** Gate: `nixos-rebuild build --flake /etc/nixos#nixos` → `nvd diff /run/current-system ./result` → STOP. **Do not `switch`/`boot`/activate.** Leave the actual cutover for Peter to run (`ixnay reify`) after he reviews the diff.
+- **Build, do NOT boot.** Gate: `nixos-rebuild build --flake /etc/nixos#thelio-nixos` → `nvd diff /run/current-system ./result` → STOP. **Do not `switch`/`boot`/activate.** Leave the actual cutover for Peter to run (`ixnay reify`) after he reviews the diff.
 - **Keep the channels subscribed** as the rollback rail; don't `nix-channel --remove` anything.
 - The config already builds green on channels today (verified this session) — so a clean `build --flake` + a sane closure diff is your success criterion.
 

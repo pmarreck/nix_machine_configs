@@ -309,7 +309,7 @@ in
 
   # Networking details
   networking = {
-    hostName = "nixos"; # Define your hostname.
+    hostName = "thelio-nixos"; # Define your hostname.
     # Enable networking
     # Pick only one of the below networking options.
     # wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -1749,7 +1749,7 @@ in
     autoUpgrade.allowReboot = false; # reboot if kernel changes?
     # Flake-based target (replaces the meaningless-under-flakes `autoUpgrade.channel`).
     # Only consulted if autoUpgrade.enable is ever flipped to true.
-    autoUpgrade.flake = "/etc/nixos#nixos";
+    autoUpgrade.flake = "/etc/nixos#thelio-nixos";
   };
 
   ### Nix settings
