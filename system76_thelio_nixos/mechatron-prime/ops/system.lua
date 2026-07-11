@@ -12,7 +12,7 @@ local fixed_commands = {
 	zpool_status = {"zpool", "status"},
 	zpool_list = {"zpool", "list", "-H", "-o", "name,health,size,alloc,free,cap,frag"},
 	steam_shader = {"pgrep", "-af", "fossilize_replay|steam.*shader|shader.*precache"},
-	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-1 hour", "-n", "20", "--no-pager", "--output=short-iso"},
+	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-12 hours", "-n", "200", "--no-pager", "--output=short-iso"},
 }
 
 local codex_pid_path = "/home/pmarreck/.codex/app-server-daemon/app-server.pid"

@@ -103,10 +103,32 @@ function M.normalized_load_percent(loadavg, cpu_count)
 	return math.min(100, math.floor((load_one * 100 / cpu_count) + 0.5))
 end
 
-function M.parse_journal_errors(text)
+--- Decide whether a journal line is operationally notable, retaining primary
+--- crash/failure records while discarding known probe noise and multiline
+--- coredump detail that would otherwise crowd the bounded incident list.
+function M.is_notable_journal_error(line)
+	local lower = line:lower()
+	if line == "-- No entries --" or lower:match("^hint:") or line:match("^%s") then return false end
+	if lower:find("rescuetime", 1, true) then return false end
+	if lower:find("sudo[", 1, true)
+		and lower:find("a password is required", 1, true)
+		and lower:match("command=.*[/ ]true%s*$") then
+		return false
+	end
+	return line:match("%S") ~= nil
+end
+
+--- Parse a bounded newest-first incident view from journal output after
+--- filtering harmless records, so noisy probes cannot evict a real crash.
+function M.parse_journal_errors(text, limit)
 	local errors = {}
 	for line in (text or ""):gmatch("[^\n]+") do
-		if line:match("%S") and line ~= "-- No entries --" then errors[#errors + 1] = line end
+		if M.is_notable_journal_error(line) then errors[#errors + 1] = line end
+	end
+	if limit and #errors > limit then
+		local newest = {}
+		for index = #errors - limit + 1, #errors do newest[#newest + 1] = errors[index] end
+		return newest
 	end
 	return errors
 end

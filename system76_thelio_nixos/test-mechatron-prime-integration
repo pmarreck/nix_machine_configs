@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime fac63a6"
+		fail "$relative differs from Mechatron Prime 5062224"
 	fi
 }
 
@@ -59,19 +59,19 @@ check_sha256 ops/actions.lua e481c582405488b1bf87a51a80376cce14bd354c01c896333aa
 check_sha256 ops/app.lua 11f61444d2b754b76a80b2087b65e6e1ad2e7370f1eab6cb4013f9a1b1903bd1
 check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
 check_sha256 ops/http.lua 510adad17bf8d7f981e93fa478f80438f3056debbc4d4a243eec179f2c65d154
-check_sha256 ops/live.lua ec3c84e1c58ee8896a09a0b864c9c550b4766154067d694646a872987b466bc5
-check_sha256 ops/probes.lua 9e0744e37aa885f25b91462a7e827fb7a0b15575fdb45805aa6de530a62d4876
+check_sha256 ops/live.lua 79cb4e50a86a829efed11f2ed0d1cf5417e719546b3fd8cf55892de9de492da2
+check_sha256 ops/probes.lua a624c110d809a817e95ceb31323c4665dbf74cb14260bf9e88b2e160c127ed88
 check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da2756ce0885c77
 check_sha256 ops/render.lua 66078764a7c87ea501d54780dc582eb9bef35856d66fd1c2b255f0f39679d32e
 check_sha256 ops/router.lua 8e33af030097ff89d38aabcfe39851e22994cc0c0740e732e8211879337a5892
 check_sha256 ops/server.lua f7ae752b7bf74cc501308a54079300916f7ab267617943cd30c05f075466a304
-check_sha256 ops/system.lua f46d0841c0d2e4d3beee0974426c89dabfab422a17da1ff2722882505d983174
+check_sha256 ops/system.lua d2b465204865c5fed6e219ec582e8ab10d85737f21868df972f803860b64440b
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
 check_wrapper "$root/mechatron-prime-ops.nix" 'import ./mechatron-prime/nixos/ops.nix'
 
-if ! rg -Fq 'fac63a6ee6750dc02651d75a607257d6dbbbfe17' "$vendored/SOURCE.md"; then
+if ! rg -Fq '5062224' "$vendored/SOURCE.md"; then
 	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
 fi
 
@@ -80,4 +80,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit fac63a6\n'
+printf 'Mechatron Prime integration matches source commit 5062224\n'

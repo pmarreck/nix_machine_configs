@@ -48,16 +48,6 @@ local function format_pools(pools)
 	return table.concat(lines, "\n")
 end
 
---- RescueTime remains observable during its billing decision, but neither its
---- expected service failure nor its repeated crash journal line is host health.
-local function health_journal_errors(errors)
-	local included = {}
-	for _, message in ipairs(errors or {}) do
-		if not message:lower():find("rescuetime", 1, true) then included[#included + 1] = message end
-	end
-	return included
-end
-
 --- Assemble one immutable UI model from injected host adapters; parsing and
 --- classification stay deterministic while I/O remains replaceable in tests.
 function M.collect(source)
@@ -87,7 +77,7 @@ function M.collect(source)
 	local zpool_status = source.run("zpool_status") or ""
 	local zfs_state = probes.classify_zfs(zpool_summary, zpool_status)
 	local pools = probes.parse_zpool_list(source.run("zpool_list") or "")
-	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"))
+	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"), 20)
 
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
 	local current_text = source.read("/var/lib/mechatron-prime/current.json")
@@ -104,7 +94,7 @@ function M.collect(source)
 		disks = disks,
 		cpu = cpu,
 		zfs = {state = zfs_state, detail = trim(zpool_summary)},
-		journal = {recent_errors = health_journal_errors(recent_errors)},
+		journal = {recent_errors = recent_errors},
 	})
 
 	local steam_shader_output = trim(source.run("steam_shader"))
