@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime af3440b"
+		fail "$relative differs from Mechatron Prime d0e353c"
 	fi
 }
 
@@ -38,9 +38,11 @@ check_wrapper() {
 	fi
 }
 
-check_sha256 nixos/receiver.nix 4a8d4bc76134796b18d23959608bc9c1c68edde15079f16f7519ef68930401b8
+check_sha256 nixos/receiver.nix 388c94cf0200b8b8f8f5f8917c506bec253859ef0583b91e12f7e7bb239f6442
 check_sha256 nixos/repos.nix 46fdce97d7f117b2e54f367d74b9e1942ba451750866c07de21ccbaf79c53490
 check_sha256 nixos/worker.nix 82d3f9d923fbbd953110e2c82b59f78025cd9c67902fbf69b3469bac8543e31a
+check_sha256 assets/mechatron-prime/index.html 77de2be71905c84db92063b8171dcb451a835af2fd827500bc1ef565907befd4
+check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
 check_sha256 scripts/policy.bash a78b6a7767a4cbf16e2ccc09fdc1e74853f475be042782ad6854808b4e67c479
 check_sha256 scripts/receiver.bash a8dac3229c61686607206c8e4c7320ebc6ecddfb1d4dbde2daefc765c08ed45b
 check_sha256 scripts/seed-badges.bash 736c6f13ecd83075a6338fd5ea261e0498527916a70f959a9f38a93d6e3e34ba
@@ -49,9 +51,13 @@ check_sha256 scripts/worker.bash e70159743178246599185c839e9d331e8acca3fce92b7bd
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
 
+if ! rg -Fq 'd0e353c7810da03cec2ea378633d2590139762f7' "$vendored/SOURCE.md"; then
+	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
+fi
+
 if [ "$failures" -ne 0 ]; then
 	printf '%d Mechatron Prime integration check(s) failed\n' "$failures" >&2
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit af3440b\n'
+printf 'Mechatron Prime integration matches source commit d0e353c\n'

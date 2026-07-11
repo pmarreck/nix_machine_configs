@@ -6,6 +6,8 @@ let
   allowlistPath = "/etc/mechatron-prime/repos.allowlist";
   publicDirectory = "/var/lib/mechatron-prime-public";
   badgeDirectory = "${publicDirectory}/badges";
+  explainerSource = ../assets/mechatron-prime;
+  explainerDirectory = "${publicDirectory}/mechatron-prime";
   allowlistSeedFile = pkgs.writeText "mechatron-prime-repos.allowlist"
     (lib.concatStringsSep "\n" allowlistedRepos + "\n");
 
@@ -108,6 +110,7 @@ in
     "f /var/lib/mechatron-prime/events.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/queue/builds.ndjson 0640 mechatron-prime mechatron-prime - -"
     "d ${publicDirectory} 0750 mechatron-prime mechatron-prime-badges - -"
+    "L+ ${explainerDirectory} - - - - ${explainerSource}"
     "d ${badgeDirectory} 2750 mechatron-prime mechatron-prime-badges - -"
   ] ++ badgeSeedRules;
 
