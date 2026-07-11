@@ -346,6 +346,12 @@ in
     settings.Manager.DefaultTimeoutStopSec = "30s";
     user = {
       services = {
+        # GNOME's LocalSearch/Tracker successor crawls and extracts metadata from
+        # home-directory files. Keep file indexing explicit or scheduled instead.
+        "localsearch-3".enable = false;
+        "localsearch-control-3".enable = false;
+        "localsearch-writeback-3".enable = false;
+
         # my custom grandfather clock gong script
         clocksound = let
           # Vendored 2026-07-05 from the pinned gist permalink to make this pure/self-contained
@@ -380,11 +386,10 @@ in
           description = "Run clocksound.service on the hour";
           wantedBy = [ "timers.target" ];
           timerConfig = {
-            OnCalendar = "hourly";
-            # OnCalendar = [
-            #   "*-*-* 08..23:00:00"  # Every hour from 08:00 to 23:00
-            #   "*-*-* 00:00:00"      # At 00:00
-            # ];
+            OnCalendar = [
+              "*-*-* 07..23:00:00"
+              "*-*-* 00:00:00"
+            ];
             Unit = "clocksound.service";
             # Persistent = true;
           };
@@ -940,6 +945,26 @@ in
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
   hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
   services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
+  services.gnome.localsearch.enable = false; # do not register GNOME's background home-directory indexer
+
+  # Dormant indexed CLI search. Enable later if direct path lookup is needed.
+  # /nix/store is intentionally searchable, despite store paths being ephemeral.
+  services.locate = {
+    enable = false;
+    interval = "03:30";
+    package = pkgs.plocate;
+    prunePaths = [
+      "/tmp"
+      "/var/tmp"
+      "/var/cache"
+      "/var/lock"
+      "/var/run"
+      "/var/spool"
+      "/nix/var/log/nix"
+      "/home/pmarreck/.local/share/Steam"
+      "/home/pmarreck/.local/share/docker"
+    ];
+  };
 
   # Tailscale (added 2026-07-02). Mesh VPN / WireGuard. After the first rebuild
   # authenticate once with `sudo tailscale up` (opens a browser login). The
