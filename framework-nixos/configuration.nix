@@ -27,6 +27,7 @@ let
     # ];
   };
   stable = import inputs.nixpkgs-2605 { inherit system; config = scopeConfig; };
+  previousStable = import inputs.nixpkgs-2511 { inherit system; config = scopeConfig; };
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
@@ -35,7 +36,8 @@ let
   elixir = pkgs.beam.packages.erlangR28.elixir_1_18;
   # libretro = stable.libretro;
   comma = pkgs.comma;
-  opencode = pkgs.callPackage ./opencode.nix { };
+  # Prefer the packaged stable OpenCode: the local fetchGit build bypasses caches.
+  opencode = stable.opencode;
   cfunge = pkgs.callPackage ./cfunge.nix { };
   # roc is dynamically compiled, so it's not usable in NixOS yet
   # roc = (import (pkgs.fetchFromGitHub {
@@ -116,12 +118,15 @@ in
     "mailspring-1.12.0" # CVE-2023-4863
   ];
 
-  # for ollama acceleration
-  nixpkgs.config.rocmSupport = true;
+  # Scope ROCm to Ollama below. Enabling rocmSupport globally changes many unrelated
+  # desktop derivations and defeats their binary-cache substitutions.
 
   nix.settings = {
     download-buffer-size = 1048576000; # 1GB
     "warn-dirty" = false;
+    # Prefer signed cache artifacts even when a package marks itself preferLocalBuild.
+    # This keeps system upgrades from compiling large desktop applications locally.
+    "always-allow-substitutes" = true;
     trusted-users = [ "root" "pmarreck" ];
   };
 
@@ -140,8 +145,10 @@ in
     (import ./packages)
     #(self: super: { nix-direnv = super.nix-direnv.override { enableFlakes = true; }; } )
 
-    # The Azurite-backed Arrow filesystem test flakes locally. Keep Azure support
-    # and the remaining install checks while nixpkgs carries the upstream test.
+    # DISABLED: test-only overrides change output hashes and force local builds.
+    # Keep upstream Arrow cached; the stable visidata selection below avoids this
+    # dependency chain if the rolling package set cannot substitute it.
+    /*
     (final: prev: {
       arrow-cpp = prev.arrow-cpp.overrideAttrs (old: {
         installCheckPhase = prev.lib.replaceStrings
@@ -150,6 +157,7 @@ in
           old.installCheckPhase;
       });
     })
+    */
 
     # ---------------------------------------------------------------------
     # JPEG XL (.jxl) support for GTK / GNOME apps via gdk-pixbuf.
@@ -218,6 +226,9 @@ in
     # they don't catch anything worth blocking a system rebuild on.
     # Re-enable per package whenever upstream replaces the timing assertions
     # with deterministic checks.
+    # DISABLED: these test-only overrides rebuild entire Python environments and
+    # core desktop services locally instead of using their binary-cache outputs.
+    /*
     (final: prev:
       let
         # Disable doCheck on packages whose test suite flakes on busy build
@@ -280,17 +291,20 @@ in
         doCheck = false;
       });
     })
+    */
 
     # ibus 1.5.33 has a parallel-install race in bindings/pygobject:
     # `install IBus.py` fires twice in parallel and one invocation fails
     # with "File exists". Forcing serial install avoids the race without
     # affecting build correctness. Remove when nixpkgs picks up an ibus
     # release that fixes the upstream Makefile dependency.
+    /*
     (final: prev: {
       ibus = prev.ibus.overrideAttrs (old: {
         enableParallelInstalling = false;
       });
     })
+    */
 
     # gjs 1.86.0: Scripts/CommandLine subtest "Throws error if filename is
     # not UTF8" is locale/filesystem-sensitive — touches a file with a raw
@@ -408,8 +422,12 @@ in
     nssmdns4 = true;
   };
 
-  # ollama service
-  services.ollama.enable = true;
+  # Keep AMD acceleration, but only in Ollama. A global rocmSupport setting
+  # invalidates cache outputs for otherwise unrelated desktop packages.
+  services.ollama = {
+    enable = true;
+    package = pkgs.ollama-rocm;
+  };
 
   # fingerprint reader
   services.fprintd.enable = false;
@@ -558,7 +576,7 @@ in
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       jetbrains.datagrip # gui for postgresql/mariadb/mysql/sqlite
       jq # json query
-      krita # drawing program
+      stable.krita # stable package has a binary-cache substitute for this large Qt application
       less # GNU terminal based program for paging text files or output
       libheif # ISO/IEC 23008-12:2017 HEIF file format decoder and encoder
       libjxl # JPEG XL image format reference implementation
@@ -597,20 +615,21 @@ in
       presenterm # A markdown-based terminal slideshow tool
       procps # Utilities that give information about processes
       # proton-caller # removed in nixos-25.11 (unmaintained)
-      python312Packages.pygments # Syntax highlighting library
-      conda # python package manager (ew. but need it for LLM's)
-      python311Packages.pandas # for data analysis
-      python311Packages.pillow # for image processing
-      python311Packages.pip # for pip
-      python311Packages.pygments # syntax highlighting for 565 languages in terminal
-      python311Packages.python # python interpreter
-      python311Packages.tkinter # for tkinter
+      # Stable Python 3.12 keeps this developer bundle on binary-cache outputs;
+      # the rolling Python 3.11 closure would compile pandas and its dependencies.
+      stable.python312Packages.pygments # Syntax highlighting library
+      stable.conda # python package manager (ew. but need it for LLM's)
+      stable.python312Packages.pandas # for data analysis
+      stable.python312Packages.pillow # for image processing
+      stable.python312Packages.pip # for pip
+      stable.python312Packages.python # python interpreter
+      stable.python312Packages.tkinter # for tkinter
       # python311Packages.torch-bin # disabled on 26.x: PyTorch expects newer CUDA bindings than nixpkgs provides
       # python311Packages.torchaudio-bin
       # python311Packages.torchvision-bin
-      python311Packages.virtualenv # for virtualenv
+      stable.python312Packages.virtualenv # for virtualenv
       qalculate-gtk # very cool calculator
-      qFlipper # for Flipper Zero
+      stable.qFlipper # stable package has a binary-cache substitute
       qpdf # C++ library and set of programs that inspect and manipulate the structure of PDF files
       radare2 # reverse engineering framework/disassembler
       rclone # rsync for cloud storage
@@ -638,7 +657,7 @@ in
       sourceHighlight # Source code renderer with syntax highlighting
       speedread # speed reading
       speedtest-cli # Internet speed test from the command line
-      unstable.cudaPackages.cudatoolkit # for tensorflow
+      stable.cudaPackages.cudatoolkit # avoid the rolling CUDA closure while retaining TensorFlow tooling
       # unstable.curl-impersonate # Command-line tool to impersonate a browser
       stable.gimp-with-plugins # drawing program # forced stable on 1/20/2023 due to build failure on unstable
       stable.gitkraken # git gui (as opposed to "git gud" I guess) # downgraded to stable 10/20/2024 due to build failure
@@ -651,7 +670,7 @@ in
       stable.pbzip2 # Parallel implementation of bzip2 (pinned to stable)
       stable.rare # rare is a game launcher for epic games store # forced stable on 2/16/2023 due to build failure on unstable
       stable.ripgrep-all # ripgrep-all is a wrapper around ripgrep, fd, and git that allows you to search through your codebase using ripgrep syntax.
-      silver-searcher-ng # Maintained fork of silver-searcher with PCRE2 support
+      stable.silver-searcher # available on 26.05 and substituted from the stable cache
       stable.spotify # forced stable on 2/16/2023 due to build failure on unstable
       stable.spotifyd # spotify streamer daemon
       starship # cool prompt
@@ -663,7 +682,7 @@ in
       ticker # stock market watcher, to replace the "markets" GUI
       tickrs # Another TUI stock market watcher
       # tome2 # A dungeon crawler similar to Angband, based on the works of Tolkien # disabled due to build failures
-      torcs # racing game
+      # torcs # no signed binary cache on supported release branches; avoid local game build
       # transmission-gtk # torrent client
       transmission_4-gtk # torrent client
       treesheets # freeform data organizer
@@ -678,13 +697,14 @@ in
       unstable.gnome-builder # code editor
       unstable.micro # sort of an enhanced nano
       unstable.orbiton # Simple text editor/IDE intentionally limited to VT100; https://github.com/xyproto/o
-      unstable.ollama # playing with LLM's
-      unstable.vscode # nice gui editor
+      ollama-rocm # match the cached ROCm service package rather than a second rolling Ollama
+      # unstable.vscode # disabled: Zed below is retained and avoids an uncached VS Code closure
       unstable.zed-editor # code editor
       unvanquished # FPS
-      visidata # Terminal TUI spreadsheet multitool for discovering and arranging data
+      stable.visidata # avoid the rolling Arrow/PyArrow dependency chain
       vsce # Visual Studio Code extensions manager/tooling
-      vlc # video player
+      # 26.05 VLC is not cached yet; 25.11's signed cache build avoids a local media-stack compile.
+      previousStable.vlc
       unstable.wabt # WebAssembly Binary Toolkit
       unstable.wasm-tools # Low level tooling for WebAssembly in Rust (very useful)
       unstable.wasmedge # Lightweight, high-performance, and extensible WebAssembly runtime for cloud native, edge, and decentralized applications
@@ -797,7 +817,7 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
-      (wineWow64Packages.unstableFull.override { wineRelease = "staging"; mingwSupport = true; })
+      stable.wineWow64Packages.stagingFull # use a cached staging build rather than a local override
       # (callPackage ./cursor.nix {}) # for cursor editor
       # bash-completion # Programmable completion for the bash shell # note: caused problems
       # bash-preexec # Bash preexec and precmd functions # disabled since it's pulled in via a dotfile function now
@@ -927,7 +947,7 @@ in
       iotop iotop-c # iotop-c is a fork of iotop with a curses interface
       kitty # another nice terminal emulator
       kmon # kernel module monitor
-      firefox-beta # firefox nightly overlay fetches live Mozilla metadata, which is not flake-pure
+      stable.firefox # stable binary cache; the rolling beta closure would build locally
       ldc # d-lang LLVM compiler
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       lsof # for listing open files and ports

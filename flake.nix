@@ -2,8 +2,8 @@
   description = "Peter's NixOS systems";
 
   inputs = {
-    # Base system + the `unstable` scope (rolling nixos-unstable — matches the
-    # current base; `nix flake update` advances it).
+    # Thelio's base system and every host's explicit `unstable` scope. `nix flake
+    # update` advances it without forcing Framework's desktop base to compile.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     # The `stable` scope — follows the release-26.05 branch so `nix flake update`
@@ -12,16 +12,20 @@
     # full determinism if a rolling stable ever proves too lively.
     nixpkgs-2605.url = "github:NixOS/nixpkgs/release-26.05";
 
+    # A narrow fallback for packages whose current release build has not reached
+    # cache.nixos.org yet. Keep Framework's base on 26.05.
+    nixpkgs-2511.url = "github:NixOS/nixpkgs/release-25.11";
+
     nixos-hardware = {
       url = "github:NixOS/nixos-hardware";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2605, nixos-hardware, ... }@inputs:
+  outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, ... }@inputs:
     let
       system = "x86_64-linux";
-      mkHost = module: nixpkgs.lib.nixosSystem {
+      mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
@@ -33,8 +37,10 @@
       };
     in {
       nixosConfigurations = {
-        thelio-nixos = mkHost ./system76_thelio_nixos/configuration.nix;
-        framework-nixos = mkHost ./framework-nixos/configuration.nix;
+        thelio-nixos = mkHost nixpkgs ./system76_thelio_nixos/configuration.nix;
+        # Framework uses the latest released package set for cache hits; the
+        # module still receives `inputs.nixpkgs` as its explicit unstable scope.
+        framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
       };
     };
 }
