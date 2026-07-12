@@ -110,6 +110,12 @@ function M.is_notable_journal_error(line)
 	local lower = line:lower()
 	if line == "-- No entries --" or lower:match("^hint:") or line:match("^%s") then return false end
 	if lower:find("rescuetime", 1, true) then return false end
+	if lower:find("dbus-broker-launch", 1, true) and lower:find("ignoring duplicate name", 1, true) then return false end
+	if lower:find("sudo[", 1, true)
+		and (lower:find("pam_unix(sudo:auth): conversation failed", 1, true)
+			or lower:find("pam_unix(sudo:auth): auth could not identify password for [pmarreck]", 1, true)) then
+		return false
+	end
 	if lower:find("sudo[", 1, true)
 		and lower:find("a password is required", 1, true)
 		and lower:match("command=.*[/ ]true%s*$") then

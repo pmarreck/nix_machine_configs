@@ -64,6 +64,11 @@ in
       ExecStart = "${pkgs.tailscale}/bin/tailscale serve --bg --yes --https=8444 --set-path=/ops http://127.0.0.1:9002/ops";
       ExecStop = "${pkgs.tailscale}/bin/tailscale serve --yes --https=8444 --set-path=/ops off";
       RemainAfterExit = true;
+      # tailscaled can report active before its local control socket reaches
+      # Running; retry its transient NoState response instead of leaving a
+      # stale persisted Serve route after boot.
+      Restart = "on-failure";
+      RestartSec = 5;
     };
   };
 
