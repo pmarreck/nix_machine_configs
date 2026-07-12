@@ -23,7 +23,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime 5062224"
+		fail "$relative differs from Mechatron Prime 51506df"
 	fi
 }
 
@@ -41,7 +41,7 @@ check_wrapper() {
 check_sha256 nixos/receiver.nix 388c94cf0200b8b8f8f5f8917c506bec253859ef0583b91e12f7e7bb239f6442
 check_sha256 nixos/repos.nix 46fdce97d7f117b2e54f367d74b9e1942ba451750866c07de21ccbaf79c53490
 check_sha256 nixos/worker.nix 340277dcd370a1cc241de0ad1adcffdf62529eeabefae055c6f56ffea7a7de02
-check_sha256 nixos/ops.nix cab7f93aa7690023076f021c0abd2e5ef1ff17cf73f300217f27c107104e82ce
+check_sha256 nixos/ops.nix 06f07931662c5bca1cb1007baa87eaaeba179ccdd4b47f64bcba3f689cda2a52
 check_sha256 assets/mechatron-prime/index.html f8060aac99b6e0ae362f06b2a17c4e3e5676c97d12313a3bec44f99951f2455b
 check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
 check_sha256 assets/mechatron-prime/mecha-T2-B.jxl 4b7766199597f9a610e6028bb553f93edaf2fabf8a02b783572c20b34fae5705
@@ -71,7 +71,7 @@ check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nix
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
 check_wrapper "$root/mechatron-prime-ops.nix" 'import ./mechatron-prime/nixos/ops.nix'
 
-if ! rg -Fq '5062224' "$vendored/SOURCE.md"; then
+if ! rg -Fq '51506df' "$vendored/SOURCE.md"; then
 	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
 fi
 
@@ -80,4 +80,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit 5062224\n'
+printf 'Mechatron Prime integration matches source commit 51506df\n'

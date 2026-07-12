@@ -2,9 +2,15 @@
 { pkgs, ... }:
 let
   luaEnv = pkgs.luajit.withPackages (ps: with ps; [ cjson luasocket ]);
+  # Keep the complete runtime tree as an explicit derivation input. This makes
+  # source changes observable even when the Nix evaluator reuses module parses.
+  opsInput = builtins.path {
+    path = ../ops;
+    name = "mechatron-prime-ops-input";
+  };
   opsSource = pkgs.runCommand "mechatron-prime-ops-source" { } ''
     mkdir -p "$out/ops"
-    cp -R ${../ops}/. "$out/ops/"
+    cp -R ${opsInput}/. "$out/ops/"
   '';
   opsServer = pkgs.writeShellApplication {
     name = "mechatron-prime-ops";
