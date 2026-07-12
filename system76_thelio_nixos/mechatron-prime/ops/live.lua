@@ -40,10 +40,24 @@ local function format_disks(disks)
 	return table.concat(parts, " · ")
 end
 
-local function format_pools(pools)
+local function format_pools(pools, root_properties, scans)
 	local lines = {}
 	for _, pool in ipairs(pools) do
 		lines[#lines + 1] = string.format("%-8s %-8s capacity %s · free %s · fragmentation %s", pool.name, pool.health, pool.capacity, pool.free, pool.fragmentation)
+		local properties = root_properties[pool.name]
+		if properties then
+			lines[#lines + 1] = string.format("  compression %s · compressratio %s", properties.compression, properties.compressratio)
+		end
+		local scan = scans[pool.name]
+		if scan then
+			if scan.kind == "resilver" then
+				lines[#lines + 1] = "  Last resilver: " .. scan.result .. (scan.completed_at and " · completed " .. scan.completed_at or "")
+			elseif scan.kind == "resilvering" then
+				lines[#lines + 1] = "  Resilver in progress: " .. scan.result
+			else
+				lines[#lines + 1] = "  Last resilver: not reported · latest scan: " .. scan.result .. (scan.completed_at and " · completed " .. scan.completed_at or "")
+			end
+		end
 	end
 	return table.concat(lines, "\n")
 end
@@ -77,6 +91,8 @@ function M.collect(source)
 	local zpool_status = source.run("zpool_status") or ""
 	local zfs_state = probes.classify_zfs(zpool_summary, zpool_status)
 	local pools = probes.parse_zpool_list(source.run("zpool_list") or "")
+	local root_properties = probes.parse_zfs_root_properties(source.run("zfs_datasets") or "")
+	local scans = probes.parse_zpool_scan_records(zpool_status)
 	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"), 20)
 
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
@@ -119,11 +135,11 @@ function M.collect(source)
 		zfs = {
 			status = zfs_state,
 			detail = trim(zpool_summary),
-			pools = format_pools(pools),
+			pools = format_pools(pools, root_properties, scans),
 		},
 		resources = {
 			hogs = source.run("hogs") or "hogs probe unavailable",
-			network_hogs = source.run("network_hogs") or "Awaiting network-hogs collector",
+			network_hogs = source.run("network_hogs") or "network-hogs probe unavailable",
 			steam_shader = steam_shader_output == "" and "idle" or "active",
 		},
 		recent_errors = recent_errors,

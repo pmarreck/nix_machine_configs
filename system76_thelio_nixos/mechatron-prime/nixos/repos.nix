@@ -143,6 +143,9 @@
     "checks.x86_64-linux.cli"
     "checks.x86_64-linux.fuzz"
   ];
+  "pmarreck/validate_gui" = [
+    "packages.x86_64-linux.mecha-validate"
+  ];
   "pmarreck/warp-history" = [
     "packages.x86_64-linux.default"
     "checks.x86_64-linux.build"

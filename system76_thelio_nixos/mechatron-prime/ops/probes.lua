@@ -81,6 +81,44 @@ function M.parse_zpool_list(text)
 	return pools
 end
 
+--- Read root-dataset compression facts from a tabular ZFS projection, keeping
+--- child datasets out so each pool card reports its own effective baseline.
+function M.parse_zfs_root_properties(text)
+	local properties = {}
+	for line in text:gmatch("[^\n]+") do
+		local name, compression, compressratio = line:match("^([^\t]+)\t([^\t]+)\t([^\t]+)$")
+		if name and not name:find("/", 1, true) then
+			properties[name] = {compression = compression, compressratio = compressratio}
+		end
+	end
+	return properties
+end
+
+--- Associate each pool's latest `zpool status` scan with its result and
+--- completion time, preserving the crucial scrub-versus-resilver distinction.
+function M.parse_zpool_scan_records(text)
+	local records = {}
+	local pool = nil
+	for line in text:gmatch("[^\n]+") do
+		local found_pool = line:match("^%s*pool:%s*(%S+)")
+		if found_pool then
+			pool = found_pool
+		else
+			local scan = pool and line:match("^%s*scan:%s*(.+)$")
+			if scan then
+				local result, completed_at = scan:match("^(.-)%s+on%s+(.+)$")
+				result = result or scan
+				local lower = result:lower()
+				local kind = lower:match("^scrub") and "scrub"
+					or lower:match("^resilvered") and "resilver"
+					or lower:match("^resilver in progress") and "resilvering"
+				if kind then records[pool] = {kind = kind, result = result, completed_at = completed_at} end
+			end
+		end
+	end
+	return records
+end
+
 function M.classify_zfs(summary, detail)
 	local combined = (summary .. "\n" .. detail):lower()
 	if combined:find("resilver in progress", 1, true) then return "resilvering" end

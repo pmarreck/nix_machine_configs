@@ -18,6 +18,9 @@ let
       luaEnv
       pkgs.bash
       pkgs.coreutils
+      pkgs.findutils
+      pkgs.gawk
+      pkgs.iproute2
       pkgs.procps
       pkgs.systemd
       pkgs.util-linux
@@ -46,6 +49,7 @@ in
       NoNewPrivileges = true;
       PrivateTmp = true;
       ProtectHome = "read-only";
+      ReadWritePaths = [ "/home/pmarreck/.codex" ];
       ProtectSystem = "strict";
       RestrictAddressFamilies = [ "AF_INET" "AF_UNIX" ];
       RestrictSUIDSGID = true;

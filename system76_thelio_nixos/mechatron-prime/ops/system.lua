@@ -6,11 +6,13 @@ local cjson = require("cjson.safe")
 local M = {}
 
 local fixed_commands = {
-	nixos_version = {"nixos-version"},
+	nixos_version = {"/run/current-system/sw/bin/nixos-version"},
 	df = {"df", "-P", "/", "/home"},
 	zpool_summary = {"zpool", "status", "-x"},
 	zpool_status = {"zpool", "status"},
 	zpool_list = {"zpool", "list", "-H", "-o", "name,health,size,alloc,free,cap,frag"},
+	zfs_datasets = {"zfs", "list", "-H", "-o", "name,compression,compressratio"},
+	network_hogs = {"/home/pmarreck/bin/nethogs", "-d", "1"},
 	steam_shader = {"pgrep", "-af", "fossilize_replay|steam.*shader|shader.*precache"},
 	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-12 hours", "-n", "200", "--no-pager", "--output=short-iso"},
 }
@@ -103,8 +105,6 @@ function M.new(adapter)
 		local argv = fixed_commands[name]
 		if name == "hogs" then
 			argv = user_command({"bash", "-lc", "source /home/pmarreck/dotfiles/.aliases; hr; echo 'Memhogs:'; memhogs; hr; echo 'CPU hogs:'; cpuhogs; hr"})
-		elseif name == "network_hogs" then
-			return nil
 		end
 		if not argv then return nil end
 		local output = timed(argv)

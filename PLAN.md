@@ -14,6 +14,8 @@
   - Curiosity poke: parse every served seed with `jq`, not merely inspect its source text.
 - [x] Vendor Mechatron Prime source commit `fac63a6`, including operations-console refinements and randomized JPEG XL explainer assets. Completed 2026-07-11 13:42 EDT.
   - Curiosity poke: every vendored runtime file must remain byte-for-byte tied to the declared source commit.
+- [x] Vendor Mechatron Prime source commit `5b3c4fb`, adding `validate_gui`'s Linux GUI build gate plus verified Codex, ZFS, and NetHogs operations refinements. Completed 2026-07-11 23:06 EDT.
+  - Curiosity poke answered: the candidate closure contains the exact audited GUI target, `UNKNOWN` badge seed, and only `/home/pmarreck/.codex` as the ops service's writable home path.
 - [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.
