@@ -18,6 +18,8 @@
   - Curiosity poke answered: the candidate closure contains the exact audited GUI target, `UNKNOWN` badge seed, and only `/home/pmarreck/.codex` as the ops service's writable home path.
 - [x] Vendor and build Mechatron Prime source commit `46db1db`, registering FSearch's package, build check, and test check. Completed 2026-07-14 16:22 EDT.
   - Curiosity poke answered: the candidate and running system share exact Nixpkgs revision `0bb7ec54`; the closure adds only FSearch and the previously pending `validate_gui` policy seeds.
+- [ ] Vendor and build Mechatron Prime source commit `34851fa`, making the worker and webhook honor each repository's declared default branch (FSearch: `master`).
+  - Curiosity poke: the activation diff must remain confined to Mechatron services before Peter opts into a live switch.
 - [ ] Activate the reviewed closure, provision FSearch's exact GitHub webhook, and verify `UNKNOWN` then `PASSING` through the public badge route.
   - Curiosity poke: activation also applies the already-committed operations-console executable and restart-policy updates, so it requires explicit approval despite no GUI/audio/kernel/package drift.
 - [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.

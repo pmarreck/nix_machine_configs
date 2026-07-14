@@ -13,6 +13,7 @@ fi
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
 allowlist="${MECHATRON_REPOS_ALLOWLIST:-/etc/mechatron-prime/repos.allowlist}"
+repo_refs="${MECHATRON_REPO_REFS:-/etc/mechatron-prime/repo-refs}"
 queue_dir="$state_dir/queue"
 queue_file="$queue_dir/builds.ndjson"
 queue_lock="$queue_dir/.builds.lock"
@@ -49,7 +50,7 @@ if [ "$event" = "ping" ]; then
 fi
 
 if [ "$event" != "push" ] || [ "$allowed" != true ] ||
-	! valid_delivery_id "$delivery" || ! valid_yolo_ref "$ref" || ! valid_commit_sha "$sha"
+	! valid_delivery_id "$delivery" || ! repo_ref_is_allowed "$repo" "$ref" "$repo_refs" || ! valid_commit_sha "$sha"
 then
 	printf 'Mechatron Prime ignored webhook outside policy\n'
 	exit 0

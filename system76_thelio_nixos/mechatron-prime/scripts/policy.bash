@@ -40,8 +40,39 @@ valid_delivery_id() {
 	[[ "$delivery" =~ ^[A-Za-z0-9-]{1,128}$ ]]
 }
 
-valid_yolo_ref() {
-	[ "${1:-}" = "refs/heads/yolo" ]
+valid_branch_ref() {
+	[[ "${1:-}" =~ ^refs/heads/[A-Za-z0-9._/-]{1,100}$ ]]
+}
+
+# Read an explicit repository-to-ref policy as a whole set before allowing a
+# push, so fork branch conventions cannot weaken the default project policy.
+repo_ref_is_allowed() {
+	local repo="${1:-}"
+	local ref="${2:-}"
+	local refs_file="${3:-}"
+	local line
+	local configured_repo
+	local configured_ref
+	local extra
+	local expected_ref=""
+	local found=false
+
+	valid_repo_full_name "$repo" || return 1
+	valid_branch_ref "$ref" || return 1
+	[ -f "$refs_file" ] || return 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		IFS=$'\t' read -r configured_repo configured_ref extra <<< "$line"
+		valid_repo_full_name "$configured_repo" || return 1
+		valid_branch_ref "$configured_ref" || return 1
+		[ -z "$extra" ] || return 1
+		if [ "$configured_repo" = "$repo" ]; then
+			[ "$found" = false ] || return 1
+			expected_ref="$configured_ref"
+			found=true
+		fi
+	done < "$refs_file"
+
+	[ "$found" = true ] && [ "$ref" = "$expected_ref" ]
 }
 
 valid_nix_target() {

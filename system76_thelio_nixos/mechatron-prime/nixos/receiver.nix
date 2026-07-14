@@ -2,14 +2,21 @@
 { lib, pkgs, ... }:
 let
   repoPolicies = import ./repos.nix;
+  repoRefPolicies = import ./repo-refs.nix;
   allowlistedRepos = builtins.attrNames repoPolicies;
   allowlistPath = "/etc/mechatron-prime/repos.allowlist";
+  repoRefPath = "/etc/mechatron-prime/repo-refs";
   publicDirectory = "/var/lib/mechatron-prime-public";
   badgeDirectory = "${publicDirectory}/badges";
   explainerSource = ../assets/mechatron-prime;
   explainerDirectory = "${publicDirectory}/mechatron-prime";
   allowlistSeedFile = pkgs.writeText "mechatron-prime-repos.allowlist"
     (lib.concatStringsSep "\n" allowlistedRepos + "\n");
+  repoRefSeedFile =
+    assert allowlistedRepos == builtins.attrNames repoRefPolicies;
+    assert lib.all (ref: builtins.match "refs/heads/[A-Za-z0-9._/-]+" ref != null) (builtins.attrValues repoRefPolicies);
+    pkgs.writeText "mechatron-prime-repo-refs"
+      (lib.concatStringsSep "\n" (lib.mapAttrsToList (repo: ref: "${repo}\t${ref}") repoRefPolicies) + "\n");
 
   badgeSeedRules = lib.mapAttrsToList
     (repo: _:
@@ -103,6 +110,7 @@ in
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
     "L+ /etc/mechatron-prime/repos.allowlist - - - - ${allowlistSeedFile}"
+    "L+ ${repoRefPath} - - - - ${repoRefSeedFile}"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/logs 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/queue 0750 mechatron-prime mechatron-prime - -"
@@ -123,6 +131,7 @@ in
     environment = {
       MECHATRON_STATE_DIR = "/var/lib/mechatron-prime";
       MECHATRON_REPOS_ALLOWLIST = allowlistPath;
+      MECHATRON_REPO_REFS = repoRefPath;
     };
 
     serviceConfig = {

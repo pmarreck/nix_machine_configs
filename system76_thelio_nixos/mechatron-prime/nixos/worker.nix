@@ -2,9 +2,16 @@
 { lib, pkgs, ... }:
 let
   repoPolicies = import ./repos.nix;
+  repoRefPolicies = import ./repo-refs.nix;
   allowlistPath = "/etc/mechatron-prime/repos.allowlist";
+  repoRefPath = "/etc/mechatron-prime/repo-refs";
   targetDirectory = "/etc/mechatron-prime/targets";
   badgeDirectory = "/var/lib/mechatron-prime-public/badges";
+  repoRefSeedFile =
+    assert builtins.attrNames repoPolicies == builtins.attrNames repoRefPolicies;
+    assert lib.all (ref: builtins.match "refs/heads/[A-Za-z0-9._/-]+" ref != null) (builtins.attrValues repoRefPolicies);
+    pkgs.writeText "mechatron-prime-repo-refs"
+      (lib.concatStringsSep "\n" (lib.mapAttrsToList (repo: ref: "${repo}\t${ref}") repoRefPolicies) + "\n");
 
   targetSeedRules = lib.mapAttrsToList
     (repo: targets:
@@ -33,6 +40,7 @@ in
 {
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
+    "L+ ${repoRefPath} - - - - ${repoRefSeedFile}"
     "d ${targetDirectory} 0750 root mechatron-prime - -"
     "z /etc/nix/netrc 0640 root mechatron-prime - -"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
@@ -59,6 +67,7 @@ in
       XDG_CONFIG_HOME = "/var/lib/mechatron-prime/.config";
       MECHATRON_STATE_DIR = "/var/lib/mechatron-prime";
       MECHATRON_REPOS_ALLOWLIST = allowlistPath;
+      MECHATRON_REPO_REFS = repoRefPath;
       MECHATRON_TARGETS_DIR = targetDirectory;
       MECHATRON_BADGE_DIR = badgeDirectory;
       MECHATRON_BUILD_TIMEOUT_SECONDS = "7200";

@@ -13,6 +13,7 @@ fi
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
 allowlist="${MECHATRON_REPOS_ALLOWLIST:-/etc/mechatron-prime/repos.allowlist}"
+repo_refs="${MECHATRON_REPO_REFS:-/etc/mechatron-prime/repo-refs}"
 targets_dir="${MECHATRON_TARGETS_DIR:-/etc/mechatron-prime/targets}"
 badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
@@ -110,8 +111,8 @@ while IFS= read -r item; do
 		if ! repo_is_allowed "$repo" "$allowlist"; then
 			failure_stage="repo-policy"
 			failure_detail="repository is not allowlisted"
-		elif ! valid_yolo_ref "$ref"; then
-			failure_detail="ref is not refs/heads/yolo"
+		elif ! repo_ref_is_allowed "$repo" "$ref" "$repo_refs"; then
+			failure_detail="ref is not the repository policy branch"
 		elif ! valid_commit_sha "$sha"; then
 			failure_detail="sha is not a 40-hex Git commit"
 		elif ! valid_delivery_id "$delivery"; then

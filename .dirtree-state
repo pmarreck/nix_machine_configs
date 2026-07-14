@@ -11,6 +11,7 @@ annotate=[
 	system76_thelio_nixos/mechatron-prime/assets/mechatron-prime = Audited public Mechatron Prime explainer assets vendored for NixOS activation.
 	system76_thelio_nixos/mechatron-prime/nixos = Receiver, fleet target matrix, badge service, and sequential worker modules
 	system76_thelio_nixos/mechatron-prime/nixos/ops.nix = Vendored private operations service, Serve route, and FSearch timer
+	system76_thelio_nixos/mechatron-prime/nixos/repo-refs.nix = Explicit repository-to-default-branch policy for the vendored Mechatron receiver and worker.
 	system76_thelio_nixos/mechatron-prime/ops = SHA-pinned LuaJIT operations-console runtime source
 	system76_thelio_nixos/mechatron-prime/scripts = Pure policy plus webhook receiver and queued Nix-build worker implementations
 	system76_thelio_nixos/mechatron-prime/scripts/seed-badges.bash = Vendored Mechatron startup repair for malformed or missing public Shields badge documents.
