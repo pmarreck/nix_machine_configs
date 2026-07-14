@@ -16,6 +16,10 @@
   - Curiosity poke: every vendored runtime file must remain byte-for-byte tied to the declared source commit.
 - [x] Vendor Mechatron Prime source commit `5b3c4fb`, adding `validate_gui`'s Linux GUI build gate plus verified Codex, ZFS, and NetHogs operations refinements. Completed 2026-07-11 23:06 EDT.
   - Curiosity poke answered: the candidate closure contains the exact audited GUI target, `UNKNOWN` badge seed, and only `/home/pmarreck/.codex` as the ops service's writable home path.
+- [x] Vendor and build Mechatron Prime source commit `46db1db`, registering FSearch's package, build check, and test check. Completed 2026-07-14 16:22 EDT.
+  - Curiosity poke answered: the candidate and running system share exact Nixpkgs revision `0bb7ec54`; the closure adds only FSearch and the previously pending `validate_gui` policy seeds.
+- [ ] Activate the reviewed closure, provision FSearch's exact GitHub webhook, and verify `UNKNOWN` then `PASSING` through the public badge route.
+  - Curiosity poke: activation also applies the already-committed operations-console executable and restart-policy updates, so it requires explicit approval despite no GUI/audio/kernel/package drift.
 - [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.

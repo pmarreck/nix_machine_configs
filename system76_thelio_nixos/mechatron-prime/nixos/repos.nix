@@ -82,6 +82,11 @@
     "packages.x86_64-linux.default"
     "checks.x86_64-linux.test"
   ];
+  "pmarreck/fsearch" = [
+    "packages.x86_64-linux.default"
+    "checks.x86_64-linux.build"
+    "checks.x86_64-linux.test"
+  ];
   "pmarreck/incitez" = [
     "packages.x86_64-linux.default"
     "packages.x86_64-linux.wasm"
