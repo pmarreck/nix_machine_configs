@@ -3,7 +3,7 @@
 set -u
 set +e
 
-if ! declare -F repo_is_allowed >/dev/null; then
+if ! declare -F repo_is_owned_by >/dev/null; then
 	script_dir="$(cd "$(dirname "$0")" && pwd)"
 	# Deployment may override the packaged library path.
 	# shellcheck disable=SC1090
@@ -12,8 +12,7 @@ fi
 
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
-allowlist="${MECHATRON_REPOS_ALLOWLIST:-/etc/mechatron-prime/repos.allowlist}"
-repo_refs="${MECHATRON_REPO_REFS:-/etc/mechatron-prime/repo-refs}"
+github_owner="${MECHATRON_GITHUB_OWNER:-pmarreck}"
 queue_dir="$state_dir/queue"
 queue_file="$queue_dir/builds.ndjson"
 queue_lock="$queue_dir/.builds.lock"
@@ -29,9 +28,10 @@ delivery="${GITHUB_DELIVERY:-}"
 repo="${GITHUB_REPOSITORY:-}"
 ref="${GITHUB_REF:-}"
 sha="${GITHUB_SHA:-}"
+default_branch="${GITHUB_DEFAULT_BRANCH:-}"
 ts="$(now_utc)"
 allowed=false
-repo_is_allowed "$repo" "$allowlist" && allowed=true
+repo_is_owned_by "$repo" "$github_owner" && allowed=true
 
 jq -cn \
 	--arg ts "$ts" \
@@ -40,8 +40,9 @@ jq -cn \
 	--arg repo "$repo" \
 	--arg ref "$ref" \
 	--arg sha "$sha" \
+	--arg default_branch "$default_branch" \
 	--argjson allowed "$allowed" \
-	'{ts:$ts,event:$event,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,allowed:$allowed}' \
+	'{ts:$ts,event:$event,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,default_branch:$default_branch,allowed:$allowed}' \
 	>> "$events_file" || exit 1
 
 if [ "$event" = "ping" ]; then
@@ -50,7 +51,7 @@ if [ "$event" = "ping" ]; then
 fi
 
 if [ "$event" != "push" ] || [ "$allowed" != true ] ||
-	! valid_delivery_id "$delivery" || ! repo_ref_is_allowed "$repo" "$ref" "$repo_refs" || ! valid_commit_sha "$sha"
+	! valid_delivery_id "$delivery" || ! repo_ref_is_default_branch "$repo" "$ref" "$default_branch" || ! valid_commit_sha "$sha"
 then
 	printf 'Mechatron Prime ignored webhook outside policy\n'
 	exit 0
@@ -82,7 +83,8 @@ record="$(jq -cn \
 	--arg repo "$repo" \
 	--arg ref "$ref" \
 	--arg sha "$sha" \
-	'{ts:$ts,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,status:"queued"}')" || exit 1
+	--arg default_branch "$default_branch" \
+	'{ts:$ts,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,default_branch:$default_branch,status:"queued"}')" || exit 1
 printf '%s\n' "$record" >> "$queue_file" || exit 1
 printf '%s\n' "$record" >> "$accepted_file" || exit 1
 chmod 0640 "$queue_file" "$accepted_file" || exit 1

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Sequentially drain the one global queue through explicit repository policies.
+# Sequentially drain the one global queue through owner and manifest policies.
 set -u
 set +e
 
-if ! declare -F repo_is_allowed >/dev/null; then
+if ! declare -F repo_is_owned_by >/dev/null; then
 	script_dir="$(cd "$(dirname "$0")" && pwd)"
 	# Deployment may override the packaged library path.
 	# shellcheck disable=SC1090
@@ -12,9 +12,7 @@ fi
 
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
-allowlist="${MECHATRON_REPOS_ALLOWLIST:-/etc/mechatron-prime/repos.allowlist}"
-repo_refs="${MECHATRON_REPO_REFS:-/etc/mechatron-prime/repo-refs}"
-targets_dir="${MECHATRON_TARGETS_DIR:-/etc/mechatron-prime/targets}"
+github_owner="${MECHATRON_GITHUB_OWNER:-pmarreck}"
 badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
 queue_lock="$state_dir/queue/.builds.lock"
@@ -23,6 +21,10 @@ current_file="$state_dir/current.json"
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
+nix_options=()
+if [ -n "$substituters" ]; then
+	nix_options=(--option substituters "$substituters")
+fi
 
 case "$build_timeout" in
 	""|*[!0-9]*|0) printf 'Invalid build timeout\n' >&2; exit 1 ;;
@@ -95,6 +97,7 @@ while IFS= read -r item; do
 	ref=""
 	sha=""
 	delivery=""
+	default_branch=""
 	repo_name=""
 	status="failure"
 	failure_stage="input-validation"
@@ -103,16 +106,17 @@ while IFS= read -r item; do
 	target_list=""
 	paths_file=""
 
-	if jq -e 'type == "object" and (.repo|type == "string") and (.ref|type == "string") and (.sha|type == "string") and (.delivery|type == "string")' <<< "$item" >/dev/null 2>&1; then
+	if jq -e 'type == "object" and (.repo|type == "string") and (.ref|type == "string") and (.sha|type == "string") and (.delivery|type == "string") and (.default_branch|type == "string")' <<< "$item" >/dev/null 2>&1; then
 		repo="$(jq -r .repo <<< "$item")"
 		ref="$(jq -r .ref <<< "$item")"
 		sha="$(jq -r .sha <<< "$item")"
 		delivery="$(jq -r .delivery <<< "$item")"
-		if ! repo_is_allowed "$repo" "$allowlist"; then
+		default_branch="$(jq -r .default_branch <<< "$item")"
+		if ! repo_is_owned_by "$repo" "$github_owner"; then
 			failure_stage="repo-policy"
-			failure_detail="repository is not allowlisted"
-		elif ! repo_ref_is_allowed "$repo" "$ref" "$repo_refs"; then
-			failure_detail="ref is not the repository policy branch"
+			failure_detail="repository is not owned by the configured GitHub owner"
+		elif ! repo_ref_is_default_branch "$repo" "$ref" "$default_branch"; then
+			failure_detail="ref is not the signed repository default branch"
 		elif ! valid_commit_sha "$sha"; then
 			failure_detail="sha is not a 40-hex Git commit"
 		elif ! valid_delivery_id "$delivery"; then
@@ -129,31 +133,48 @@ while IFS= read -r item; do
 			chmod 0640 "$log_file" "$target_list" "$paths_file"
 			{
 				printf 'started_at=%s\n' "$started_at"
-				printf 'delivery=%s\nrepo=%s\nref=%s\nsha=%s\n' "$delivery" "$repo" "$ref" "$sha"
+				printf 'delivery=%s\nrepo=%s\nref=%s\ndefault_branch=%s\nsha=%s\n' "$delivery" "$repo" "$ref" "$default_branch" "$sha"
 			} >> "$log_file"
 
-			targets_file="$targets_dir/$repo_name.targets"
-			if [ ! -s "$targets_file" ]; then
-				failure_stage="configuration"
-				failure_detail="target file is empty or missing"
+			flake="github:$repo/$sha"
+			{
+				printf '\n=== nix flake prefetch %s ===\n' "$flake"
+				date -u +%Y-%m-%dT%H:%M:%SZ
+			} >> "$log_file"
+			prefetch_json="$(nix flake prefetch --json "$flake" 2>> "$log_file")"
+			prefetch_status=$?
+			if [ "$prefetch_status" -ne 0 ]; then
+				failure_stage="source-fetch"
+				failure_detail="could not fetch the exact queued flake source"
+			elif ! source_store="$(jq -er '.storePath | strings | select(startswith("/"))' <<< "$prefetch_json" 2>> "$log_file")" || [ ! -d "$source_store" ]; then
+				failure_stage="source-fetch"
+				failure_detail="Nix returned no usable source store path"
 			else
+				targets_file="$source_store/.mechatron-prime/targets"
 				invalid_target=""
-				while IFS= read -r target; do
-					[[ "$target" =~ ^[[:space:]]*$ ]] && continue
-					[[ "$target" =~ ^[[:space:]]*# ]] && continue
-					if ! valid_nix_target "$target"; then
-						invalid_target="$target"
-						break
-					fi
-					printf '%s\n' "$target" >> "$target_list"
-				done < "$targets_file"
+				if [ ! -f "$targets_file" ] || [ -L "$targets_file" ]; then
+					failure_stage="target-manifest"
+					failure_detail=".mechatron-prime/targets is missing or not a regular file"
+				else
+					while IFS= read -r target || [ -n "$target" ]; do
+						[[ "$target" =~ ^[[:space:]]*$ ]] && continue
+						[[ "$target" =~ ^[[:space:]]*# ]] && continue
+						if ! valid_nix_target "$target"; then
+							invalid_target="$target"
+							break
+						fi
+						printf '%s\n' "$target" >> "$target_list"
+					done < "$targets_file"
+				fi
 
-				if [ -n "$invalid_target" ]; then
+				if [ "$failure_stage" = "target-manifest" ]; then
+					:
+				elif [ -n "$invalid_target" ]; then
 					failure_stage="target-validation"
-					failure_detail="target file contains an invalid target"
+					failure_detail="target manifest contains an invalid target"
 				elif [ ! -s "$target_list" ]; then
-					failure_stage="configuration"
-					failure_detail="target file has no active targets"
+					failure_stage="target-manifest"
+					failure_detail="target manifest has no active targets"
 				elif ! write_badge_status "$badge_dir" "$repo" BUILDING; then
 					failure_stage="status-publication"
 					failure_detail="could not publish BUILDING badge"
@@ -161,15 +182,10 @@ while IFS= read -r item; do
 					status="success"
 					failure_stage=""
 					failure_detail=""
-					flake="github:$repo/$sha"
 					while IFS= read -r target; do
 						pending=$((batch_total - item_number))
 						publish_current building "$repo" "$sha" "$target" "$started_at" "$pending" || exit 1
 						target_paths="$state_dir/work/$repo_name-$run_id-$target.paths"
-						nix_options=()
-						if [ -n "$substituters" ]; then
-							nix_options=(--option substituters "$substituters")
-						fi
 						{
 							printf '\n=== nix build %s#%s ===\n' "$flake" "$target"
 							date -u +%Y-%m-%dT%H:%M:%SZ

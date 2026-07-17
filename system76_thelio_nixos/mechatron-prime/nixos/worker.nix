@@ -1,28 +1,7 @@
-# Mechatron Prime — sequential allowlisted multi-repository Nix worker.
-{ lib, pkgs, ... }:
+# Mechatron Prime — sequential owner-wide multi-repository Nix worker.
+{ pkgs, ... }:
 let
-  repoPolicies = import ./repos.nix;
-  repoRefPolicies = import ./repo-refs.nix;
-  allowlistPath = "/etc/mechatron-prime/repos.allowlist";
-  repoRefPath = "/etc/mechatron-prime/repo-refs";
-  targetDirectory = "/etc/mechatron-prime/targets";
   badgeDirectory = "/var/lib/mechatron-prime-public/badges";
-  repoRefSeedFile =
-    assert builtins.attrNames repoPolicies == builtins.attrNames repoRefPolicies;
-    assert lib.all (ref: builtins.match "refs/heads/[A-Za-z0-9._/-]+" ref != null) (builtins.attrValues repoRefPolicies);
-    pkgs.writeText "mechatron-prime-repo-refs"
-      (lib.concatStringsSep "\n" (lib.mapAttrsToList (repo: ref: "${repo}\t${ref}") repoRefPolicies) + "\n");
-
-  targetSeedRules = lib.mapAttrsToList
-    (repo: targets:
-      let
-        repoName = lib.last (lib.splitString "/" repo);
-        seed = pkgs.writeText "mechatron-prime-${repoName}-targets"
-          (lib.concatStringsSep "\n" targets + "\n");
-      in
-        "L+ ${targetDirectory}/${repoName}.targets - - - - ${seed}")
-    repoPolicies;
-
   worker = pkgs.writeShellApplication {
     name = "mechatron-prime-worker";
     runtimeInputs = [
@@ -40,8 +19,6 @@ in
 {
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
-    "L+ ${repoRefPath} - - - - ${repoRefSeedFile}"
-    "d ${targetDirectory} 0750 root mechatron-prime - -"
     "z /etc/nix/netrc 0640 root mechatron-prime - -"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/.cache 0750 mechatron-prime mechatron-prime - -"
@@ -54,7 +31,7 @@ in
     "f /var/lib/mechatron-prime/queue/builds.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
-  ] ++ targetSeedRules;
+  ];
 
   systemd.services.mechatron-prime-worker = {
     description = "Mechatron Prime sequential multi-repository build worker";
@@ -66,9 +43,7 @@ in
       XDG_CACHE_HOME = "/var/lib/mechatron-prime/.cache";
       XDG_CONFIG_HOME = "/var/lib/mechatron-prime/.config";
       MECHATRON_STATE_DIR = "/var/lib/mechatron-prime";
-      MECHATRON_REPOS_ALLOWLIST = allowlistPath;
-      MECHATRON_REPO_REFS = repoRefPath;
-      MECHATRON_TARGETS_DIR = targetDirectory;
+      MECHATRON_GITHUB_OWNER = "pmarreck";
       MECHATRON_BADGE_DIR = badgeDirectory;
       MECHATRON_BUILD_TIMEOUT_SECONDS = "7200";
       # CI must remain independent of Garnix even while the global host
@@ -90,7 +65,7 @@ in
       PrivateTmp = true;
       ProtectHome = true;
       ProtectSystem = "strict";
-      ReadOnlyPaths = [ "/etc/nix/netrc" "/etc/mechatron-prime" ];
+      ReadOnlyPaths = [ "/etc/nix/netrc" ];
       ReadWritePaths = [ "/var/lib/mechatron-prime" badgeDirectory ];
     };
   };

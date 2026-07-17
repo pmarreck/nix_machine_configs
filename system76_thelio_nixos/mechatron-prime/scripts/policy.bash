@@ -3,31 +3,30 @@
 
 valid_repo_full_name() {
 	local repo="${1:-}"
+	local owner
 	local name
-	[[ "$repo" =~ ^pmarreck/[A-Za-z0-9._-]{1,100}$ ]] || return 1
-	name="${repo#pmarreck/}"
-	[ "$name" != "." ] && [ "$name" != ".." ]
+	[[ "$repo" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,99}/[A-Za-z0-9._-]{1,100}$ ]] || return 1
+	owner="${repo%%/*}"
+	name="${repo#*/}"
+	[ "$owner" != "." ] && [ "$owner" != ".." ] &&
+		[ "$name" != "." ] && [ "$name" != ".." ]
 }
 
-repo_is_allowed() {
+# Admit only an exact GitHub owner, never a user-controlled repository list.
+# The receiver and worker both repeat this check because queue storage is not a
+# security boundary.
+repo_is_owned_by() {
 	local repo="${1:-}"
-	local allowlist="${2:-}"
-	local line
+	local owner="${2:-}"
 	valid_repo_full_name "$repo" || return 1
-	[ -f "$allowlist" ] || return 1
-	while IFS= read -r line; do
-		case "$line" in
-			""|\#*) continue ;;
-		esac
-		[ "$line" = "$repo" ] && return 0
-	done < "$allowlist"
-	return 1
+	[[ "$owner" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$ ]] || return 1
+	[ "${repo%%/*}" = "$owner" ]
 }
 
 repo_name_from_full_name() {
 	local repo="${1:-}"
 	valid_repo_full_name "$repo" || return 1
-	printf '%s\n' "${repo#pmarreck/}"
+	printf '%s\n' "${repo#*/}"
 }
 
 valid_commit_sha() {
@@ -41,38 +40,33 @@ valid_delivery_id() {
 }
 
 valid_branch_ref() {
-	[[ "${1:-}" =~ ^refs/heads/[A-Za-z0-9._/-]{1,100}$ ]]
+	local ref="${1:-}"
+	[[ "$ref" =~ ^refs/heads/ ]] || return 1
+	valid_branch_name "${ref#refs/heads/}"
 }
 
-# Read an explicit repository-to-ref policy as a whole set before allowing a
-# push, so fork branch conventions cannot weaken the default project policy.
-repo_ref_is_allowed() {
+# Reject unsafe Git refs while retaining normal GitHub default-branch forms.
+valid_branch_name() {
+	local branch="${1:-}"
+	[[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$ ]] || return 1
+	[[ "$branch" != *..* ]] || return 1
+	[[ "$branch" != *//* ]] || return 1
+	[[ "$branch" != */ ]] || return 1
+	[[ "$branch" != *. ]] || return 1
+	[[ "$branch" != *@\{* ]]
+}
+
+# A GitHub HMAC-authenticated payload supplies default_branch.  Preserve it in
+# the queue, then require the worker's ref to match it again before any fetch.
+repo_ref_is_default_branch() {
 	local repo="${1:-}"
 	local ref="${2:-}"
-	local refs_file="${3:-}"
-	local line
-	local configured_repo
-	local configured_ref
-	local extra
-	local expected_ref=""
-	local found=false
+	local default_branch="${3:-}"
 
 	valid_repo_full_name "$repo" || return 1
 	valid_branch_ref "$ref" || return 1
-	[ -f "$refs_file" ] || return 1
-	while IFS= read -r line || [ -n "$line" ]; do
-		IFS=$'\t' read -r configured_repo configured_ref extra <<< "$line"
-		valid_repo_full_name "$configured_repo" || return 1
-		valid_branch_ref "$configured_ref" || return 1
-		[ -z "$extra" ] || return 1
-		if [ "$configured_repo" = "$repo" ]; then
-			[ "$found" = false ] || return 1
-			expected_ref="$configured_ref"
-			found=true
-		fi
-	done < "$refs_file"
-
-	[ "$found" = true ] && [ "$ref" = "$expected_ref" ]
+	valid_branch_name "$default_branch" || return 1
+	[ "$ref" = "refs/heads/$default_branch" ]
 }
 
 valid_nix_target() {

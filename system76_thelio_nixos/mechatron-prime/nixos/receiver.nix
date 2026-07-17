@@ -1,33 +1,10 @@
 # Mechatron Prime — authenticated GitHub webhook receiver and public badges.
 { lib, pkgs, ... }:
 let
-  repoPolicies = import ./repos.nix;
-  repoRefPolicies = import ./repo-refs.nix;
-  allowlistedRepos = builtins.attrNames repoPolicies;
-  allowlistPath = "/etc/mechatron-prime/repos.allowlist";
-  repoRefPath = "/etc/mechatron-prime/repo-refs";
   publicDirectory = "/var/lib/mechatron-prime-public";
   badgeDirectory = "${publicDirectory}/badges";
   explainerSource = ../assets/mechatron-prime;
   explainerDirectory = "${publicDirectory}/mechatron-prime";
-  allowlistSeedFile = pkgs.writeText "mechatron-prime-repos.allowlist"
-    (lib.concatStringsSep "\n" allowlistedRepos + "\n");
-  repoRefSeedFile =
-    assert allowlistedRepos == builtins.attrNames repoRefPolicies;
-    assert lib.all (ref: builtins.match "refs/heads/[A-Za-z0-9._/-]+" ref != null) (builtins.attrValues repoRefPolicies);
-    pkgs.writeText "mechatron-prime-repo-refs"
-      (lib.concatStringsSep "\n" (lib.mapAttrsToList (repo: ref: "${repo}\t${ref}") repoRefPolicies) + "\n");
-
-  badgeSeedRules = lib.mapAttrsToList
-    (repo: _:
-      let
-        repoName = lib.last (lib.splitString "/" repo);
-        seed = pkgs.writeText "mechatron-prime-${repoName}-badge.json"
-          ''{"schemaVersion":1,"label":"🤖 Mechatron Prime","message":"UNKNOWN","color":"lightgrey","isError":false}
-'';
-      in
-        "C ${badgeDirectory}/${repoName}.json 0640 mechatron-prime mechatron-prime-badges - ${seed}")
-    repoPolicies;
 
   handler = pkgs.writeShellApplication {
     name = "mechatron-prime-webhook-handler";
@@ -35,14 +12,6 @@ let
     text = builtins.readFile ../scripts/policy.bash
       + "\n"
       + builtins.readFile ../scripts/receiver.bash;
-  };
-
-  badgeSeeder = pkgs.writeShellApplication {
-    name = "mechatron-prime-badge-seed";
-    runtimeInputs = [ pkgs.coreutils pkgs.jq ];
-    text = builtins.readFile ../scripts/policy.bash
-      + "\n"
-      + builtins.readFile ../scripts/seed-badges.bash;
   };
 
   renderHooks = pkgs.writeShellApplication {
@@ -66,7 +35,8 @@ let
               {source: "header", name: "X-GitHub-Delivery", envname: "GITHUB_DELIVERY"},
               {source: "payload", name: "repository.full_name", envname: "GITHUB_REPOSITORY"},
               {source: "payload", name: "ref", envname: "GITHUB_REF"},
-              {source: "payload", name: "after", envname: "GITHUB_SHA"}
+              {source: "payload", name: "after", envname: "GITHUB_SHA"},
+              {source: "payload", name: "repository.default_branch", envname: "GITHUB_DEFAULT_BRANCH"}
             ],
             "trigger-rule": {
               and: [
@@ -109,8 +79,6 @@ in
 
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
-    "L+ /etc/mechatron-prime/repos.allowlist - - - - ${allowlistSeedFile}"
-    "L+ ${repoRefPath} - - - - ${repoRefSeedFile}"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/logs 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/queue 0750 mechatron-prime mechatron-prime - -"
@@ -120,7 +88,7 @@ in
     "d ${publicDirectory} 0750 mechatron-prime mechatron-prime-badges - -"
     "L+ ${explainerDirectory} - - - - ${explainerSource}"
     "d ${badgeDirectory} 2750 mechatron-prime mechatron-prime-badges - -"
-  ] ++ badgeSeedRules;
+  ];
 
   systemd.services.mechatron-prime-webhook = {
     description = "Mechatron Prime GitHub webhook receiver";
@@ -130,8 +98,7 @@ in
 
     environment = {
       MECHATRON_STATE_DIR = "/var/lib/mechatron-prime";
-      MECHATRON_REPOS_ALLOWLIST = allowlistPath;
-      MECHATRON_REPO_REFS = repoRefPath;
+      MECHATRON_GITHUB_OWNER = "pmarreck";
     };
 
     serviceConfig = {
@@ -156,8 +123,7 @@ in
   systemd.services.mechatron-prime-badges = {
     description = "Mechatron Prime public read-only badge endpoint";
     wantedBy = [ "multi-user.target" ];
-    after = [ "systemd-tmpfiles-setup.service" "mechatron-prime-badge-seed.service" ];
-    requires = [ "mechatron-prime-badge-seed.service" ];
+    after = [ "systemd-tmpfiles-setup.service" ];
     serviceConfig = {
       User = "mechatron-prime-badges";
       Group = "mechatron-prime-badges";
@@ -175,34 +141,4 @@ in
     };
   };
 
-  systemd.services.mechatron-prime-badge-seed = {
-    description = "Repair malformed Mechatron Prime badge seeds";
-    after = [ "systemd-tmpfiles-setup.service" ];
-    before = [ "mechatron-prime-badges.service" ];
-    environment = {
-      MECHATRON_REPOS_ALLOWLIST = allowlistPath;
-      MECHATRON_BADGE_DIR = badgeDirectory;
-    };
-    serviceConfig = {
-      Type = "oneshot";
-      User = "mechatron-prime";
-      Group = "mechatron-prime";
-      ExecStart = "${badgeSeeder}/bin/mechatron-prime-badge-seed";
-      RemainAfterExit = true;
-      NoNewPrivileges = true;
-      PrivateDevices = true;
-      PrivateTmp = true;
-      ProtectHome = true;
-      ProtectSystem = "strict";
-      ReadOnlyPaths = [ allowlistPath ];
-      ReadWritePaths = [ badgeDirectory ];
-      InaccessiblePaths = [
-        "/etc/mechatron-prime/github-webhook.env"
-        "/etc/mechatron-prime/targets"
-        "/etc/nix"
-        "/var/lib/mechatron-prime"
-      ];
-      IPAddressDeny = "any";
-    };
-  };
 }
