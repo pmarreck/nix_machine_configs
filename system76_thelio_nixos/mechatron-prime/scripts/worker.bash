@@ -13,6 +13,7 @@ fi
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
 github_owner="${MECHATRON_GITHUB_OWNER:-pmarreck}"
+legacy_targets_dir="${MECHATRON_LEGACY_TARGETS_DIR:-/etc/mechatron-prime/legacy-targets}"
 badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
 queue_lock="$state_dir/queue/.builds.lock"
@@ -150,12 +151,26 @@ while IFS= read -r item; do
 				failure_stage="source-fetch"
 				failure_detail="Nix returned no usable source store path"
 			else
-				targets_file="$source_store/.mechatron-prime/targets"
+				manifest_targets_file="$source_store/.mechatron-prime/targets"
+				legacy_targets_file="$legacy_targets_dir/$repo_name.targets"
+				targets_file=""
+				target_source=""
 				invalid_target=""
-				if [ ! -f "$targets_file" ] || [ -L "$targets_file" ]; then
+				if [ -L "$manifest_targets_file" ] || { [ -e "$manifest_targets_file" ] && [ ! -f "$manifest_targets_file" ]; }; then
 					failure_stage="target-manifest"
-					failure_detail=".mechatron-prime/targets is missing or not a regular file"
+					failure_detail=".mechatron-prime/targets is not a regular file"
+				elif [ -f "$manifest_targets_file" ]; then
+					targets_file="$manifest_targets_file"
+					target_source="exact-commit manifest"
+				elif [ -f "$legacy_targets_file" ] && [ ! -L "$legacy_targets_file" ]; then
+					targets_file="$legacy_targets_file"
+					target_source="root-owned legacy fallback"
 				else
+					failure_stage="target-manifest"
+					failure_detail=".mechatron-prime/targets is missing and no legacy target file exists"
+				fi
+				if [ -n "$targets_file" ]; then
+					printf 'targets_source=%s\n' "$target_source" >> "$log_file"
 					while IFS= read -r target || [ -n "$target" ]; do
 						[[ "$target" =~ ^[[:space:]]*$ ]] && continue
 						[[ "$target" =~ ^[[:space:]]*# ]] && continue

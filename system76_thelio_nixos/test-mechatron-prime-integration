@@ -39,7 +39,8 @@ check_wrapper() {
 }
 
 check_sha256 nixos/receiver.nix 4561f3782882367f92574de17e6a323d02d30e1f81c604531a3d66d510a25f9f
-check_sha256 nixos/worker.nix a317ad4c8dda9d1f07c2d33746d1d03de3b28b96beb11340cf17345b3192c38c
+check_sha256 nixos/legacy-targets.nix cd665e1d226a03340ca6c552ef38a98dde0641f738b2e9cb53f9d1182200f761
+check_sha256 nixos/worker.nix 80dd0fd4ff174786e2175507b2595bdfa49d52c5874095c544c20b297b62091d
 check_sha256 nixos/ops.nix aff8401f05c0950ff8c381cb9da48f3ef09359661c5f8a4dd3e60b1b8bf02fe0
 check_sha256 assets/mechatron-prime/index.html f8060aac99b6e0ae362f06b2a17c4e3e5676c97d12313a3bec44f99951f2455b
 check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
@@ -52,7 +53,7 @@ check_sha256 assets/mechatron-prime/mecha-starfighter.jxl d2f2efed5738c112c12ed9
 check_sha256 assets/mechatron-prime/mecha-wopr.jxl 6f8928d383490c1f3308fb1805f4ddb116d0196a70d0575ef985844cca71d5dc
 check_sha256 scripts/policy.bash 5b08e6c8c033c9a622050c726b9c5739aa4af3db69ff24defc9bc08445312079
 check_sha256 scripts/receiver.bash 29f43602185f2effb7e64cf0c68d06c60c602e07dda10adb56b2e6cdffdeafe2
-check_sha256 scripts/worker.bash 9cc9618a8409888e171b10a2b6dc8eb0b3e9043b162f132ed880a5aa50a26064
+check_sha256 scripts/worker.bash 0aafc513795f749e561b714da0658f26906d8c0f9d829b40c7f4b6fcee1241d7
 check_sha256 ops/actions.lua 4dde0058037fe1197c6ad1b32c74474f0cf3b475c1b98e3fb784eae059b0eca8
 check_sha256 ops/app.lua 11f61444d2b754b76a80b2087b65e6e1ad2e7370f1eab6cb4013f9a1b1903bd1
 check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
@@ -69,7 +70,7 @@ check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nix
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
 check_wrapper "$root/mechatron-prime-ops.nix" 'import ./mechatron-prime/nixos/ops.nix'
 
-if ! rg -Fq '5935aa4' "$vendored/SOURCE.md"; then
+if ! rg -Fq '0923c9e' "$vendored/SOURCE.md"; then
 	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
 fi
 
@@ -78,4 +79,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit 5935aa4\n'
+printf 'Mechatron Prime integration matches source commit 0923c9e\n'

@@ -1,7 +1,18 @@
 # Mechatron Prime — sequential owner-wide multi-repository Nix worker.
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 let
+  legacyTargets = import ./legacy-targets.nix;
+  legacyTargetDirectory = "/etc/mechatron-prime/legacy-targets";
   badgeDirectory = "/var/lib/mechatron-prime-public/badges";
+  legacyTargetSeedRules = lib.mapAttrsToList
+    (repo: targets:
+      let
+        repoName = lib.last (lib.splitString "/" repo);
+        seed = pkgs.writeText "mechatron-prime-${repoName}-legacy-targets"
+          (lib.concatStringsSep "\n" targets + "\n");
+      in
+        "L+ ${legacyTargetDirectory}/${repoName}.targets - - - - ${seed}")
+    legacyTargets;
   worker = pkgs.writeShellApplication {
     name = "mechatron-prime-worker";
     runtimeInputs = [
@@ -19,6 +30,7 @@ in
 {
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
+    "d ${legacyTargetDirectory} 0750 root mechatron-prime - -"
     "z /etc/nix/netrc 0640 root mechatron-prime - -"
     "d /var/lib/mechatron-prime 0750 mechatron-prime mechatron-prime - -"
     "d /var/lib/mechatron-prime/.cache 0750 mechatron-prime mechatron-prime - -"
@@ -31,7 +43,7 @@ in
     "f /var/lib/mechatron-prime/queue/builds.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
-  ];
+  ] ++ legacyTargetSeedRules;
 
   systemd.services.mechatron-prime-worker = {
     description = "Mechatron Prime sequential multi-repository build worker";
@@ -44,6 +56,7 @@ in
       XDG_CONFIG_HOME = "/var/lib/mechatron-prime/.config";
       MECHATRON_STATE_DIR = "/var/lib/mechatron-prime";
       MECHATRON_GITHUB_OWNER = "pmarreck";
+      MECHATRON_LEGACY_TARGETS_DIR = legacyTargetDirectory;
       MECHATRON_BADGE_DIR = badgeDirectory;
       MECHATRON_BUILD_TIMEOUT_SECONDS = "7200";
       # CI must remain independent of Garnix even while the global host
@@ -65,7 +78,7 @@ in
       PrivateTmp = true;
       ProtectHome = true;
       ProtectSystem = "strict";
-      ReadOnlyPaths = [ "/etc/nix/netrc" ];
+      ReadOnlyPaths = [ "/etc/nix/netrc" legacyTargetDirectory ];
       ReadWritePaths = [ "/var/lib/mechatron-prime" badgeDirectory ];
     };
   };
