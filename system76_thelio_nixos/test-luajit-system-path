@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Verifies the system LuaJIT profile merges cleanly while retaining the
+# dotfile-required modules and a working LuaRocks command.
+set -u
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+failures=0
+
+fail() {
+	printf 'FAIL: %s\n' "$1" >&2
+	failures=$((failures + 1))
+}
+
+system_path_output="$(nix build --no-link --print-out-paths "$root#nixosConfigurations.thelio-nixos.config.system.path" 2>&1)"
+system_path_status=$?
+if [ "$system_path_status" -ne 0 ]; then
+	fail "NixOS system path must build without Lua-package collisions: $system_path_output"
+	printf '%d LuaJIT system-path test(s) failed\n' "$failures" >&2
+	exit 1
+fi
+
+lua_output="$("$system_path_output/bin/luajit" -e 'assert(require("lfs")); assert(require("socket")); assert(require("tl")); print("lua-modules-ok")' 2>&1)"
+lua_status=$?
+if [ "$lua_status" -ne 0 ] || [ "$lua_output" != "lua-modules-ok" ]; then
+	fail "LuaJIT must load lfs, socket, and tl: $lua_output"
+fi
+
+luarocks_output="$("$system_path_output/bin/luarocks" --version 2>&1)"
+luarocks_status=$?
+if [ "$luarocks_status" -ne 0 ]; then
+	fail "LuaRocks command must remain available: $luarocks_output"
+fi
+
+if [ "$failures" -ne 0 ]; then
+	printf '%d LuaJIT system-path test(s) failed\n' "$failures" >&2
+	exit 1
+fi
+
+printf 'LuaJIT system path: PASS\n'

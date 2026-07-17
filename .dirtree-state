@@ -16,5 +16,6 @@ annotate=[
 	system76_thelio_nixos/mechatron-prime/ops = SHA-pinned LuaJIT operations-console runtime source
 	system76_thelio_nixos/mechatron-prime/scripts = Pure policy plus webhook receiver and queued Nix-build worker implementations
 	system76_thelio_nixos/mechatron-prime/scripts/seed-badges.bash = Vendored Mechatron startup repair for malformed or missing public Shields badge documents.
+	system76_thelio_nixos/test-luajit-system-path = Builds the Thelio system package profile and verifies LuaJIT module plus LuaRocks CLI availability.
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports
 ]

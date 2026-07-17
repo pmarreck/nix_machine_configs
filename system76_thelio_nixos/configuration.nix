@@ -1409,8 +1409,16 @@ in
       # Mirrors ~/.config/nix/flake.nix `luajitWithPackages` (the synced Mac config).
       (pkgs.luajit.withPackages (ps: with ps; [
         alt-getopt basexx busted cjson lpeg lua_cliargs luabitop luacheck
-        luafilesystem luarocks luasocket luasystem moonscript penlight sqlite tl
+        luafilesystem luasocket luasystem moonscript penlight sqlite tl
       ]))
+      # LuaRocks now exports compat53 itself. Keeping it inside `withPackages`
+      # would flatten two producers of compat53/module.lua into one buildEnv and
+      # fail an otherwise ordinary Nixpkgs update. This wrapper preserves the
+      # CLI without merging its library tree into LuaJIT's module environment.
+      (writeShellApplication {
+        name = "luarocks";
+        text = "exec ${luajitPackages.luarocks}/bin/luarocks \"$@\"";
+      })
       luajitPackages.moonscript # `moonc` CLI for moonrun/yuerun (separate from the baked module)
       sd # sed-alternative the dotfiles call
       # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
