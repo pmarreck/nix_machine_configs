@@ -6,6 +6,7 @@ show=[
 
 annotate=[
 	PLAN.md = Current machine-configuration work and activation safety gates
+	system76_thelio_nixos/configuration.nix = Thelio NixOS host module: imports hardware, services, Mechatron, and declares the global system package set
 	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime b83a195 NixOS modules and scripts
 	system76_thelio_nixos/mechatron-prime-ops.nix = Stable wrapper importing the vendored operations module
 	system76_thelio_nixos/mechatron-prime/assets/mechatron-prime = Audited public Mechatron Prime explainer assets vendored for NixOS activation.

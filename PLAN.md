@@ -1,5 +1,13 @@
 # NixOS plan
 
+## System packages
+
+- [x] Add `libarchive` to the Thelio's declarative global package set and
+  validate the locked flake without activating it.
+  (2026-07-17 12:59 EDT)
+  - Curiosity poke: confirm both the package derivation and its expected
+    `bsdtar` executable are present in the candidate system closure.
+
 ## Mechatron Prime fleet CI
 
 - [x] Preserve the existing Mechatron Prime module import paths.

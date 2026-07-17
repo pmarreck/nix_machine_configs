@@ -1346,6 +1346,7 @@ in
       gnused
       jjui
       less
+      libarchive
       libheif
       libwebp
       lz4
