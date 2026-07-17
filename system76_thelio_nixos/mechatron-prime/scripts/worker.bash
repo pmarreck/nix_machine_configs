@@ -107,17 +107,17 @@ while IFS= read -r item; do
 	target_list=""
 	paths_file=""
 
-	if jq -e 'type == "object" and (.repo|type == "string") and (.ref|type == "string") and (.sha|type == "string") and (.delivery|type == "string") and (.default_branch|type == "string")' <<< "$item" >/dev/null 2>&1; then
+	if jq -e 'type == "object" and (.repo|type == "string") and (.ref|type == "string") and (.sha|type == "string") and (.delivery|type == "string")' <<< "$item" >/dev/null 2>&1; then
 		repo="$(jq -r .repo <<< "$item")"
 		ref="$(jq -r .ref <<< "$item")"
 		sha="$(jq -r .sha <<< "$item")"
 		delivery="$(jq -r .delivery <<< "$item")"
-		default_branch="$(jq -r .default_branch <<< "$item")"
+		default_branch="$(jq -r '.default_branch // ""' <<< "$item")"
 		if ! repo_is_owned_by "$repo" "$github_owner"; then
 			failure_stage="repo-policy"
 			failure_detail="repository is not owned by the configured GitHub owner"
-		elif ! repo_ref_is_default_branch "$repo" "$ref" "$default_branch"; then
-			failure_detail="ref is not the signed repository default branch"
+		elif ! valid_ci_branch_ref "$ref"; then
+			failure_detail="ref is not an approved CI branch"
 		elif ! valid_commit_sha "$sha"; then
 			failure_detail="sha is not a 40-hex Git commit"
 		elif ! valid_delivery_id "$delivery"; then

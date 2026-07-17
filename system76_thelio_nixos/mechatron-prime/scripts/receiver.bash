@@ -51,7 +51,7 @@ if [ "$event" = "ping" ]; then
 fi
 
 if [ "$event" != "push" ] || [ "$allowed" != true ] ||
-	! valid_delivery_id "$delivery" || ! repo_ref_is_default_branch "$repo" "$ref" "$default_branch" || ! valid_commit_sha "$sha"
+	! valid_delivery_id "$delivery" || ! valid_ci_branch_ref "$ref" || ! valid_commit_sha "$sha"
 then
 	printf 'Mechatron Prime ignored webhook outside policy\n'
 	exit 0

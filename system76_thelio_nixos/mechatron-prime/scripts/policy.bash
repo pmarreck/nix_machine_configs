@@ -56,17 +56,15 @@ valid_branch_name() {
 	[[ "$branch" != *@\{* ]]
 }
 
-# A GitHub HMAC-authenticated payload supplies default_branch.  Preserve it in
-# the queue, then require the worker's ref to match it again before any fetch.
-repo_ref_is_default_branch() {
-	local repo="${1:-}"
-	local ref="${2:-}"
-	local default_branch="${3:-}"
-
-	valid_repo_full_name "$repo" || return 1
+# Keep CI predictable while supporting Peter-originated repositories and forks
+# that retain the upstream main branch. Feature branches remain out of scope.
+valid_ci_branch_ref() {
+	local ref="${1:-}"
 	valid_branch_ref "$ref" || return 1
-	valid_branch_name "$default_branch" || return 1
-	[ "$ref" = "refs/heads/$default_branch" ]
+	case "${ref#refs/heads/}" in
+		yolo|master|main) return 0 ;;
+		*) return 1 ;;
+	esac
 }
 
 valid_nix_target() {
