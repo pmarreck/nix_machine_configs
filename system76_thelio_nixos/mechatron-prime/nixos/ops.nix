@@ -18,6 +18,7 @@ let
       luaEnv
       pkgs.bash
       pkgs.coreutils
+      pkgs.curl
       pkgs.findutils
       pkgs.gawk
       pkgs.iproute2

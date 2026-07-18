@@ -1,3 +1,5 @@
+local cjson = require("cjson.safe")
+
 local M = {}
 
 --- Parse Linux meminfo into scalar capacity facts used by both display and
@@ -57,6 +59,20 @@ function M.parse_properties(text)
 		if key then properties[key] = value end
 	end
 	return properties
+end
+
+--- Accept only the fixed `/api/tags` model set so the page can show Ollama's
+--- actual local inventory without treating malformed or partial JSON as fact.
+function M.parse_ollama_models(text)
+	local decoded = cjson.decode(text or "")
+	if type(decoded) ~= "table" or type(decoded.models) ~= "table" then return nil end
+	local models = {}
+	for _, candidate in ipairs(decoded.models) do
+		if type(candidate) ~= "table" or type(candidate.name) ~= "string" or candidate.name == "" then return nil end
+		local size = tonumber(candidate.size)
+		models[#models + 1] = {name = candidate.name, size = size}
+	end
+	return models
 end
 
 --- Parse the stable tab-separated ZFS list projection rather than scraping the

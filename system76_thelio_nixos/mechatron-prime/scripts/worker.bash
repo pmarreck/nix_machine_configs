@@ -14,6 +14,7 @@ umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
 github_owner="${MECHATRON_GITHUB_OWNER:-pmarreck}"
 legacy_targets_dir="${MECHATRON_LEGACY_TARGETS_DIR:-/etc/mechatron-prime/legacy-targets}"
+legacy_targets_store_prefix="${MECHATRON_LEGACY_TARGETS_STORE_PREFIX:-/nix/store}"
 badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
 queue_lock="$state_dir/queue/.builds.lock"
@@ -165,6 +166,20 @@ while IFS= read -r item; do
 				elif [ -f "$legacy_targets_file" ] && [ ! -L "$legacy_targets_file" ]; then
 					targets_file="$legacy_targets_file"
 					target_source="root-owned legacy fallback"
+				elif [ -L "$legacy_targets_file" ]; then
+					resolved_legacy_targets_file="$(readlink -f -- "$legacy_targets_file" 2>/dev/null || true)"
+					case "$resolved_legacy_targets_file" in
+						"$legacy_targets_store_prefix"/*)
+							if [ -f "$resolved_legacy_targets_file" ]; then
+								targets_file="$resolved_legacy_targets_file"
+								target_source="root-owned immutable-store legacy fallback"
+							fi
+							;;
+					esac
+					if [ -z "$targets_file" ]; then
+						failure_stage="target-manifest"
+						failure_detail="legacy target symlink does not resolve into the immutable store"
+					fi
 				else
 					failure_stage="target-manifest"
 					failure_detail=".mechatron-prime/targets is missing and no legacy target file exists"

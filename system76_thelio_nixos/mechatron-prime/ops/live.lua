@@ -8,6 +8,7 @@ local service_specs = {
 	{scope = "system", unit = "NetworkManager.service", id = "network-manager", label = "NetworkManager", expected = "active", severity = "critical", detail = "wired and wireless network orchestration"},
 	{scope = "system", unit = "tailscaled.service", id = "tailscale", label = "Tailscale", expected = "active", severity = "critical", detail = "tailnet connectivity"},
 	{scope = "system", unit = "atticd.service", id = "attic", label = "Attic cache", expected = "active", severity = "warning", detail = "tailnet-local binary cache"},
+	{scope = "system", unit = "ollama.service", id = "ollama", label = "Ollama", expected = "active", severity = "warning", detail = "local embedding service", model_inventory = true},
 	{scope = "system", unit = "mechatron-prime-webhook.service", id = "mechatron-webhook", label = "Mechatron webhook", expected = "active", severity = "critical", detail = "accepting signed GitHub pushes", actions = {
 		{label = "Start", path = "/ops/actions/mechatron-webhook/start"},
 		{label = "Stop", path = "/ops/actions/mechatron-webhook/stop", danger = true},
@@ -69,7 +70,15 @@ function M.collect(source)
 	local health_services = {}
 	for _, spec in ipairs(service_specs) do
 		local state = spec.probe and source[spec.probe]() or source.service(spec.scope, spec.unit)
-		services[#services + 1] = {id = spec.id, label = spec.label, state = state, detail = spec.detail, actions = spec.actions}
+		local service = {id = spec.id, label = spec.label, state = state, detail = spec.detail, actions = spec.actions}
+		if spec.model_inventory then
+			local models = probes.parse_ollama_models(source.run("ollama_tags") or "")
+			service.models = models or {}
+			service.detail = models
+				and spec.detail .. " · " .. #models .. " installed models"
+				or spec.detail .. " · model inventory unavailable"
+		end
+		services[#services + 1] = service
 		if spec.health ~= false then
 			health_services[#health_services + 1] = {id = spec.id, label = spec.label, state = state, expected = spec.expected, severity = spec.severity}
 		end

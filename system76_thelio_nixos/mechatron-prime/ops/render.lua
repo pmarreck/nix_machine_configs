@@ -58,14 +58,23 @@ local function action_forms(actions)
 	return '<div class="actions">' .. table.concat(forms, "") .. "</div>"
 end
 
+local function model_list(models)
+	if #(models or {}) == 0 then return "" end
+	local items = {}
+	for _, model in ipairs(models) do
+		items[#items + 1] = "<li><code>" .. html_escape(model.name) .. "</code></li>"
+	end
+	return '<ul class="model-list">' .. table.concat(items, "") .. "</ul>"
+end
+
 local function service_cards(services)
 	local cards = {}
 	for _, service in ipairs(services or {}) do
 		cards[#cards + 1] = string.format([[
 		<article class="card">
 			<div class="card-heading"><h3>%s</h3>%s</div>
-			<p>%s</p>%s
-		</article>]], html_escape(service.label), status_badge(service.state), html_escape(service.detail), action_forms(service.actions))
+			<p>%s</p>%s%s
+		</article>]], html_escape(service.label), status_badge(service.state), html_escape(service.detail), model_list(service.models), action_forms(service.actions))
 	end
 	return table.concat(cards, "\n")
 end
@@ -125,6 +134,8 @@ function M.page(model)
 		pre,code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
 		pre { margin:0; padding:16px; border:1px solid var(--line); border-radius:10px; background:#070a0f; overflow:auto; white-space:pre; }
 		.errors { padding-left:20px; color:var(--warn); }
+		.model-list { margin:12px 0 0; padding-left:20px; color:var(--muted); }
+		.model-list li { overflow-wrap:anywhere; }
 		.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 		.actions form { margin:0; }
 		.action { border:1px solid var(--line); border-radius:8px; padding:7px 11px; background:#172336; color:var(--text); cursor:pointer; font:inherit; }

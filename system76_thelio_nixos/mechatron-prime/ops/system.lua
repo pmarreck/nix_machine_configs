@@ -12,6 +12,7 @@ local fixed_commands = {
 	zpool_status = {"zpool", "status"},
 	zpool_list = {"zpool", "list", "-H", "-o", "name,health,size,alloc,free,cap,frag"},
 	zfs_datasets = {"zfs", "list", "-H", "-o", "name,compression,compressratio"},
+	ollama_tags = {"curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:11434/api/tags"},
 	network_hogs = {"/home/pmarreck/bin/nethogs", "-d", "1"},
 	steam_shader = {"pgrep", "-af", "fossilize_replay|steam.*shader|shader.*precache"},
 	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-12 hours", "-n", "200", "--no-pager", "--output=short-iso"},
