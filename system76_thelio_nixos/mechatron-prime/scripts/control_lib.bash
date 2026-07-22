@@ -20,9 +20,15 @@ write_ci_admission() {
 	local state_dir="${1:-}"
 	local state="${2:-}"
 	local changed_at="${3:-}"
+	local control_file="$state_dir/control.json"
 	local temporary
+	local ownership_reference="$state_dir"
 	[ -d "$state_dir" ] && [ -n "$changed_at" ] || return 1
 	case "$state" in running|halted) ;; *) return 1 ;; esac
+	if [ -e "$control_file" ]; then
+		[ -f "$control_file" ] && [ ! -L "$control_file" ] || return 1
+		ownership_reference="$control_file"
+	fi
 	temporary="$(mktemp "$state_dir/.control.json.XXXXXX")" || return 1
 	if ! jq -cn --arg state "$state" --arg changed_at "$changed_at" \
 		'{state:$state,changed_at:$changed_at}' > "$temporary"
@@ -30,8 +36,9 @@ write_ci_admission() {
 		rm -f "$temporary"
 		return 1
 	fi
+	chown --reference="$ownership_reference" "$temporary" || { rm -f "$temporary"; return 1; }
 	chmod 0640 "$temporary" || { rm -f "$temporary"; return 1; }
-	mv -f "$temporary" "$state_dir/control.json"
+	mv -f "$temporary" "$control_file"
 }
 
 recover_claimed_batch() {

@@ -4,7 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
-source_commit=c0b01e0
+source_commit=2a16991
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -42,7 +42,7 @@ check_wrapper() {
 check_sha256 nixos/receiver.nix 4561f3782882367f92574de17e6a323d02d30e1f81c604531a3d66d510a25f9f
 check_sha256 nixos/legacy-targets.nix cd665e1d226a03340ca6c552ef38a98dde0641f738b2e9cb53f9d1182200f761
 check_sha256 nix/packages.nix 2c876747e1a37ddaa2dc1968d50d276c68dac06f95719d3965041acfbb43e22e
-check_sha256 nixos/worker.nix 564d5c5ae5f96c648dba3d1e895ddbb63703566e4b322cdc10106f49e3606063
+check_sha256 nixos/worker.nix eb8c96c271bf2e68521acb7500f74c5dee10e6c8de0dcdc88e5736efdcb8fb1e
 check_sha256 nixos/ops.nix 46d64e9d46630114a41bbe2c56162739a8aedfa20df022abd3392365d58284d6
 check_sha256 assets/mechatron-prime/index.html f8060aac99b6e0ae362f06b2a17c4e3e5676c97d12313a3bec44f99951f2455b
 check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
@@ -56,7 +56,7 @@ check_sha256 assets/mechatron-prime/mecha-wopr.jxl 6f8928d383490c1f3308fb1805f4d
 check_sha256 scripts/policy.bash 370f65403abce188b420e5ff8b6a25114df88643679ba602672bc4f2878dbc08
 check_sha256 scripts/receiver.bash cf0ca4468f5ecdc75fa66f979734f9f00e2d732af324b589c2ef9ef150066055
 check_sha256 scripts/worker.bash b6b0570e922a4933d148954eeff063cd0d1bf8938caea004979f6be95f713515
-check_sha256 scripts/control_lib.bash 8482859ef0984e20a4ad2eb23c4898628d47c8769906522391cb7568f25f653a
+check_sha256 scripts/control_lib.bash ede26d52aef1dbf93d8d17855ac18e4248c23572955bbd63b85f1656835bb4a4
 check_sha256 scripts/mechatron-ci 79f5c75e8f7870f1e0062d241fd263301a15677ee3f3351bdc424cbf65c485c2
 check_sha256 scripts/mechatron-prime-control 1094f13a0f7e52b412dfaab79d01d6ace32a581348589c424734a7600a8cf293
 check_sha256 scripts/status_store.bash 4c16c23a78cc4b387d88e6cfafad8028b4f6029306afa7c0598f24af22626d3d

@@ -4,7 +4,7 @@ The vendored runtime files enumerated by `../test-mechatron-prime-integration`
 under `nixos/`, `scripts/`, `ops/`, and `assets/mechatron-prime/`
 are copied byte-for-byte from
 `pmarreck/mechatron-prime` commit
-`c0b01e0`.
+`2a16991`.
 
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository

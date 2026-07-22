@@ -36,7 +36,8 @@ in
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.sqlite3 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
-    "C /var/lib/mechatron-prime/control.json 0640 mechatron-prime mechatron-prime - ${initialControl}"
+    "C /var/lib/mechatron-prime/control.json 0640 root mechatron-prime - ${initialControl}"
+    "z /var/lib/mechatron-prime/control.json 0640 root mechatron-prime - -"
   ] ++ legacyTargetSeedRules;
 
   systemd.services.mechatron-prime-worker = {
