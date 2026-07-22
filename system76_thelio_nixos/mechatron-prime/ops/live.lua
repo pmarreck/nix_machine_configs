@@ -21,8 +21,10 @@ local service_specs = {
 	{scope = "user", unit = "pipewire-pulse.service", id = "pipewire-pulse", label = "PipeWire PulseAudio", expected = "active", severity = "critical", detail = "desktop audio compatibility endpoint"},
 	{scope = "user", unit = "rescuetime.service", id = "rescuetime", label = "RescueTime", expected = "active", severity = "warning", health = false, detail = "optional time tracker; billing issue unresolved"},
 	{probe = "codex_remote_control", id = "codex-remote-control", label = "Codex remote-control", expected = "active", health = false, detail = "experimental remote app-server daemon", actions = {
+		{label = "Check status", path = "/ops/actions/codex-remote-control/status"},
 		{label = "Start", path = "/ops/actions/codex-remote-control/start"},
 		{label = "Stop", path = "/ops/actions/codex-remote-control/stop", danger = true},
+		{label = "Restart", path = "/ops/actions/codex-remote-control/restart", danger = true},
 		{label = "Pair", path = "/ops/actions/codex-remote-control/pair"},
 	}},
 }

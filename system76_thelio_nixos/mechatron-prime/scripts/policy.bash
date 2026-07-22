@@ -101,16 +101,17 @@ badge_json() {
 		'{schemaVersion:1,label:"🤖 Mechatron Prime",message:$message,color:$color,isError:$isError}'
 }
 
-# Publish a complete Shields document with a same-directory atomic rename.
-write_badge_status() {
-	local badge_dir="${1:-}"
-	local repo="${2:-}"
-	local state="${3:-}"
-	local repo_name
+# Publish one complete Shields document with a same-directory atomic rename.
+write_badge_document() {
+	local destination="${1:-}"
+	local state="${2:-}"
+	local destination_dir
+	local destination_name
 	local temporary
-	repo_name="$(repo_name_from_full_name "$repo")" || return 1
-	[ -d "$badge_dir" ] || return 1
-	temporary="$(mktemp "$badge_dir/.${repo_name}.json.XXXXXX")" || return 1
+	destination_dir="$(dirname "$destination")" || return 1
+	destination_name="$(basename "$destination")" || return 1
+	[ -d "$destination_dir" ] || return 1
+	temporary="$(mktemp "$destination_dir/.${destination_name}.XXXXXX")" || return 1
 	if ! badge_json "$state" > "$temporary"; then
 		rm -f "$temporary"
 		return 1
@@ -119,5 +120,24 @@ write_badge_status() {
 		rm -f "$temporary"
 		return 1
 	}
-	mv -f "$temporary" "$badge_dir/$repo_name.json"
+	mv -f "$temporary" "$destination"
+}
+
+# Publish the mutable latest badge plus an optional immutable commit address.
+# The commit projection lands first so a successful latest update never points
+# at a result whose historical document is missing.
+write_badge_status() {
+	local badge_dir="${1:-}"
+	local repo="${2:-}"
+	local state="${3:-}"
+	local sha="${4:-}"
+	local repo_name
+	repo_name="$(repo_name_from_full_name "$repo")" || return 1
+	[ -d "$badge_dir" ] || return 1
+	if [ -n "$sha" ]; then
+		valid_commit_sha "$sha" || return 1
+		[ -d "$badge_dir/$repo_name" ] || mkdir -m 0750 "$badge_dir/$repo_name" || return 1
+		write_badge_document "$badge_dir/$repo_name/$sha.json" "$state" || return 1
+	fi
+	write_badge_document "$badge_dir/$repo_name.json" "$state"
 }

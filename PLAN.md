@@ -10,6 +10,11 @@
 
 ## Mechatron Prime fleet CI
 
+- [x] Persist the already-running NVMe Nix/Steam/dev-cache mount configuration in a reviewed green commit. Completed 2026-07-22 12:33 EDT.
+  - Curiosity poke answered: the combined candidate differed from the running closure only by Mechatron Prime, proving the committed storage configuration retains all three imported ZFS pools and `/nix` build-dir placement.
+- [ ] Vendor, build, and activate Mechatron Prime source commit `f74aec6`, including resilient worker exit semantics and the transactional SQLite result ledger.
+  - Curiosity poke: handled red CI results must leave the oneshot unit inactive/successful, while a broken result database must still fail it.
+
 - [x] Preserve the existing Mechatron Prime module import paths.
 - [x] Vendor the receiver, repository policy, worker, and scripts from source commit `b83a195`.
 - [x] Add an executable provenance check for the vendored boundary.

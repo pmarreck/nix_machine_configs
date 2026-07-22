@@ -3,11 +3,15 @@
 set -u
 set +e
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ! declare -F repo_is_owned_by >/dev/null; then
-	script_dir="$(cd "$(dirname "$0")" && pwd)"
 	# Deployment may override the packaged library path.
 	# shellcheck disable=SC1090
 	source "${MECHATRON_POLICY_LIB:-$script_dir/policy.bash}"
+fi
+if ! declare -F initialize_status_store >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_STATUS_STORE_LIB:-$script_dir/status_store.bash}"
 fi
 
 umask 027
@@ -19,6 +23,7 @@ badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-badges}"
 queue_file="$state_dir/queue/builds.ndjson"
 queue_lock="$state_dir/queue/.builds.lock"
 results_file="$state_dir/results.ndjson"
+results_database="$state_dir/results.sqlite3"
 current_file="$state_dir/current.json"
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
@@ -40,6 +45,8 @@ mkdir -p "$state_dir/queue" "$state_dir/batches" "$state_dir/logs" "$state_dir/w
 touch "$queue_file" "$results_file" || exit 1
 chmod 0640 "$queue_file" "$results_file" || exit 1
 [ -d "$badge_dir" ] || { printf 'Badge directory is missing\n' >&2; exit 1; }
+initialize_status_store "$results_database" || { printf 'Status database is unavailable\n' >&2; exit 1; }
+migrate_legacy_results "$results_database" "$results_file" "$badge_dir" || { printf 'Legacy result migration failed\n' >&2; exit 1; }
 
 publish_current() {
 	local state="$1"
@@ -88,11 +95,14 @@ while IFS= read -r queued_item; do
 	[ -n "$queued_item" ] && batch_total=$((batch_total + 1))
 done < "$batch"
 
-overall_failures=0
 item_number=0
 while IFS= read -r item; do
 	[ -n "$item" ] || continue
 	item_number=$((item_number + 1))
+	run_id="$batch_id-$item_number"
+	target_results_file="$state_dir/work/$run_id.target-results.ndjson"
+	: > "$target_results_file" || exit 1
+	chmod 0640 "$target_results_file" || exit 1
 	publish_current idle || exit 1
 	started_at="$(now_utc)"
 	repo=""
@@ -125,7 +135,7 @@ while IFS= read -r item; do
 			failure_detail="delivery ID is invalid"
 		else
 			repo_name="$(repo_name_from_full_name "$repo")"
-			run_id="$batch_id-$item_number-${sha:0:12}"
+			run_id="$run_id-${sha:0:12}"
 			log_file="$state_dir/logs/$repo_name-$run_id.log"
 			target_list="$state_dir/work/$repo_name-$run_id.targets"
 			paths_file="$state_dir/work/$repo_name-$run_id.paths"
@@ -205,14 +215,16 @@ while IFS= read -r item; do
 				elif [ ! -s "$target_list" ]; then
 					failure_stage="target-manifest"
 					failure_detail="target manifest has no active targets"
-				elif ! write_badge_status "$badge_dir" "$repo" BUILDING; then
+				elif ! write_badge_status "$badge_dir" "$repo" BUILDING "$sha"; then
 					failure_stage="status-publication"
 					failure_detail="could not publish BUILDING badge"
 				else
 					status="success"
 					failure_stage=""
 					failure_detail=""
+					target_number=0
 					while IFS= read -r target; do
+						target_number=$((target_number + 1))
 						pending=$((batch_total - item_number))
 						publish_current building "$repo" "$sha" "$target" "$started_at" "$pending" || exit 1
 						target_paths="$state_dir/work/$repo_name-$run_id-$target.paths"
@@ -224,6 +236,16 @@ while IFS= read -r item; do
 							nix build "${nix_options[@]}" --no-link --print-out-paths "$flake#$target" \
 							> "$target_paths" 2>> "$log_file"
 						build_status=$?
+						target_status=success
+						[ "$build_status" -eq 0 ] || target_status=failure
+						output_paths_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' < "$target_paths")" || exit 1
+						jq -cn \
+							--argjson ordinal "$target_number" \
+							--arg target "$target" \
+							--arg status "$target_status" \
+							--argjson output_paths "$output_paths_json" \
+							'{ordinal:$ordinal,target:$target,status:$status,output_paths:$output_paths}' \
+							>> "$target_results_file" || exit 1
 						if [ "$build_status" -ne 0 ]; then
 							status="failure"
 							failure_stage="nix-build"
@@ -259,13 +281,13 @@ while IFS= read -r item; do
 
 	if [ -n "$repo_name" ]; then
 		if [ "$status" = "success" ]; then
-			if ! write_badge_status "$badge_dir" "$repo" PASSING; then
+			if ! write_badge_status "$badge_dir" "$repo" PASSING "$sha"; then
 				status="failure"
 				failure_stage="status-publication"
 				failure_detail="could not publish PASSING badge"
 			fi
 		else
-			write_badge_status "$badge_dir" "$repo" FAILING || true
+			write_badge_status "$badge_dir" "$repo" FAILING "$sha" || true
 		fi
 	fi
 
@@ -276,7 +298,7 @@ while IFS= read -r item; do
 		targets_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' < "$target_list")"
 	[ -n "$paths_file" ] && [ -f "$paths_file" ] &&
 		paths_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' < "$paths_file")"
-	jq -cn \
+	result_json="$(jq -cn \
 		--arg started_at "$started_at" \
 		--arg finished_at "$finished_at" \
 		--arg delivery "$delivery" \
@@ -289,13 +311,16 @@ while IFS= read -r item; do
 		--arg log "$log_file" \
 		--argjson targets "$targets_json" \
 		--argjson paths "$paths_json" \
-		'{started_at:$started_at,finished_at:$finished_at,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,status:$status,failure_stage:$failure_stage,failure_detail:$failure_detail,targets:$targets,paths:$paths,log:$log}' \
-		>> "$results_file"
-	chmod 0640 "$results_file"
-	if [ "$status" != "success" ]; then
-		overall_failures=$((overall_failures + 1))
-	fi
+		'{started_at:$started_at,finished_at:$finished_at,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,status:$status,failure_stage:$failure_stage,failure_detail:$failure_detail,targets:$targets,paths:$paths,log:$log}')" || exit 1
+	record_ci_result "$results_database" "$run_id" "$delivery" "$repo" "$ref" "$sha" \
+		"$default_branch" "$started_at" "$finished_at" "$status" "$failure_stage" \
+		"$failure_detail" "$log_file" "$target_results_file" || exit 1
+	printf '%s\n' "$result_json" >> "$results_file" || exit 1
+	chmod 0640 "$results_file" || exit 1
 	printf 'Mechatron Prime worker: %s@%s => %s (%s)\n' "$repo" "$sha" "$status" "$failure_stage"
 done < "$batch"
 
-[ "$overall_failures" -eq 0 ]
+# Repository and queue-item failures are CI results, not worker-health failures.
+# Every handled result is recorded above; only an earlier control-plane error
+# (queue/state/badge bookkeeping) may leave this oneshot unit nonzero.
+exit 0

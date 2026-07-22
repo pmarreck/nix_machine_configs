@@ -7,9 +7,11 @@ local by_path = {
 	["/ops/actions/mechatron-worker/start"] = {id = "mechatron-worker-start", scope = "system", unit = "mechatron-prime-worker.service", verb = "start"},
 	["/ops/actions/mechatron-worker/stop"] = {id = "mechatron-worker-stop", scope = "system", unit = "mechatron-prime-worker.service", verb = "stop"},
 	["/ops/actions/fsearch/run"] = {id = "fsearch-run", scope = "user", unit = "fsearch-update.service", verb = "start"},
-	["/ops/actions/codex-remote-control/start"] = {id = "codex-remote-control-start", kind = "codex-remote-control", verb = "start", present_result = true},
-	["/ops/actions/codex-remote-control/stop"] = {id = "codex-remote-control-stop", kind = "codex-remote-control", verb = "stop"},
-	["/ops/actions/codex-remote-control/pair"] = {id = "codex-remote-control-pair", kind = "codex-remote-control", verb = "pair", present_result = true},
+	["/ops/actions/codex-remote-control/status"] = {id = "codex-remote-control-status", kind = "codex", argv = {"app-server", "daemon", "version"}, present_result = true},
+	["/ops/actions/codex-remote-control/start"] = {id = "codex-remote-control-start", kind = "codex", argv = {"remote-control", "start", "--json"}, present_result = true},
+	["/ops/actions/codex-remote-control/stop"] = {id = "codex-remote-control-stop", kind = "codex", argv = {"remote-control", "stop", "--json"}},
+	["/ops/actions/codex-remote-control/restart"] = {id = "codex-remote-control-restart", kind = "codex", argv = {"app-server", "daemon", "restart"}},
+	["/ops/actions/codex-remote-control/pair"] = {id = "codex-remote-control-pair", kind = "codex", argv = {"remote-control", "pair", "--json"}, present_result = true},
 }
 
 local by_id = {}

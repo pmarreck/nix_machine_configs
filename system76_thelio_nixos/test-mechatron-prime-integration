@@ -4,6 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
+source_commit=f74aec6
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -23,7 +24,7 @@ check_sha256() {
 
 	actual="$(sha256sum "$path" | cut -d' ' -f1)"
 	if [ "$actual" != "$expected" ]; then
-		fail "$relative differs from Mechatron Prime 3359878"
+		fail "$relative differs from Mechatron Prime $source_commit"
 	fi
 }
 
@@ -40,7 +41,7 @@ check_wrapper() {
 
 check_sha256 nixos/receiver.nix 4561f3782882367f92574de17e6a323d02d30e1f81c604531a3d66d510a25f9f
 check_sha256 nixos/legacy-targets.nix cd665e1d226a03340ca6c552ef38a98dde0641f738b2e9cb53f9d1182200f761
-check_sha256 nixos/worker.nix 80dd0fd4ff174786e2175507b2595bdfa49d52c5874095c544c20b297b62091d
+check_sha256 nixos/worker.nix 21439a2417f969aeafd65a438cecc68eeaf8f4f05d478d8ad2db5124ec655e74
 check_sha256 nixos/ops.nix 660b75c6d19411509cd12db21ca7f6258e3749ae03ca6237547e96f4f0494868
 check_sha256 assets/mechatron-prime/index.html f8060aac99b6e0ae362f06b2a17c4e3e5676c97d12313a3bec44f99951f2455b
 check_sha256 assets/mechatron-prime/mechatron-prime.png f000336aed842a6ede08b879c67474fdb205a139f51f382743a39fa83c183af0
@@ -51,26 +52,27 @@ check_sha256 assets/mechatron-prime/mecha-d-in-a-box.jxl 03371f134305148a15cbea2
 check_sha256 assets/mechatron-prime/mecha-knight-rider.jxl 39cdd639b607376bb52e9a7eec7a4daaecc01686fec37ee68fc124cb90e58d0f
 check_sha256 assets/mechatron-prime/mecha-starfighter.jxl d2f2efed5738c112c12ed9fe3380555d433270e6209630e916d0518d2b272bce
 check_sha256 assets/mechatron-prime/mecha-wopr.jxl 6f8928d383490c1f3308fb1805f4ddb116d0196a70d0575ef985844cca71d5dc
-check_sha256 scripts/policy.bash 97a911f94aa06e4da1764fd554313e8338fcc63433be88fb15f9a5142b5fba7e
+check_sha256 scripts/policy.bash 370f65403abce188b420e5ff8b6a25114df88643679ba602672bc4f2878dbc08
 check_sha256 scripts/receiver.bash cf0ca4468f5ecdc75fa66f979734f9f00e2d732af324b589c2ef9ef150066055
-check_sha256 scripts/worker.bash 3b6d09c26a7b791fc995c6721881894cc9cbf0911488200a93b61fcf812e8d3c
-check_sha256 ops/actions.lua 4dde0058037fe1197c6ad1b32c74474f0cf3b475c1b98e3fb784eae059b0eca8
+check_sha256 scripts/worker.bash 987346e41be62fec92f0653f39f51d07a53a8e2435dedcf9afab5f24da26853e
+check_sha256 scripts/status_store.bash 4c16c23a78cc4b387d88e6cfafad8028b4f6029306afa7c0598f24af22626d3d
+check_sha256 ops/actions.lua a2948ee9b4e7f33910f98df2e8a6c7d304849f4a6bd62b0a54c9d7468889ff8d
 check_sha256 ops/app.lua 11f61444d2b754b76a80b2087b65e6e1ad2e7370f1eab6cb4013f9a1b1903bd1
 check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
 check_sha256 ops/http.lua 510adad17bf8d7f981e93fa478f80438f3056debbc4d4a243eec179f2c65d154
-check_sha256 ops/live.lua 450a23f042adeb4959226ee55d143941c762bc69c65fe662dca72a7f251ff058
+check_sha256 ops/live.lua 93e33d099ff4f3281d5950cdf04bab7fb53ceb9d99b73d594fc70ac606f740e9
 check_sha256 ops/probes.lua 61dee8e4f8e33c38df576b913202500fd070c6cf6d0cbb2966038bf74e1e2730
 check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da2756ce0885c77
 check_sha256 ops/render.lua ac9e4f2315af53d333886b07a4ae9d3e877a8a953d524309620e4dc7ccb26526
 check_sha256 ops/router.lua 8e33af030097ff89d38aabcfe39851e22994cc0c0740e732e8211879337a5892
 check_sha256 ops/server.lua f7ae752b7bf74cc501308a54079300916f7ab267617943cd30c05f075466a304
-check_sha256 ops/system.lua acfc6443665473a4c25b61d09363b37d21d50903dfdd112cab5dbb35785c68e2
+check_sha256 ops/system.lua ac008ad81d348a313623e7bb93484fad8136aeb8d68e0eb424b193e304587590
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
 check_wrapper "$root/mechatron-prime-ops.nix" 'import ./mechatron-prime/nixos/ops.nix'
 
-if ! rg -Fq '7070cc9' "$vendored/SOURCE.md"; then
+if ! rg -Fq "$source_commit" "$vendored/SOURCE.md"; then
 	fail "SOURCE.md does not identify the vendored Mechatron Prime commit"
 fi
 
@@ -79,4 +81,4 @@ if [ "$failures" -ne 0 ]; then
 	exit 1
 fi
 
-printf 'Mechatron Prime integration matches source commit 7070cc9\n'
+printf 'Mechatron Prime integration matches source commit %s\n' "$source_commit"

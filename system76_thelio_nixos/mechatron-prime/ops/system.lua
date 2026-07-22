@@ -18,7 +18,6 @@ local fixed_commands = {
 	journal_errors = {"journalctl", "-b", "-p", "err..alert", "--since", "-12 hours", "-n", "200", "--no-pager", "--output=short-iso"},
 }
 
-local codex_pid_path = "/home/pmarreck/.codex/app-server-daemon/app-server.pid"
 local codex_binary = "/home/pmarreck/.local/bin/codex"
 
 local function trim(text)
@@ -55,17 +54,14 @@ function M.new(adapter)
 		return command
 	end
 
-	--- Validate Codex's own numeric PID record against /proc so a stale record
-	--- after reboot cannot masquerade as a running remote-control daemon.
+	--- Verify the managed daemon through Codex's control socket instead of
+	--- trusting its PID record, which can survive a crash or reboot.
 	function system.codex_remote_control()
-		local record = cjson.decode(adapter.read(codex_pid_path) or "")
-		local pid = record and record.pid
-		if type(pid) ~= "number" or pid < 1 or pid % 1 ~= 0 then return "inactive" end
-		local command_line = adapter.read("/proc/" .. pid .. "/cmdline")
-		if not command_line or not command_line:find("codex", 1, true) or not command_line:find("app-server", 1, true) then
-			return "inactive"
-		end
-		return "active"
+		local output, ok = timed(user_command({codex_binary, "app-server", "daemon", "version"}, true))
+		if not ok then return "inactive" end
+		local document = trim(output)
+		local status = cjson.decode(document)
+		return status and status.status == "running" and "active" or "inactive"
 	end
 
 	function system.read(path)
@@ -115,9 +111,11 @@ function M.new(adapter)
 	function system.execute_action(action_id)
 		local action = actions.resolve_id(action_id)
 		if not action then return false, "action is not allowlisted" end
-		if action.kind == "codex-remote-control" then
-			local output, ok = timed(user_command({codex_binary, "remote-control", action.verb, "--json"}, true))
-			if not ok then return false, trim(output) ~= "" and trim(output) or "Codex remote-control action failed" end
+		if action.kind == "codex" then
+			local command = {codex_binary}
+			append(command, action.argv)
+			local output, ok = timed(user_command(command, true))
+			if not ok then return false, trim(output) ~= "" and trim(output) or "Codex action failed" end
 			return true, trim(output)
 		end
 		local argv = {"systemctl", "--no-block", action.verb, action.unit}

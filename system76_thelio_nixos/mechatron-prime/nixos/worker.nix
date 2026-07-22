@@ -20,9 +20,12 @@ let
       pkgs.coreutils
       pkgs.jq
       pkgs.nix
+      pkgs.sqlite
       pkgs.util-linux
     ];
     text = builtins.readFile ../scripts/policy.bash
+      + "\n"
+      + builtins.readFile ../scripts/status_store.bash
       + "\n"
       + builtins.readFile ../scripts/worker.bash;
   };
@@ -42,6 +45,7 @@ in
     "d /var/lib/mechatron-prime/work 0750 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/queue/builds.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
+    "f /var/lib/mechatron-prime/results.sqlite3 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
   ] ++ legacyTargetSeedRules;
 
