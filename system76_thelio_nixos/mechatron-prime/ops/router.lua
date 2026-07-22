@@ -86,6 +86,20 @@ function M.dispatch(request, dependencies)
 		}
 	end
 
+	if request.path == "/ops/ci-log.json" then
+		if request.method ~= "GET" then
+			local response = text_response(405, "method not allowed\n")
+			response.headers.Allow = "GET"
+			return response
+		end
+		local runs, generated_at = dependencies.ci_history()
+		return {
+			status = 200,
+			headers = headers("application/json; charset=utf-8"),
+			body = render.ci_history_json(generated_at or "unknown", runs),
+		}
+	end
+
 	local action = actions.resolve(request.path)
 	if action then
 		if request.method ~= "POST" then

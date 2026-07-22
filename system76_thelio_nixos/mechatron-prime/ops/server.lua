@@ -11,6 +11,7 @@ local expected_origin = os.getenv("MECHATRON_OPS_ORIGIN") or ""
 
 local provider = {
 	model = function() return live.collect(system) end,
+	ci_history = function() return system.ci_history(), system.now() end,
 	execute_action = system.execute_action,
 	authorize_action = function(request)
 		return auth.authorize(request.headers, admin_login, expected_origin)

@@ -43,10 +43,15 @@ function M.new(provider, clock, cache_seconds)
 		return provider.authorize_action and provider.authorize_action(request) or false
 	end
 
+	local function ci_history()
+		if provider.ci_history then return provider.ci_history() end
+		return {}
+	end
+
 	function app.handle(raw_request)
 		local request, parse_status = http.parse(raw_request)
 		if not request then return http.encode(error_response(parse_status, "invalid request")) end
-		local ok, response = pcall(router.dispatch, request, {model = model, execute_action = execute_action, authorize_action = authorize_action})
+		local ok, response = pcall(router.dispatch, request, {model = model, ci_history = ci_history, execute_action = execute_action, authorize_action = authorize_action})
 		if not ok then response = error_response(500, "operations probe failed: " .. tostring(response)) end
 		return http.encode(response)
 	end

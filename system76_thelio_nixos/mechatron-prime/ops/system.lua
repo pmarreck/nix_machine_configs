@@ -21,6 +21,7 @@ local fixed_commands = {
 local codex_binary = "/home/pmarreck/.local/bin/codex"
 local mechatron_control_binary = "/run/current-system/sw/bin/mechatron-prime-control"
 local recent_ci_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]]
+local ci_history_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 100;]]
 
 local function trim(text)
 	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -114,6 +115,15 @@ function M.new(adapter)
 	--- output paths, or direct database access to tailnet clients.
 	function system.recent_ci_runs()
 		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", recent_ci_query})
+		if not ok then return {} end
+		local decoded = cjson.decode(output)
+		return type(decoded) == "table" and decoded or {}
+	end
+
+	--- Return a fixed, newest-first SQLite projection bounded independently of
+	--- client input; private paths and delivery identifiers never enter SQL.
+	function system.ci_history()
+		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", ci_history_query})
 		if not ok then return {} end
 		local decoded = cjson.decode(output)
 		return type(decoded) == "table" and decoded or {}

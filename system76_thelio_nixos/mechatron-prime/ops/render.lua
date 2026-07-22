@@ -62,6 +62,29 @@ function M.ci_json(model)
 	return encoded .. "\n"
 end
 
+--- Whitelist the bounded history API fields so storage-only metadata cannot
+--- escape if the ledger schema or system adapter grows later.
+function M.ci_history_json(generated_at, runs)
+	local results = {}
+	for _, run in ipairs(runs or {}) do
+		results[#results + 1] = {
+			repository = run.repository,
+			commit_sha = run.commit_sha,
+			status = run.status,
+			failure_stage = run.failure_stage or "",
+			failure_detail = run.failure_detail or "",
+			started_at = run.started_at,
+			finished_at = run.finished_at,
+		}
+	end
+	local encoded, encode_error = cjson.encode({
+		generated_at = generated_at,
+		results = json_array(results),
+	})
+	if not encoded then error("could not encode CI history JSON: " .. tostring(encode_error)) end
+	return encoded .. "\n"
+end
+
 local function status_badge(state)
 	return '<span class="status status-' .. html_escape(state) .. '">' .. html_escape(state) .. "</span>"
 end

@@ -4,7 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
-source_commit=2a16991
+source_commit=26bbe00
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -57,21 +57,21 @@ check_sha256 scripts/policy.bash 370f65403abce188b420e5ff8b6a25114df88643679ba60
 check_sha256 scripts/receiver.bash cf0ca4468f5ecdc75fa66f979734f9f00e2d732af324b589c2ef9ef150066055
 check_sha256 scripts/worker.bash b6b0570e922a4933d148954eeff063cd0d1bf8938caea004979f6be95f713515
 check_sha256 scripts/control_lib.bash ede26d52aef1dbf93d8d17855ac18e4248c23572955bbd63b85f1656835bb4a4
-check_sha256 scripts/mechatron-ci 79f5c75e8f7870f1e0062d241fd263301a15677ee3f3351bdc424cbf65c485c2
+check_sha256 scripts/mechatron-ci 4302088583b7e3e741e8fb2ba003419ce668f5cd65f8ccc121f6976644e4a66b
 check_sha256 scripts/mechatron-prime-control 1094f13a0f7e52b412dfaab79d01d6ace32a581348589c424734a7600a8cf293
 check_sha256 scripts/status_store.bash 4c16c23a78cc4b387d88e6cfafad8028b4f6029306afa7c0598f24af22626d3d
 check_sha256 ops/actions.lua 3466e5c02d040614aae3aa55eeb3744c1ffa28954480280b2ddae3d6ac3b938f
-check_sha256 ops/app.lua ef3d629d97dadbcd5861dc9f06bc9efe9689cc321d233b2071caa842e08cf46f
+check_sha256 ops/app.lua b128a1ed2180808784c3d62fc0f4b63fce8dac681df557216713bb4476551195
 check_sha256 ops/auth.lua eaf503ab8f978188d33850bd94983ed047b36f933a1138404bab098168ca0d69
 check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
 check_sha256 ops/http.lua fa580f1e1d1d6877748b651d462a0a1bc4483e91fbc520ca9f3f5e1ebecf256f
 check_sha256 ops/live.lua fc0490bcc38a53fde874ce9f959c5be55d7cadb35322f5172ea5636e52e99446
 check_sha256 ops/probes.lua 61dee8e4f8e33c38df576b913202500fd070c6cf6d0cbb2966038bf74e1e2730
 check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da2756ce0885c77
-check_sha256 ops/render.lua 849b6aabe8bd608dd0c58f76eb610edeb402ace2753b3631bff930e0c74d32d5
-check_sha256 ops/router.lua b6082fb561eb04b07c45a202378fe26e2ed7bad58cfd6d8442b42a2de15100e4
-check_sha256 ops/server.lua bb35996f6170a33efc0c3a6779b2f6f4b0aa9e9e1c499aec2ab945d5430331f9
-check_sha256 ops/system.lua 23552d8cd0e0fd0fb5cf2d576084f0812c50bfdaf2cce40fa1ba460c8962d63f
+check_sha256 ops/render.lua 229c93881471e55c329b5fd482dea07ee4961db44d03c6b4747d243de11210a4
+check_sha256 ops/router.lua 650792731c57e9ced16e96819f1f916eb48c27d71dc1ed2f5b6654062e880322
+check_sha256 ops/server.lua 75054bbe7d4cb42bae81b0f6d826c07518c3538b8bc1f1483da924ff5761604c
+check_sha256 ops/system.lua ea9e7a8de28fcabf8fbfdd5e0165d99c02e90d4a2c0c95a220d61295a2334021
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'

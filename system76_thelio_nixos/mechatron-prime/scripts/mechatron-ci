@@ -13,21 +13,26 @@ message() {
 		queue) printf 'Queue' ;;
 		current) printf 'Current' ;;
 		recent) printf 'Recent outcomes' ;;
+		history) printf 'Mechatron Prime CI history' ;;
 		none) printf 'none' ;;
 		unknown_command) printf 'unknown command' ;;
 		unsupported_locale) printf 'unsupported locale' ;;
 		invalid_response) printf 'server returned an invalid CI status document' ;;
+		invalid_history) printf 'server returned an invalid CI history document' ;;
+		invalid_limit) printf 'history limit must be an integer from 1 through 100' ;;
 		help) printf '%s\n' \
-			'Usage: mechatron-ci [options] [status|halt|resume|cancel]' \
+			'Usage: mechatron-ci [options] [status|log|halt|resume|cancel]' \
 			'' \
 			'Commands:' \
 			'  status       Show admission, worker, queue, current job, and recent results' \
+			'  log          Show a bounded, sanitized history of CI results' \
 			'  halt         Persistently halt admission and cancel/requeue active work' \
 			'  resume       Reopen admission and immediately drain queued work' \
 			'  cancel       Cancel/requeue only the active build; admission stays unchanged' \
 			'' \
 			'Options:' \
 			'  --json       Emit the stable JSON status document' \
+			'  --limit N    Return 1–100 history results (default: 50; log only)' \
 			'  --url URL    Override the tailnet operations base URL' \
 			'  --lang CODE  Select one of the prepared locale codes' \
 			'  --simple     Suppress decorated terminal output' \
@@ -74,12 +79,20 @@ base_url="${MECHATRON_CI_URL:-$default_url}"
 explicit_lang=""
 show_help=false
 show_about=false
+history_limit=50
+history_limit_set=false
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		status|halt|resume|cancel) command="$1" ;;
+		status|log|halt|resume|cancel) command="$1" ;;
 		--json) emit_json=true ;;
 		--simple|--no-color|--no-ansi) ;;
+		--limit)
+			[ "$#" -ge 2 ] || { printf '%s: --limit requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			history_limit="$1"
+			history_limit_set=true
+			;;
 		--url)
 			[ "$#" -ge 2 ] || { printf '%s: --url requires a value\n' "$(message title)" >&2; exit 2; }
 			shift
@@ -131,11 +144,27 @@ if [ "$locale" != en ]; then
 	printf 'WARN: i18n missing-locale %s\n' "$locale" >&2
 fi
 
+if [ "$history_limit_set" = true ] && [ "$command" != log ]; then
+	printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2
+	exit 2
+fi
+case "$history_limit" in
+	''|*[!0-9]*) printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2; exit 2 ;;
+esac
+if [ "$history_limit" -lt 1 ] || [ "$history_limit" -gt 100 ]; then
+	printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2
+	exit 2
+fi
+
 base_url="${base_url%/}"
 curl_command="${MECHATRON_CI_CURL:-curl}"
 
 fetch_status() {
 	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci.json"
+}
+
+fetch_history() {
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci-log.json"
 }
 
 post_action() {
@@ -149,6 +178,45 @@ case "$command" in
 	resume) post_action resume || exit $? ;;
 	cancel) post_action stop || exit $? ;;
 esac
+
+if [ "$command" = log ]; then
+	document="$(fetch_history)" || exit $?
+	if ! jq -e '
+		type == "object" and
+		(.generated_at | type == "string") and
+		(.results | type == "array") and
+		(all(.results[];
+			(.repository | type == "string") and
+			(.commit_sha | type == "string") and
+			(.status == "success" or .status == "failure") and
+			(.failure_stage | type == "string") and
+			(.failure_detail | type == "string") and
+			(.started_at | type == "string") and
+			(.finished_at | type == "string")
+		))
+	' <<< "$document" >/dev/null 2>&1; then
+		printf '%s: %s\n' "$(message title)" "$(message invalid_history)" >&2
+		exit 1
+	fi
+	document="$(jq --argjson limit "$history_limit" '.results = .results[0:$limit]' <<< "$document")" || exit $?
+	if [ "$emit_json" = true ]; then
+		jq . <<< "$document"
+		exit $?
+	fi
+	jq -r --arg title "$(message history)" '
+		[$title + " (" + (.results | length | tostring) + " newest)"] +
+		[.results[] |
+			"  " + (.finished_at // .started_at) +
+			"  " + (if .status == "success" then "PASS" else "FAIL" end) +
+			"  " + .repository + "@" + (.commit_sha[0:12]) +
+			(if .status == "failure" then
+				(if .failure_stage == "" then "" else "  " + .failure_stage end) +
+				(if .failure_detail == "" then "" else (if .failure_stage == "" then "  " else ": " end) + .failure_detail end)
+			else "" end)
+		] | .[]
+	' <<< "$document"
+	exit $?
+fi
 
 document="$(fetch_status)" || exit $?
 if ! jq -e '
