@@ -1771,10 +1771,12 @@ in
       # 'max-jobs' apparently also sets the number of possible concurrent downloads
       # 'cores' is like the "make -j" option; note that some packages don't like concurrent builds,
       # but that's their responsibility to limit themselves, in that case.
-      # The store is HDD-backed: admit only two derivations until the Nix hot
-      # path moves to SSD, so metadata-heavy builds do not freeze the host.
-      max-jobs = 2;
-      cores = 32;
+      # The Nix store and build directory now live on mirrored NVMe. Balance
+      # independent derivations against per-derivation build threads so the
+      # nominal scheduler budget matches this host's 128 hardware threads.
+      # Sixteen jobs also leave roughly 8 GiB of RAM per job at full occupancy.
+      max-jobs = 16;
+      cores = 8;
       # Build trees are as metadata-heavy as the store. Keep them on the
       # mirrored NVMe nixpool rather than creating churn on the HDD root.
       build-dir = "/nix/var/nix/builds";
