@@ -8,6 +8,9 @@
   # prompt. The data-loss risk of `true` is the multi-host shared-pool case,
   # which does not apply here. Flip to false if this pool is ever shared.
   boot.zfs.forceImportRoot = true;
+  # These pools hold the mirrored Nix store plus disposable direct-NVMe Steam
+  # and developer caches. They import after the HDD root pool at every boot.
+  boot.zfs.extraPools = [ "nixpool" "steampool" "devpool" ];
   boot.kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
   boot.loader.efi.efiSysMountPoint = "/boot/efi";
   boot.loader.efi.canTouchEfiVariables = false;

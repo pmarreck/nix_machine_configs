@@ -18,6 +18,32 @@
       fsType = "zfs"; options = [ "zfsutil" "X-mount.mkdir" ];
     };
 
+  # Legacy mountpoints deliberately use plain `mount -t zfs`: adding zfsutil
+  # delegates to `zfs mount`, which refuses datasets whose mountpoint is
+  # `legacy`. `nixpool/nix` is a two-NVMe mirror; the old HDD-resident /nix
+  # remains a recovery copy beneath this mount until the migration is proven.
+  fileSystems."/nix" =
+    { device = "nixpool/nix";
+      fsType = "zfs";
+      options = [ "X-mount.mkdir" ];
+    };
+
+  # Games are deliberately recreatable. Do not turn a failed Steam NVMe into
+  # a host boot failure; Steam can repair/re-download its library when back.
+  fileSystems."/mnt/steam-nvme" =
+    { device = "steampool/steam";
+      fsType = "zfs";
+      options = [ "nofail" "X-mount.mkdir" ];
+    };
+
+  # Compiler caches and build products are reproducible and deliberately live
+  # on one NVMe. A missing cache pool must degrade speed, never prevent boot.
+  fileSystems."/mnt/devcache" =
+    { device = "devpool/devcache";
+      fsType = "zfs";
+      options = [ "nofail" "X-mount.mkdir" ];
+    };
+
   fileSystems."/home" =
     { device = "rpool/nixos/home";
       fsType = "zfs"; options = [ "zfsutil" "X-mount.mkdir" ];
