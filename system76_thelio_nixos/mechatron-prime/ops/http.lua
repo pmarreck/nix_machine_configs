@@ -5,6 +5,7 @@ local status_text = {
 	[303] = "See Other",
 	[308] = "Permanent Redirect",
 	[400] = "Bad Request",
+	[403] = "Forbidden",
 	[404] = "Not Found",
 	[405] = "Method Not Allowed",
 	[413] = "Content Too Large",

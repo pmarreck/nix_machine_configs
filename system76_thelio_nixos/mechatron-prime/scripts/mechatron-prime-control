@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Exact control surface for persistent CI admission and active-worker state.
+set -u
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! declare -F write_ci_admission >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_CONTROL_LIB:-$script_dir/control_lib.bash}"
+fi
+
+state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
+systemctl_command="${MECHATRON_SYSTEMCTL:-systemctl}"
+now="${MECHATRON_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+action="${1:-}"
+
+case "$action" in
+	halt)
+		write_ci_admission "$state_dir" halted "$now" || exit 1
+		"$systemctl_command" --no-block stop mechatron-prime-worker.service || exit 1
+		;;
+	resume)
+		write_ci_admission "$state_dir" running "$now" || exit 1
+		"$systemctl_command" --no-block start mechatron-prime-worker.service || exit 1
+		;;
+	cancel)
+		"$systemctl_command" --no-block stop mechatron-prime-worker.service || exit 1
+		;;
+	*)
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel}\n' >&2
+		exit 2
+		;;
+esac
+
+jq -cn --arg action "$action" --arg state "$(ci_admission_state "$state_dir")" \
+	'{status:"ok",action:$action,admission:$state}'

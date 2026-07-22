@@ -39,10 +39,14 @@ function M.new(provider, clock, cache_seconds)
 		return ok, action_error
 	end
 
+	local function authorize_action(request)
+		return provider.authorize_action and provider.authorize_action(request) or false
+	end
+
 	function app.handle(raw_request)
 		local request, parse_status = http.parse(raw_request)
 		if not request then return http.encode(error_response(parse_status, "invalid request")) end
-		local ok, response = pcall(router.dispatch, request, {model = model, execute_action = execute_action})
+		local ok, response = pcall(router.dispatch, request, {model = model, execute_action = execute_action, authorize_action = authorize_action})
 		if not ok then response = error_response(500, "operations probe failed: " .. tostring(response)) end
 		return http.encode(response)
 	end

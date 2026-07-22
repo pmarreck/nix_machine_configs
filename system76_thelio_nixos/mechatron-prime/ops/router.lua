@@ -73,12 +73,28 @@ function M.dispatch(request, dependencies)
 		}
 	end
 
+	if request.path == "/ops/ci.json" then
+		if request.method ~= "GET" then
+			local response = text_response(405, "method not allowed\n")
+			response.headers.Allow = "GET"
+			return response
+		end
+		return {
+			status = 200,
+			headers = headers("application/json; charset=utf-8"),
+			body = render.ci_json(dependencies.model()),
+		}
+	end
+
 	local action = actions.resolve(request.path)
 	if action then
 		if request.method ~= "POST" then
 			local response = text_response(405, "method not allowed\n")
 			response.headers.Allow = "POST"
 			return response
+		end
+		if not dependencies.authorize_action or not dependencies.authorize_action(request) then
+			return text_response(403, "forbidden\n")
 		end
 		local ok, action_error = dependencies.execute_action(action.id)
 		if not ok then

@@ -19,6 +19,8 @@ local fixed_commands = {
 }
 
 local codex_binary = "/home/pmarreck/.local/bin/codex"
+local mechatron_control_binary = "/run/current-system/sw/bin/mechatron-prime-control"
+local recent_ci_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]]
 
 local function trim(text)
 	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -108,6 +110,15 @@ function M.new(adapter)
 		return output
 	end
 
+	--- Project the ten newest terminal CI outcomes without exposing SQL, logs,
+	--- output paths, or direct database access to tailnet clients.
+	function system.recent_ci_runs()
+		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", recent_ci_query})
+		if not ok then return {} end
+		local decoded = cjson.decode(output)
+		return type(decoded) == "table" and decoded or {}
+	end
+
 	function system.execute_action(action_id)
 		local action = actions.resolve_id(action_id)
 		if not action then return false, "action is not allowlisted" end
@@ -116,6 +127,13 @@ function M.new(adapter)
 			append(command, action.argv)
 			local output, ok = timed(user_command(command, true))
 			if not ok then return false, trim(output) ~= "" and trim(output) or "Codex action failed" end
+			return true, trim(output)
+		end
+		if action.kind == "mechatron" then
+			local command = {mechatron_control_binary}
+			append(command, action.argv)
+			local output, ok = timed(command)
+			if not ok then return false, trim(output) ~= "" and trim(output) or "Mechatron action failed" end
 			return true, trim(output)
 		end
 		local argv = {"systemctl", "--no-block", action.verb, action.unit}

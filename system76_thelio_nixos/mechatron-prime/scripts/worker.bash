@@ -13,6 +13,10 @@ if ! declare -F initialize_status_store >/dev/null; then
 	# shellcheck disable=SC1090
 	source "${MECHATRON_STATUS_STORE_LIB:-$script_dir/status_store.bash}"
 fi
+if ! declare -F ci_admission_state >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_CONTROL_LIB:-$script_dir/control_lib.bash}"
+fi
 
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
@@ -44,6 +48,11 @@ esac
 mkdir -p "$state_dir/queue" "$state_dir/batches" "$state_dir/logs" "$state_dir/work" || exit 1
 touch "$queue_file" "$results_file" || exit 1
 chmod 0640 "$queue_file" "$results_file" || exit 1
+admission_state="$(ci_admission_state "$state_dir")" || { printf 'CI admission state is invalid\n' >&2; exit 1; }
+if [ "$admission_state" = halted ]; then
+	printf 'Mechatron Prime worker: admission halted; queue preserved\n'
+	exit 0
+fi
 [ -d "$badge_dir" ] || { printf 'Badge directory is missing\n' >&2; exit 1; }
 initialize_status_store "$results_database" || { printf 'Status database is unavailable\n' >&2; exit 1; }
 migrate_legacy_results "$results_database" "$results_file" "$badge_dir" || { printf 'Legacy result migration failed\n' >&2; exit 1; }
@@ -75,7 +84,30 @@ publish_current() {
 }
 
 publish_current idle || exit 1
-trap 'publish_current idle >/dev/null 2>&1 || true' EXIT
+batch=""
+recovery_line=1
+recover_on_interrupt=false
+
+# shellcheck disable=SC2329 # invoked by EXIT trap
+cleanup_current() {
+	publish_current idle >/dev/null 2>&1 || true
+}
+
+# shellcheck disable=SC2329 # invoked by INT/TERM traps
+interrupt_worker() {
+	trap - INT TERM
+	if [ "$recover_on_interrupt" = true ] && [ -n "$batch" ]; then
+		# The signal may arrive during the claim's locked rename window. Release
+		# our claim descriptor before the recovery helper takes the same lock.
+		exec 9>&- || true
+		recover_claimed_batch "$batch" "$recovery_line" "$queue_file" "$queue_lock" >/dev/null 2>&1 || true
+	fi
+	cleanup_current
+	exit 143
+}
+
+trap cleanup_current EXIT
+trap interrupt_worker INT TERM
 
 batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 batch="$state_dir/batches/builds-$batch_id.ndjson"
@@ -85,6 +117,7 @@ if [ ! -s "$queue_file" ]; then
 	printf 'Mechatron Prime worker: queue empty\n'
 	exit 0
 fi
+recover_on_interrupt=true
 mv "$queue_file" "$batch" || exit 1
 : > "$queue_file" || exit 1
 chmod 0640 "$batch" "$queue_file" || exit 1
@@ -317,8 +350,11 @@ while IFS= read -r item; do
 		"$failure_detail" "$log_file" "$target_results_file" || exit 1
 	printf '%s\n' "$result_json" >> "$results_file" || exit 1
 	chmod 0640 "$results_file" || exit 1
+	recovery_line=$((item_number + 1))
 	printf 'Mechatron Prime worker: %s@%s => %s (%s)\n' "$repo" "$sha" "$status" "$failure_stage"
 done < "$batch"
+
+recover_on_interrupt=false
 
 # Repository and queue-item failures are CI results, not worker-health failures.
 # Every handled result is recorded above; only an earlier control-plane error

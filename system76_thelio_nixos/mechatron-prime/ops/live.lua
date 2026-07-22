@@ -65,6 +65,32 @@ local function format_pools(pools, root_properties, scans)
 	return table.concat(lines, "\n")
 end
 
+local function collect_mechatron(source)
+	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
+	local current_text = source.read("/var/lib/mechatron-prime/current.json")
+	local control_text = source.read("/var/lib/mechatron-prime/control.json")
+	local control = control_text and cjson.decode(control_text) or nil
+	local admission = {state = "running", changed_at = ""}
+	if control and (control.state == "running" or control.state == "halted") then
+		admission = {state = control.state, changed_at = control.changed_at or ""}
+	elseif control_text then
+		admission = {state = "unknown", changed_at = ""}
+	end
+	local worker_state = source.service("system", "mechatron-prime-worker.service")
+	local current = nil
+	if worker_state == "active" and current_text and current_text:match("%S") then
+		local decoded = cjson.decode(current_text)
+		if decoded and decoded.state == "building" then current = decoded end
+	end
+	return {
+		admission = admission,
+		worker_state = worker_state,
+		current = current,
+		queue_depth = probes.count_ndjson(queue_text),
+		recent = source.recent_ci_runs and source.recent_ci_runs() or {},
+	}
+end
+
 --- Assemble one immutable UI model from injected host adapters; parsing and
 --- classification stay deterministic while I/O remains replaceable in tests.
 function M.collect(source)
@@ -106,14 +132,7 @@ function M.collect(source)
 	local scans = probes.parse_zpool_scan_records(zpool_status)
 	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"), 20)
 
-	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
-	local current_text = source.read("/var/lib/mechatron-prime/current.json")
-	local worker_state = source.service("system", "mechatron-prime-worker.service")
-	local current = nil
-	if worker_state == "active" and current_text and current_text:match("%S") then
-		local decoded = cjson.decode(current_text)
-		if decoded and decoded.state == "building" then current = decoded end
-	end
+	local mechatron = collect_mechatron(source)
 
 	local health_result = health.evaluate({
 		services = health_services,
@@ -129,11 +148,7 @@ function M.collect(source)
 		generated_at = source.now(),
 		health = health_result,
 		services = services,
-		mechatron = {
-			worker_state = worker_state,
-			current = current,
-			queue_depth = probes.count_ndjson(queue_text),
-		},
+		mechatron = mechatron,
 		clocksound = clocksound,
 		fsearch = fsearch,
 		os = {

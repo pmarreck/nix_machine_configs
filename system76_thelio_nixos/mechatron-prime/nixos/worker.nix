@@ -1,6 +1,7 @@
 # Mechatron Prime — sequential owner-wide multi-repository Nix worker.
 { lib, pkgs, ... }:
 let
+  runtime = import ../nix/packages.nix { inherit pkgs; };
   legacyTargets = import ./legacy-targets.nix;
   legacyTargetDirectory = "/etc/mechatron-prime/legacy-targets";
   badgeDirectory = "/var/lib/mechatron-prime-public/badges";
@@ -13,24 +14,12 @@ let
       in
         "L+ ${legacyTargetDirectory}/${repoName}.targets - - - - ${seed}")
     legacyTargets;
-  worker = pkgs.writeShellApplication {
-    name = "mechatron-prime-worker";
-    runtimeInputs = [
-      pkgs.attic-client
-      pkgs.coreutils
-      pkgs.jq
-      pkgs.nix
-      pkgs.sqlite
-      pkgs.util-linux
-    ];
-    text = builtins.readFile ../scripts/policy.bash
-      + "\n"
-      + builtins.readFile ../scripts/status_store.bash
-      + "\n"
-      + builtins.readFile ../scripts/worker.bash;
-  };
+  initialControl = pkgs.writeText "mechatron-prime-initial-control.json"
+    ''{"state":"running","changed_at":"activation"}'';
 in
 {
+  environment.systemPackages = [ runtime.mechatronCi runtime.mechatronControl ];
+
   systemd.tmpfiles.rules = [
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
     "d ${legacyTargetDirectory} 0750 root mechatron-prime - -"
@@ -47,6 +36,7 @@ in
     "f /var/lib/mechatron-prime/results.ndjson 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/results.sqlite3 0640 mechatron-prime mechatron-prime - -"
     "f /var/lib/mechatron-prime/current.json 0640 mechatron-prime mechatron-prime - -"
+    "C /var/lib/mechatron-prime/control.json 0640 mechatron-prime mechatron-prime - ${initialControl}"
   ] ++ legacyTargetSeedRules;
 
   systemd.services.mechatron-prime-worker = {
@@ -76,7 +66,7 @@ in
       User = "mechatron-prime";
       Group = "mechatron-prime";
       WorkingDirectory = "/var/lib/mechatron-prime";
-      ExecStart = "${worker}/bin/mechatron-prime-worker";
+      ExecStart = "${runtime.worker}/bin/mechatron-prime-worker";
       TimeoutStartSec = "6h";
       NoNewPrivileges = true;
       PrivateTmp = true;

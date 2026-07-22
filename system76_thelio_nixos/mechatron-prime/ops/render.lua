@@ -42,6 +42,26 @@ function M.health_json(model)
 	return encoded .. "\n"
 end
 
+--- Render the narrow agent-facing CI projection; private ledger paths,
+--- output paths, delivery IDs, and arbitrary SQL remain server-side.
+function M.ci_json(model)
+	local mechatron = model.mechatron
+	local recent = {}
+	for _, run in ipairs(mechatron.recent or {}) do recent[#recent + 1] = run end
+	local encoded, encode_error = cjson.encode({
+		generated_at = model.generated_at,
+		admission = mechatron.admission,
+		worker = {
+			state = mechatron.worker_state,
+			queue_depth = mechatron.queue_depth,
+			current = mechatron.current,
+		},
+		recent = json_array(recent),
+	})
+	if not encoded then error("could not encode CI JSON: " .. tostring(encode_error)) end
+	return encoded .. "\n"
+end
+
 local function status_badge(state)
 	return '<span class="status status-' .. html_escape(state) .. '">' .. html_escape(state) .. "</span>"
 end
@@ -184,11 +204,13 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 ]],
 		html_escape(model.generated_at),
 		status_badge(model.health.status),
-		status_badge(model.mechatron.worker_state),
+		status_badge(model.mechatron.admission.state == "halted" and "halted" or model.mechatron.worker_state),
 		html_escape(current_build),
 		html_escape(model.mechatron.queue_depth),
 		action_forms({
 			{label = "Drain queue", path = "/ops/actions/mechatron-worker/start"},
+			{label = "Halt CI", path = "/ops/actions/mechatron-worker/halt", danger = true},
+			{label = "Resume CI", path = "/ops/actions/mechatron-worker/resume"},
 			{label = "Cancel build", path = "/ops/actions/mechatron-worker/stop", danger = true},
 		}),
 		status_badge(model.clocksound.state),
