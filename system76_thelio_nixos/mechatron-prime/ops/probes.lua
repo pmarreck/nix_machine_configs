@@ -75,6 +75,14 @@ function M.parse_ollama_models(text)
 	return models
 end
 
+--- `/api/ps` uses the same bounded model-set shape as `/api/tags`, but it
+--- reports only models currently resident in Ollama.  Keep this separate at
+--- the call site so an unavailable residency probe is never presented as an
+--- empty resident set.
+function M.parse_ollama_loaded_models(text)
+	return M.parse_ollama_models(text)
+end
+
 --- Parse the stable tab-separated ZFS list projection rather than scraping the
 --- human column alignment used by interactive `zpool list` output.
 function M.parse_zpool_list(text)

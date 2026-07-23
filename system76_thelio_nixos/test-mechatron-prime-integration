@@ -4,7 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
-source_commit=26bbe00
+source_commit=bc7fc25
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -65,13 +65,13 @@ check_sha256 ops/app.lua b128a1ed2180808784c3d62fc0f4b63fce8dac681df557216713bb4
 check_sha256 ops/auth.lua eaf503ab8f978188d33850bd94983ed047b36f933a1138404bab098168ca0d69
 check_sha256 ops/health.lua 377e1e18129e8c43d14188e2481395e0a0c4a5f031a57c343635f3ba4a07d2b4
 check_sha256 ops/http.lua fa580f1e1d1d6877748b651d462a0a1bc4483e91fbc520ca9f3f5e1ebecf256f
-check_sha256 ops/live.lua fc0490bcc38a53fde874ce9f959c5be55d7cadb35322f5172ea5636e52e99446
-check_sha256 ops/probes.lua 61dee8e4f8e33c38df576b913202500fd070c6cf6d0cbb2966038bf74e1e2730
+check_sha256 ops/live.lua 339c94dd5126105c303a6dcf334ca5056cf169a591322fd8136d8724848dee1a
+check_sha256 ops/probes.lua b80cdafaf18f72dbb6b9fec699e3bcbf0cf363fc609248e2ac336f918acfc76c
 check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da2756ce0885c77
-check_sha256 ops/render.lua 229c93881471e55c329b5fd482dea07ee4961db44d03c6b4747d243de11210a4
+check_sha256 ops/render.lua 1b439ab8274c20f15cf3585e2c24f344f7229cb4227cecf73925a2ad34e31e71
 check_sha256 ops/router.lua 650792731c57e9ced16e96819f1f916eb48c27d71dc1ed2f5b6654062e880322
 check_sha256 ops/server.lua 75054bbe7d4cb42bae81b0f6d826c07518c3538b8bc1f1483da924ff5761604c
-check_sha256 ops/system.lua ea9e7a8de28fcabf8fbfdd5e0165d99c02e90d4a2c0c95a220d61295a2334021
+check_sha256 ops/system.lua a817b4e411a36e99eb04e6be2badb4ba27a18dbc33208e86507af6047f96732a
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'

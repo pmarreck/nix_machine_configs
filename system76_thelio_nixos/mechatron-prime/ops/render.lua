@@ -101,13 +101,20 @@ local function action_forms(actions)
 	return '<div class="actions">' .. table.concat(forms, "") .. "</div>"
 end
 
-local function model_list(models)
-	if #(models or {}) == 0 then return "" end
-	local items = {}
-	for _, model in ipairs(models) do
-		items[#items + 1] = "<li><code>" .. html_escape(model.name) .. "</code></li>"
+local function model_section(label, models, available, empty_message)
+	local body
+	if not available then
+		body = '<p class="quiet model-state">Unavailable</p>'
+	elseif #(models or {}) == 0 then
+		body = '<p class="quiet model-state">' .. html_escape(empty_message) .. "</p>"
+	else
+		local items = {}
+		for _, model in ipairs(models) do
+			items[#items + 1] = "<li><code>" .. html_escape(model.name) .. "</code></li>"
+		end
+		body = '<ul class="model-list">' .. table.concat(items, "") .. "</ul>"
 	end
-	return '<ul class="model-list">' .. table.concat(items, "") .. "</ul>"
+	return '<section class="model-section"><h4>' .. html_escape(label) .. "</h4>" .. body .. "</section>"
 end
 
 local function service_cards(services)
@@ -116,8 +123,11 @@ local function service_cards(services)
 		cards[#cards + 1] = string.format([[
 		<article class="card">
 			<div class="card-heading"><h3>%s</h3>%s</div>
-			<p>%s</p>%s%s
-		</article>]], html_escape(service.label), status_badge(service.state), html_escape(service.detail), model_list(service.models), action_forms(service.actions))
+			<p>%s</p>%s%s%s
+		</article>]], html_escape(service.label), status_badge(service.state), html_escape(service.detail),
+			service.models and model_section("Installed models", service.models, service.model_inventory_available, "No installed models") or "",
+			service.loaded_models and model_section("Loaded now", service.loaded_models, service.loaded_models_available, "No models currently loaded") or "",
+			action_forms(service.actions))
 	end
 	return table.concat(cards, "\n")
 end
@@ -167,6 +177,8 @@ function M.page(model)
 		.card { min-width:0; padding:18px; border:1px solid var(--line); border-radius:13px; background:linear-gradient(145deg,rgba(20,31,46,.96),rgba(13,20,31,.96)); box-shadow:0 14px 40px rgba(0,0,0,.18); }
 		.card-heading { display:flex; justify-content:space-between; gap:12px; align-items:start; }
 		.card h3 { margin-bottom:8px; font-size:1rem; }
+		.model-section { margin-top:14px; }
+		.model-section h4 { margin:0; color:var(--muted); font-size:.76rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 		.status { display:inline-block; border:1px solid currentColor; border-radius:999px; padding:2px 8px; font:700 .72rem/1.4 ui-monospace,monospace; text-transform:uppercase; }
 		.status-active,.status-healthy,.status-waiting { color:var(--accent); }
 		.status-degraded,.status-resilvering,.status-inactive { color:var(--warn); }
@@ -177,8 +189,9 @@ function M.page(model)
 		pre,code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
 		pre { margin:0; padding:16px; border:1px solid var(--line); border-radius:10px; background:#070a0f; overflow:auto; white-space:pre; }
 		.errors { padding-left:20px; color:var(--warn); }
-		.model-list { margin:12px 0 0; padding-left:20px; color:var(--muted); }
+		.model-list { margin:7px 0 0; padding-left:20px; color:var(--muted); }
 		.model-list li { overflow-wrap:anywhere; }
+		.model-state { margin:7px 0 0; }
 		.actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 		.actions form { margin:0; }
 		.action { border:1px solid var(--line); border-radius:8px; padding:7px 11px; background:#172336; color:var(--text); cursor:pointer; font:inherit; }

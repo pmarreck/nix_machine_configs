@@ -101,10 +101,14 @@ function M.collect(source)
 		local service = {id = spec.id, label = spec.label, state = state, detail = spec.detail, actions = spec.actions}
 		if spec.model_inventory then
 			local models = probes.parse_ollama_models(source.run("ollama_tags") or "")
+			local loaded_models = probes.parse_ollama_loaded_models(source.run("ollama_ps") or "")
 			service.models = models or {}
-			service.detail = models
-				and spec.detail .. " · " .. #models .. " installed models"
-				or spec.detail .. " · model inventory unavailable"
+			service.model_inventory_available = models ~= nil
+			service.loaded_models = loaded_models or {}
+			service.loaded_models_available = loaded_models ~= nil
+			local inventory_detail = models and #models .. " installed models" or "model inventory unavailable"
+			local residency_detail = loaded_models and #loaded_models .. " loaded" or "loaded state unavailable"
+			service.detail = spec.detail .. " · " .. inventory_detail .. " · " .. residency_detail
 		end
 		services[#services + 1] = service
 		if spec.health ~= false then
