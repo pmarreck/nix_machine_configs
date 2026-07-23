@@ -109,19 +109,29 @@ interrupt_worker() {
 trap cleanup_current EXIT
 trap interrupt_worker INT TERM
 
-batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-batch="$state_dir/batches/builds-$batch_id.ndjson"
-exec 9> "$queue_lock" || exit 1
-flock 9 || exit 1
-if [ ! -s "$queue_file" ]; then
-	printf 'Mechatron Prime worker: queue empty\n'
-	exit 0
-fi
-recover_on_interrupt=true
-mv "$queue_file" "$batch" || exit 1
-: > "$queue_file" || exit 1
-chmod 0640 "$batch" "$queue_file" || exit 1
-exec 9>&-
+batch_sequence=0
+while :; do
+	# A path notification may arrive while this oneshot worker is busy. Claim
+	# every batch that accumulated during the prior drain before returning to
+	# systemd, so that a coalesced inotify event cannot strand accepted work.
+	batch=""
+	recovery_line=1
+	recover_on_interrupt=false
+	batch_sequence=$((batch_sequence + 1))
+	batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$-$batch_sequence"
+	batch="$state_dir/batches/builds-$batch_id.ndjson"
+	exec 9> "$queue_lock" || exit 1
+	flock 9 || exit 1
+	if [ ! -s "$queue_file" ]; then
+		exec 9>&-
+		printf 'Mechatron Prime worker: queue empty\n'
+		exit 0
+	fi
+	recover_on_interrupt=true
+	mv "$queue_file" "$batch" || exit 1
+	: > "$queue_file" || exit 1
+	chmod 0640 "$batch" "$queue_file" || exit 1
+	exec 9>&-
 
 batch_total=0
 while IFS= read -r queued_item; do
@@ -355,6 +365,7 @@ while IFS= read -r item; do
 done < "$batch"
 
 recover_on_interrupt=false
+done
 
 # Repository and queue-item failures are CI results, not worker-health failures.
 # Every handled result is recorded above; only an earlier control-plane error

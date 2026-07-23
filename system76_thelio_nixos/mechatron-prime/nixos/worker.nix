@@ -44,6 +44,10 @@ in
     description = "Mechatron Prime sequential multi-repository build worker";
     after = [ "network-online.target" "atticd.service" "nix-daemon.service" ];
     wants = [ "network-online.target" "atticd.service" ];
+    # PathChanged is edge-triggered. This level check suppresses empty starts
+    # from the reconciliation timer while preserving a durable queued-work
+    # condition for normal path activation.
+    unitConfig.ConditionFileNotEmpty = "/var/lib/mechatron-prime/queue/builds.ndjson";
 
     environment = {
       HOME = "/var/lib/mechatron-prime";
@@ -83,6 +87,21 @@ in
     wantedBy = [ "multi-user.target" ];
     pathConfig = {
       PathChanged = "/var/lib/mechatron-prime/queue/builds.ndjson";
+      Unit = "mechatron-prime-worker.service";
+    };
+  };
+
+  # A path event that arrives while the oneshot worker is active is coalesced
+  # by systemd. The worker drains follow-up batches itself, and this small
+  # level-triggered reconciliation closes the final exit-window race without
+  # launching an empty worker or relying on a manual `mechatron-ci resume`.
+  systemd.timers.mechatron-prime-worker-reconcile = {
+    description = "Reconcile Mechatron Prime queued work";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* *:*:0/15";
+      AccuracySec = "1s";
+      Persistent = true;
       Unit = "mechatron-prime-worker.service";
     };
   };
