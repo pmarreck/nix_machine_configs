@@ -68,12 +68,30 @@
         "type": "github"
       }
     },
+    "ollama": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1784815533,
+        "narHash": "sha256-bVfK3wfGegz5cCH+D/pgCI8qobSZcEd5cuSV7/zJr0M=",
+        "path": "/home/pmarreck/Code/ollama",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/pmarreck/Code/ollama",
+        "type": "path"
+      }
+    },
     "root": {
       "inputs": {
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2511": "nixpkgs-2511",
-        "nixpkgs-2605": "nixpkgs-2605"
+        "nixpkgs-2605": "nixpkgs-2605",
+        "ollama": "ollama"
       }
     }
   },

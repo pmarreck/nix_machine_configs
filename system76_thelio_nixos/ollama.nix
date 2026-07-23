@@ -17,13 +17,17 @@
 #
 # NOTE: `acceleration = "cuda"` pulls the CUDA build of ollama + CUDA libs — a sizeable
 # first-time download. Needs allowUnfree (already set in this host's nixpkgs config).
-{ config, pkgs, ... }:
+{ inputs, system, ... }:
 {
   services.ollama = {
     enable = true;
-    package = pkgs.ollama-cuda;   # CUDA build for the 2× NVIDIA cards (replaces the deprecated acceleration="cuda")
+    # The local fork carries parallel embedding-runner support. Its locked path
+    # input snapshots the exact source in flake.lock, so this remains pure and
+    # only changes when that input is explicitly refreshed.
+    package = inputs.ollama.packages.${system}.default;
     host = "127.0.0.1";           # localhost only (codescan is local). Expose to tailnet later if needed.
     port = 11434;
     loadModels = [ "bge-m3" ];    # codescan's embedding model — pre-pulled at activation
+    environmentVariables.OLLAMA_NUM_PARALLEL = "3";
   };
 }

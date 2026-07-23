@@ -20,6 +20,16 @@
       url = "github:NixOS/nixos-hardware";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Peter's local Ollama fork enables parallel embedding runners. It is a
+    # locked path input because the desired commit is intentionally local until
+    # its upstream push; flake.lock records the exact source snapshot. To adopt
+    # a later local fork revision: `cd /etc/nixos && nix flake update ollama`,
+    # then `ixnay reify --no-update` when it is safe to restart the daemon.
+    ollama = {
+      url = "path:/home/pmarreck/Code/ollama";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, ... }@inputs:
