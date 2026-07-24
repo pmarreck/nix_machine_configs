@@ -88,7 +88,7 @@ end
 --- Return the small, sanitized CI state shared by the operations page and
 --- agent-facing JSON endpoints.  Claimed work is kept separately from the
 --- physical waiting queue so an active worker never looks falsely idle.
-function M.collect_mechatron(source)
+function M.collect_mechatron(source, include_recent)
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
 	local active_queue_text = source.read("/var/lib/mechatron-prime/active-queue.ndjson") or ""
 	local current_text = source.read("/var/lib/mechatron-prime/current.json")
@@ -122,7 +122,7 @@ function M.collect_mechatron(source)
 		claimed_depth = claimed_depth,
 		waiting_depth = waiting_depth,
 		queue_depth = claimed_depth + waiting_depth,
-		recent = source.recent_ci_runs and source.recent_ci_runs() or {},
+		recent = include_recent and source.recent_ci_runs and source.recent_ci_runs() or {},
 	}
 end
 
@@ -171,7 +171,7 @@ function M.collect(source)
 	local scans = probes.parse_zpool_scan_records(zpool_status)
 	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"), 20)
 
-	local mechatron = M.collect_mechatron(source)
+	local mechatron = M.collect_mechatron(source, true)
 
 	local health_result = health.evaluate({
 		services = health_services,
