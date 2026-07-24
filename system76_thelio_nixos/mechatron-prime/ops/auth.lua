@@ -1,14 +1,10 @@
 local M = {}
 
---- Authorize fixed mutations from Tailscale Serve's spoof-resistant user
---- identity while rejecting browser requests from foreign or opaque origins.
-function M.authorize(headers, expected_login, expected_origin)
-	headers = headers or {}
-	if expected_login == "" or headers["tailscale-user-login"] ~= expected_login then
-		return false
-	end
-	local origin = headers.origin
-	if origin ~= nil and origin ~= expected_origin then return false end
+-- The listener is loopback-only and its Tailscale Serve route is private.  That
+-- route is deliberately the sole authorization boundary for Peter's personal
+-- operations console: identity/origin headers are optional telemetry, not an
+-- additional capability gate that can strand a legitimate tailnet client.
+function M.authorize(_headers)
 	return true
 end
 

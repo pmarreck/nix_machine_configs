@@ -43,8 +43,6 @@ in
     environment = {
       MECHATRON_OPS_ADDRESS = "127.0.0.1";
       MECHATRON_OPS_PORT = "9002";
-      MECHATRON_OPS_ADMIN_LOGIN = "lumbergh@gmail.com";
-      MECHATRON_OPS_ORIGIN = "https://thelio-nixos.tail66c90.ts.net:8444";
     };
     serviceConfig = {
       ExecStart = "${opsServer}/bin/mechatron-prime-ops";

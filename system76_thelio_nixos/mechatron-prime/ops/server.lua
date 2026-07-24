@@ -6,15 +6,13 @@ local system = require("ops.system").new()
 
 local address = os.getenv("MECHATRON_OPS_ADDRESS") or "127.0.0.1"
 local port = tonumber(os.getenv("MECHATRON_OPS_PORT") or "9002")
-local admin_login = os.getenv("MECHATRON_OPS_ADMIN_LOGIN") or ""
-local expected_origin = os.getenv("MECHATRON_OPS_ORIGIN") or ""
 
 local provider = {
 	model = function() return live.collect(system) end,
 	ci_history = function() return system.ci_history(), system.now() end,
 	execute_action = system.execute_action,
 	authorize_action = function(request)
-		return auth.authorize(request.headers, admin_login, expected_origin)
+		return auth.authorize(request.headers)
 	end,
 }
 local app = app_factory.new(provider, socket.gettime, 5)
