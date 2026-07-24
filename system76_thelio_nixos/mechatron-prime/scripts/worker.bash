@@ -37,6 +37,22 @@ if [ -n "$substituters" ]; then
 	nix_options=(--option substituters "$substituters")
 fi
 
+# Private pmarreck repositories need an authenticated GitHub fetch.  The
+# systemd EnvironmentFile supplies this read-only credential to the worker;
+# Nix receives it only through its configuration channel, never as a command
+# argument.  Remove the original variable before launching Nix so it cannot
+# leak through a child process environment or an accidental diagnostic dump.
+if [ -n "${MECHATRON_GITHUB_READ_TOKEN:-}" ]; then
+	github_access_token="access-tokens = github.com=$MECHATRON_GITHUB_READ_TOKEN"
+	if [ -n "${NIX_CONFIG:-}" ]; then
+		export NIX_CONFIG="${NIX_CONFIG}"$'\n'"$github_access_token"
+	else
+		export NIX_CONFIG="$github_access_token"
+	fi
+	unset github_access_token
+fi
+unset MECHATRON_GITHUB_READ_TOKEN
+
 case "$build_timeout" in
 	""|*[!0-9]*|0) printf 'Invalid build timeout\n' >&2; exit 1 ;;
 esac

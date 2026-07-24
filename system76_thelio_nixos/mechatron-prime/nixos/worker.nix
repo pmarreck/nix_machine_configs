@@ -70,6 +70,10 @@ in
       Type = "oneshot";
       User = "mechatron-prime";
       Group = "mechatron-prime";
+      # Optional so public CI keeps working until the host operator installs
+      # the separate root-only read credential.  The worker immediately
+      # converts it to NIX_CONFIG and unsets the raw variable before Nix runs.
+      EnvironmentFile = "-/etc/mechatron-prime/github-read-token.env";
       WorkingDirectory = "/var/lib/mechatron-prime";
       ExecStart = "${runtime.worker}/bin/mechatron-prime-worker";
       TimeoutStartSec = "6h";
