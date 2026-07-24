@@ -65,8 +65,32 @@ local function format_pools(pools, root_properties, scans)
 	return table.concat(lines, "\n")
 end
 
-local function collect_mechatron(source)
+local function queued_jobs(queue_text)
+	local jobs = {}
+	for line in (queue_text or ""):gmatch("[^\r\n]+") do
+		local record = cjson.decode(line)
+		-- The worker will turn malformed records into terminal failures.  This
+		-- projection deliberately exposes only ownable repo/SHA pairs, never a
+		-- raw webhook record or its delivery identifier.
+		if record and type(record.repo) == "string" and type(record.sha) == "string"
+			and record.repo:match("^pmarreck/[A-Za-z0-9._%-]+$")
+			and #record.sha == 40 and record.sha:match("^[0-9A-Fa-f]+$") then
+			jobs[#jobs + 1] = {
+				repository = record.repo,
+				commit_sha = record.sha,
+				queued_at = type(record.ts) == "string" and record.ts or "",
+			}
+		end
+	end
+	return jobs
+end
+
+--- Return the small, sanitized CI state shared by the operations page and
+--- agent-facing JSON endpoints.  Claimed work is kept separately from the
+--- physical waiting queue so an active worker never looks falsely idle.
+function M.collect_mechatron(source)
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
+	local active_queue_text = source.read("/var/lib/mechatron-prime/active-queue.ndjson") or ""
 	local current_text = source.read("/var/lib/mechatron-prime/current.json")
 	local control_text = source.read("/var/lib/mechatron-prime/control.json")
 	local control = control_text and cjson.decode(control_text) or nil
@@ -83,13 +107,21 @@ local function collect_mechatron(source)
 	-- build idle merely because it has not reached systemd's `active` state.
 	if (worker_state == "active" or worker_state == "activating") and current_text and current_text:match("%S") then
 		local decoded = cjson.decode(current_text)
-		if decoded and decoded.state == "building" then current = decoded end
+		if decoded and (decoded.state == "building" or decoded.state == "preparing") then current = decoded end
 	end
+	local active_worker = worker_state == "active" or worker_state == "activating"
+	local claimed_text = active_worker and active_queue_text or ""
+	local claimed_depth = probes.count_ndjson(claimed_text)
+	local waiting_depth = probes.count_ndjson(queue_text)
 	return {
 		admission = admission,
 		worker_state = worker_state,
 		current = current,
-		queue_depth = probes.count_ndjson(queue_text),
+		claimed = queued_jobs(claimed_text),
+		waiting = queued_jobs(queue_text),
+		claimed_depth = claimed_depth,
+		waiting_depth = waiting_depth,
+		queue_depth = claimed_depth + waiting_depth,
 		recent = source.recent_ci_runs and source.recent_ci_runs() or {},
 	}
 end
@@ -139,7 +171,7 @@ function M.collect(source)
 	local scans = probes.parse_zpool_scan_records(zpool_status)
 	local recent_errors = probes.parse_journal_errors(source.run("journal_errors"), 20)
 
-	local mechatron = collect_mechatron(source)
+	local mechatron = M.collect_mechatron(source)
 
 	local health_result = health.evaluate({
 		services = health_services,

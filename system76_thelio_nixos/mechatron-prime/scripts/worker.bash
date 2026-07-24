@@ -29,6 +29,7 @@ queue_lock="$state_dir/queue/.builds.lock"
 results_file="$state_dir/results.ndjson"
 results_database="$state_dir/results.sqlite3"
 current_file="$state_dir/current.json"
+active_queue_file="$state_dir/active-queue.ndjson"
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
@@ -64,6 +65,10 @@ esac
 mkdir -p "$state_dir/queue" "$state_dir/batches" "$state_dir/logs" "$state_dir/work" || exit 1
 touch "$queue_file" "$results_file" || exit 1
 chmod 0640 "$queue_file" "$results_file" || exit 1
+# A previous clean worker exit removes this file.  If a process was killed
+# without its EXIT trap, a fresh worker owns the authoritative recovery path;
+# do not present stale claimed work to read-only clients.
+rm -f -- "$active_queue_file"
 admission_state="$(ci_admission_state "$state_dir")" || { printf 'CI admission state is invalid\n' >&2; exit 1; }
 if [ "$admission_state" = halted ]; then
 	printf 'Mechatron Prime worker: admission halted; queue preserved\n'
@@ -99,6 +104,24 @@ publish_current() {
 	mv -f "$temporary" "$current_file"
 }
 
+# The worker atomically moves the physical queue into a batch before beginning
+# a build.  Keep a read-only telemetry copy and remove exactly one queued line
+# as it becomes the current job, so clients can distinguish current, claimed,
+# and still-waiting work without access to private worker files.
+advance_active_queue() {
+	local temporary line consumed=false
+	temporary="$(mktemp "$state_dir/.active-queue.ndjson.XXXXXX")" || return 1
+	while IFS= read -r line || [ -n "$line" ]; do
+		if [ "$consumed" = false ] && [ -n "$line" ]; then
+			consumed=true
+			continue
+		fi
+		printf '%s\n' "$line"
+	done < "$active_queue_file" > "$temporary" || { rm -f -- "$temporary"; return 1; }
+	chmod 0640 "$temporary" || { rm -f -- "$temporary"; return 1; }
+	mv -f -- "$temporary" "$active_queue_file"
+}
+
 publish_current idle || exit 1
 batch=""
 recovery_line=1
@@ -107,6 +130,7 @@ recover_on_interrupt=false
 # shellcheck disable=SC2329 # invoked by EXIT trap
 cleanup_current() {
 	publish_current idle >/dev/null 2>&1 || true
+	rm -f -- "$active_queue_file"
 }
 
 # shellcheck disable=SC2329 # invoked by INT/TERM traps
@@ -146,7 +170,8 @@ while :; do
 	recover_on_interrupt=true
 	mv "$queue_file" "$batch" || exit 1
 	: > "$queue_file" || exit 1
-	chmod 0640 "$batch" "$queue_file" || exit 1
+	cp -- "$batch" "$active_queue_file" || exit 1
+	chmod 0640 "$batch" "$queue_file" "$active_queue_file" || exit 1
 	exec 9>&-
 
 batch_total=0
@@ -158,6 +183,7 @@ item_number=0
 while IFS= read -r item; do
 	[ -n "$item" ] || continue
 	item_number=$((item_number + 1))
+	advance_active_queue || exit 1
 	run_id="$batch_id-$item_number"
 	target_results_file="$state_dir/work/$run_id.target-results.ndjson"
 	: > "$target_results_file" || exit 1
@@ -183,6 +209,8 @@ while IFS= read -r item; do
 		sha="$(jq -r .sha <<< "$item")"
 		delivery="$(jq -r .delivery <<< "$item")"
 		default_branch="$(jq -r '.default_branch // ""' <<< "$item")"
+		pending=$((batch_total - item_number))
+		publish_current preparing "$repo" "$sha" "" "$started_at" "$pending" || exit 1
 		if ! repo_is_owned_by "$repo" "$github_owner"; then
 			failure_stage="repo-policy"
 			failure_detail="repository is not owned by the configured GitHub owner"

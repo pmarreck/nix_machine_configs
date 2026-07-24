@@ -100,6 +100,20 @@ function M.dispatch(request, dependencies)
 		}
 	end
 
+	if request.path == "/ops/ci-queue.json" then
+		if request.method ~= "GET" then
+			local response = text_response(405, "method not allowed\n")
+			response.headers.Allow = "GET"
+			return response
+		end
+		local queue, generated_at = dependencies.ci_queue()
+		return {
+			status = 200,
+			headers = headers("application/json; charset=utf-8"),
+			body = render.ci_queue_json(generated_at or "unknown", queue),
+		}
+	end
+
 	local action = actions.resolve(request.path)
 	if action then
 		if request.method ~= "POST" then

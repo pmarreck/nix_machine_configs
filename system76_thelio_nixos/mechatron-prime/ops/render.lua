@@ -19,6 +19,31 @@ local function json_array(values)
 	return values
 end
 
+local function ci_current_json(current)
+	if type(current) ~= "table" then return nil end
+	if type(current.repo) ~= "string" or type(current.sha) ~= "string" then return nil end
+	return {
+		state = current.state or "unknown",
+		repository = current.repo,
+		commit_sha = current.sha,
+		target = current.target or "",
+		started_at = current.started_at or "",
+		pending = current.pending or 0,
+	}
+end
+
+local function ci_queue_jobs(runs)
+	local jobs = {}
+	for _, run in ipairs(runs or {}) do
+		jobs[#jobs + 1] = {
+			repository = run.repository,
+			commit_sha = run.commit_sha,
+			queued_at = run.queued_at or "",
+		}
+	end
+	return jobs
+end
+
 --- Render the monitoring contract as a deliberately small JSON document so
 --- health clients receive checks and issues without unrelated host details.
 function M.health_json(model)
@@ -54,11 +79,29 @@ function M.ci_json(model)
 		worker = {
 			state = mechatron.worker_state,
 			queue_depth = mechatron.queue_depth,
-			current = mechatron.current,
+			current = ci_current_json(mechatron.current),
 		},
 		recent = json_array(recent),
 	})
 	if not encoded then error("could not encode CI JSON: " .. tostring(encode_error)) end
+	return encoded .. "\n"
+end
+
+--- Render the active worker claim and the still-waiting FIFO separately.  A
+--- batch is atomically moved out of the physical queue before it builds, so
+--- collapsing these lists would give clients a misleading empty queue.
+function M.ci_queue_json(generated_at, queue)
+	local encoded, encode_error = cjson.encode({
+		generated_at = generated_at,
+		admission = queue.admission,
+		worker = {
+			state = queue.worker_state,
+			current = ci_current_json(queue.current),
+		},
+		claimed = json_array(ci_queue_jobs(queue.claimed)),
+		waiting = json_array(ci_queue_jobs(queue.waiting)),
+	})
+	if not encoded then error("could not encode CI queue JSON: " .. tostring(encode_error)) end
 	return encoded .. "\n"
 end
 

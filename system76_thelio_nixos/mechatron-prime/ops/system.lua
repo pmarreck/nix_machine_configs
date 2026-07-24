@@ -1,4 +1,5 @@
 local actions = require("ops.actions")
+local live = require("ops.live")
 local probes = require("ops.probes")
 local default_adapter = require("ops.process")
 local cjson = require("cjson.safe")
@@ -128,6 +129,13 @@ function M.new(adapter)
 		if not ok then return {} end
 		local decoded = cjson.decode(output)
 		return type(decoded) == "table" and decoded or {}
+	end
+
+	--- Read only the small CI state projection.  This avoids running host-health
+	--- probes (including resource snapshots) when a project agent merely wants
+	--- to see its queue position.
+	function system.ci_queue()
+		return live.collect_mechatron(system)
 	end
 
 	function system.execute_action(action_id)

@@ -48,10 +48,15 @@ function M.new(provider, clock, cache_seconds)
 		return {}
 	end
 
+	local function ci_queue()
+		if provider.ci_queue then return provider.ci_queue() end
+		return {}
+	end
+
 	function app.handle(raw_request)
 		local request, parse_status = http.parse(raw_request)
 		if not request then return http.encode(error_response(parse_status, "invalid request")) end
-		local ok, response = pcall(router.dispatch, request, {model = model, ci_history = ci_history, execute_action = execute_action, authorize_action = authorize_action})
+		local ok, response = pcall(router.dispatch, request, {model = model, ci_history = ci_history, ci_queue = ci_queue, execute_action = execute_action, authorize_action = authorize_action})
 		if not ok then response = error_response(500, "operations probe failed: " .. tostring(response)) end
 		return http.encode(response)
 	end
