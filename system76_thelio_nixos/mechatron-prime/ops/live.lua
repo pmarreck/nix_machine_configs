@@ -78,7 +78,10 @@ local function collect_mechatron(source)
 	end
 	local worker_state = source.service("system", "mechatron-prime-worker.service")
 	local current = nil
-	if worker_state == "active" and current_text and current_text:match("%S") then
+	-- A running Type=oneshot unit reports `activating` until its process exits.
+	-- Treat it as live work so the operations console does not call an active
+	-- build idle merely because it has not reached systemd's `active` state.
+	if (worker_state == "active" or worker_state == "activating") and current_text and current_text:match("%S") then
 		local decoded = cjson.decode(current_text)
 		if decoded and decoded.state == "building" then current = decoded end
 	end
