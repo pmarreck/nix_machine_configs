@@ -1011,7 +1011,13 @@ in
   users.users.pmarreck = {
     isNormalUser = true;
     description = "Peter Marreck";
-    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" "kvm" ];
+    # "mechatron-prime" grants read-only diagnostic access to the CI state
+    # directory (worker logs, current.json, the result ledger) and to
+    # /etc/nix/netrc, so the CI agent can diagnose build failures without a
+    # root shell.  Peter authorized this tradeoff on 2026-07-25: it widens who
+    # can read CI credentials on this host in exchange for self-service
+    # diagnosis.  It deliberately does NOT grant write access to worker state.
+    extraGroups = [ "networkmanager" "wheel" "tty" "input" "openrazer" "audio" "plugdev" "kvm" "mechatron-prime" ];
     shell = pkgs.bash;
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
 
