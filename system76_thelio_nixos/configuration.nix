@@ -257,7 +257,13 @@ in
                      "zfs.l2arc_write_max=16777216"
                      "zfs.l2arc_headroom=2"
                      "zfs.l2arc_mfuonly=0"
-                     "zfs.zfs_arc_max=17179869184" # 16GB
+                     "zfs.zfs_arc_max=51539607552" # 48GB (was 16GB; see dnode note below)
+                     # dnode cache defaults to 10% of arc_max. With /nix, / and devpool
+                     # on ZFS the dnode working set is huge (millions of small files), so
+                     # a 16GB arc gave a 1.6GB dnode budget that sat pegged at 97.6% —
+                     # 38M cumulative arc_prune calls and 8h+ of arc_prune CPU over one
+                     # 3-day uptime. 48GB arc + 25% gives a 12GB dnode budget (13% used).
+                     "zfs.zfs_arc_dnode_limit_percent=25"
                      "zfs.prefetch_disable=1"
                     #  "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
                     #  EDIT: I believe I fixed the runaway z_wr_iss/z_wr_int process spawn issue just by reverting to lz4 compression for now
@@ -302,7 +308,8 @@ in
       l2arc_write_max=16777216 \
       l2arc_headroom=2 \
       l2arc_mfuonly=0 \
-      zfs_arc_max=17179869184 \
+      zfs_arc_max=51539607552 \
+      zfs_arc_dnode_limit_percent=25 \
       prefetch_disable=1
     '';
   };
