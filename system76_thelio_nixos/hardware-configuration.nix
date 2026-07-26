@@ -65,20 +65,33 @@
       fsType = "zfs"; options = [ "zfsutil" "X-mount.mkdir" ];
     };
 
+  # ESPs are mounted `nofail` so a dirty or absent EFI partition can never strand the
+  # machine in emergency mode. An unclean shutdown leaves vfat marked dirty; fsck.vfat
+  # then fails the mount, and without `nofail` systemd treats that as fatal at boot
+  # (hit 2026-07-25 after force-rebooting out of a wedged display-manager).
+  # device-timeout keeps a missing disk from costing the default 90s wait.
+  #
+  # CAVEAT: with `nofail`, a *silently unmounted* ESP means a later bootloader install
+  # would write into the underlying bpool directory instead of the real EFI partition,
+  # and the update would not take effect. After any unclean boot, verify with:
+  #   mountpoint -q /boot/efi && echo ESP mounted || echo 'ESP NOT MOUNTED — fix before nixos-rebuild boot'
   fileSystems."/boot/efis/ata-WDC_WD101FZBX-00ATAA0_VCKR0ALP-part1" =
     { device = "/dev/disk/by-uuid/4144-CE86";
       fsType = "vfat";
+      options = [ "nofail" "x-systemd.device-timeout=10s" ];
     };
 
   fileSystems."/boot/efis/ata-WDC_WD101FZBX-00ATAA0_VCKR0UGP-part1" =
     { device = "/dev/disk/by-uuid/4146-2DD7";
       fsType = "vfat";
+      options = [ "nofail" "x-systemd.device-timeout=10s" ];
     };
 
+  # Bind source is an ESP above; if that failed to mount, this must not be fatal either.
   fileSystems."/boot/efi" =
     { device = "/boot/efis/ata-WDC_WD101FZBX-00ATAA0_VCKR0ALP-part1";
       fsType = "none";
-      options = [ "bind" ];
+      options = [ "bind" "nofail" ];
     };
 
   # to get both flatpak steam and native steam to use the same directory
