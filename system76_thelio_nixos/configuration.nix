@@ -640,12 +640,23 @@ in
     };
 
     # Boot optimizations regarding filesystem:
-    # Journald was taking too long to copy from runtime memory to disk at boot
-    # set storage to "auto" if you're trying to troubleshoot a boot issue
+    # 2026-07-26: Storage was "auto", which SILENTLY overrode NixOS's own
+    # Storage=persistent default (systemd takes the LAST occurrence of a key).
+    # Consequence: the newest entry in /var/log/journal was 2022-09-06 — nearly
+    # four years with no persistent logs, so the 2026-07-25 root-pool dropout
+    # left no forensic trail at all. Under "auto", journald only uses
+    # /var/log/journal if it already exists when journald starts; on ZFS root the
+    # /var dataset mounts later, so it stayed volatile forever.
+    #
+    # The original reason for "auto" was slow boot while flushing runtime logs to
+    # disk. Mitigated by bounding the journal hard (was 300M x 50 = 15G ceiling)
+    # so each flush stays small. If boot regresses noticeably, lower SystemMaxUse
+    # further rather than returning to "auto" and going blind again.
     journald.extraConfig = ''
-      Storage=auto
-      SystemMaxFileSize=300M
-      SystemMaxFiles=50
+      Storage=persistent
+      SystemMaxUse=1G
+      SystemMaxFileSize=64M
+      SystemMaxFiles=16
     '';
 
     # screensaver config
