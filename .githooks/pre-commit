@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# pre-commit — advisory nudge only; NEVER blocks.
+#
+# The same portability check the pre-push hook enforces, run early so a
+# machine-local input is noticed while it is still cheap to reconsider. It
+# deliberately always exits 0: committing work-in-progress must stay frictionless,
+# and a commit-time block is the fastest way to teach someone to type
+# `--no-verify` by reflex, which would disarm the pre-push gate too.
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+checker="$repo_root/bin/check-flake-portability"
+
+[ -x "$checker" ] || exit 0
+
+"$checker" --warn "$repo_root"
+
+exit 0

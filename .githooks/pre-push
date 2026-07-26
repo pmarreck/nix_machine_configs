@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# pre-push — block pushing a flake that only evaluates on this machine.
+#
+# Push is the right gate point: a machine-local input is harmless in a working
+# tree and only causes damage once another machine pulls it (or CI tries to
+# evaluate it). Blocking at commit time would punish work-in-progress and train
+# reflexive `--no-verify`, which corrodes the gate entirely.
+#
+# Installed via `core.hooksPath=.githooks` so it is versioned and travels with
+# the repo. See bin/install-git-hooks.
+#
+# Override (deliberate, visible in shell history): git push --no-verify
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+checker="$repo_root/bin/check-flake-portability"
+
+[ -x "$checker" ] || {
+	printf 'pre-push: %s missing or not executable — gate cannot run\n' "$checker" >&2
+	exit 1
+}
+
+if ! "$checker" "$repo_root"; then
+	printf '\npre-push: REFUSING to push — see above.\n' >&2
+	printf 'Override with `git push --no-verify` if this is deliberate.\n' >&2
+	exit 1
+fi
+
+exit 0

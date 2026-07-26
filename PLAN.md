@@ -1,5 +1,36 @@
 # NixOS plan
 
+## Flake portability gate (2026-07-26)
+
+- [x] Gate machine-local flake inputs. The `ollama` input was added as
+  `path:/home/pmarreck/Code/ollama` — "intentionally local until its upstream
+  push", per its own comment — which made `nix flake update` fail on the
+  framework laptop days later, and made the flake unevaluable by any CI.
+  Three layers, strongest last: `.githooks/pre-commit` warns, `.githooks/pre-push`
+  blocks (shipped via tracked `.githooks` + `core.hooksPath`, so it travels with
+  the clone; `bin/install-git-hooks` is the one-time per-clone bootstrap), and
+  `.github/workflows/flake-portability.yml` enforces it where `--no-verify`
+  cannot reach. Checker: `bin/check-flake-portability`; suite: `./test`.
+  - Curiosity poke answered: NOT every `path:` input is bad — a relative in-repo
+    one (`path:./modules/foo`) is perfectly portable, so the rule is "absolute
+    path or `file://` URL", and the test suite partitions a mixed SET of five
+    inputs rather than checking one example. Mutation-tested both ways: disabling
+    detection fires 5 assertions, an over-broad rule fires exactly the 2
+    anti-overreach assertions.
+  - CI is the only non-bypassable layer; a runner has no `/home/pmarreck`, so it
+    fails on a machine-local input by construction.
+
+- [ ] Fix the `ollama` input itself — the gate currently (correctly) refuses this
+  repo. The fork's `flake.nix` was never committed to `github.com/pmarreck/ollama`
+  (search shows zero commits touching it), so that work exists only in the
+  Thelio's `~/Code/ollama` working tree, on a machine with a suspect disk.
+  Recover it, push a branch, then switch the input to
+  `url = "github:pmarreck/ollama/<branch>"`.
+  - `flake.lock` recorded the snapshot as
+    `narHash = "sha256-bVfK3wfGegz5cCH+D/pgCI8qobSZcEd5cuSV7/zJr0M="`
+    (taken 2026-07-23 10:05 EDT), so the exact content should still be in the
+    Thelio's nix store even if the working tree is damaged.
+
 ## System packages
 
 - [x] Add `libarchive` to the Thelio's declarative global package set and

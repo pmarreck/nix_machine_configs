@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+# install-git-hooks — point this clone at the repo's tracked hooks, idempotently.
+#
+# Git never clones .git/hooks (executing code from a fresh clone would be a
+# security hole), so every clone needs one bootstrap. Rather than COPYING hooks
+# into .git/hooks — where they silently rot out of date relative to the tracked
+# source — this sets `core.hooksPath` to the versioned .githooks/ directory, so
+# the hooks that run are always exactly the hooks that are committed.
+#
+# A gate that fails to install is a gate that does not exist, so this verifies
+# its own work and exits non-zero if the hooks are not actually live.
+#
+# Usage: install-git-hooks [REPO_ROOT]   (defaults to this repository)
+
+set -u
+
+self_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+target="${1:-$self_root}"
+
+case "${1:-}" in
+	-h|--help)
+		cat <<'EOF'
+Usage: install-git-hooks [REPO_ROOT]
+
+Sets core.hooksPath to REPO_ROOT/.githooks so this clone runs the repository's
+tracked git hooks (pre-commit warning + pre-push portability gate). Idempotent.
+Verifies afterwards and exits non-zero if the hooks are not live.
+EOF
+		exit 0
+		;;
+esac
+
+if [ ! -d "$target/.git" ] && [ ! -f "$target/.git" ]; then
+	printf 'install-git-hooks: not a git repository: %s\n' "$target" >&2
+	exit 1
+fi
+
+hooks_dir="$target/.githooks"
+if [ ! -d "$hooks_dir" ]; then
+	printf 'install-git-hooks: no .githooks directory in %s\n' "$target" >&2
+	exit 1
+fi
+
+chmod +x "$hooks_dir"/* 2>/dev/null
+
+previous="$(git -C "$target" config --get core.hooksPath 2>/dev/null || true)"
+if [ -n "$previous" ] && [ "$previous" != ".githooks" ]; then
+	printf 'install-git-hooks: note — replacing existing core.hooksPath: %s\n' "$previous" >&2
+fi
+
+git -C "$target" config core.hooksPath .githooks || {
+	printf 'install-git-hooks: failed to set core.hooksPath\n' >&2
+	exit 1
+}
+
+# Verify its own work rather than assuming the write succeeded.
+actual="$(git -C "$target" config --get core.hooksPath 2>/dev/null || true)"
+if [ "$actual" != ".githooks" ]; then
+	printf 'install-git-hooks: verification FAILED (core.hooksPath=%s)\n' "${actual:-<unset>}" >&2
+	exit 1
+fi
+for h in pre-push pre-commit; do
+	if [ ! -x "$hooks_dir/$h" ]; then
+		printf 'install-git-hooks: verification FAILED (%s not executable)\n' "$h" >&2
+		exit 1
+	fi
+done
+
+printf 'install-git-hooks: hooks live via core.hooksPath=.githooks (pre-commit warn, pre-push gate)\n'

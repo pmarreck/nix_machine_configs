@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# test — run the entire nixos-configs suite.
+#
+# Accumulates every subtest's failure count and returns the total as the exit
+# code, so a single red assertion anywhere fails the run without masking the
+# others (no `set -e`: an aborting runner hides how much else is broken).
+
+set -u
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+TEST_DIR="$ROOT_DIR/tests"
+
+exit_code=0
+ran=0
+
+if [ ! -d "$TEST_DIR" ]; then
+	echo "test: no tests directory at $TEST_DIR" >&2
+	exit 1
+fi
+
+for test_script in "$TEST_DIR"/*_test.sh; do
+	[ -e "$test_script" ] || continue
+	ran=$((ran + 1))
+	printf '\n══ %s ══\n' "$(basename "$test_script")"
+	if bash "$test_script"; then
+		status=0
+	else
+		status=$?
+	fi
+	[ "$status" -ne 0 ] && printf 'FAIL %s (exit %d)\n' "$(basename "$test_script")" "$status" >&2
+	exit_code=$((exit_code + status))
+done
+
+if [ "$ran" -eq 0 ]; then
+	echo "test: no *_test.sh files found in $TEST_DIR" >&2
+	exit 1
+fi
+
+printf '\n%d test file(s) run; summed failure count: %d\n' "$ran" "$exit_code"
+# Cap at 255: bash truncates exit status mod 256, so 256 failures would read as success.
+[ "$exit_code" -gt 255 ] && exit_code=255
+exit "$exit_code"

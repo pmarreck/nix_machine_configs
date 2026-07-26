@@ -1,0 +1,37 @@
+name: flake portability
+
+# The gate that cannot be bypassed. Git hooks are client-side and skippable with
+# `--no-verify`, so they are advisory control; this job is the enforcing one.
+#
+# It is also the check that needs no maintenance to be correct: a runner has no
+# /home/pmarreck, so a machine-local flake input fails here by construction. The
+# explicit checker runs first only so the failure names the offending input
+# instead of surfacing as an opaque "path does not exist" from nix.
+
+on:
+  push:
+    branches: [yolo]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  portability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for machine-local flake inputs
+        run: ./bin/check-flake-portability .
+
+      - name: Run the repository test suite
+        run: ./test
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Independent confirmation: nix itself must be able to resolve every input
+      # on a machine that has never seen Peter's home directory.
+      - name: nix flake metadata (resolves all inputs)
+        run: nix flake metadata --no-write-lock-file .

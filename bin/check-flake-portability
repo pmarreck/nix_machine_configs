@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# check-flake-portability — refuse flake inputs that only resolve on one machine.
+#
+# Problem it solves: this flake is shared by the whole fleet (framework, thelio,
+# wsl). An input like `path:/home/pmarreck/Code/ollama` resolves on exactly one
+# box; on every other machine `nix flake update` dies with "path does not exist",
+# and CI can never evaluate the flake at all. That happened 2026-07-23 (the local
+# Ollama fork) and only surfaced days later on a different machine.
+#
+# Technique: classify each input's LOCKED source type rather than pattern-matching
+# the flake source, so the verdict comes from the resolved data (flake.lock, via
+# jq) instead of a guess about Nix syntax. flake.nix is scanned too, because a
+# freshly written input is non-portable before it is ever locked.
+#
+# Portable:     github:, gitlab:, git+https:, tarball URLs, and RELATIVE path:
+#               inputs that live inside the repo (path:./modules/foo).
+# Non-portable: absolute path: inputs, and git+file:// / file:// URLs.
+#
+# Usage: check-flake-portability [--warn] [REPO_ROOT]
+#   --warn   report but always exit 0 (advisory use, e.g. a pre-commit nudge)
+# Exit: 0 clean (or --warn), 1 non-portable inputs found, 2 usage/环境 error.
+
+set -u
+
+warn_only=0
+repo_root=""
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--warn) warn_only=1; shift ;;
+		-h|--help)
+			cat <<'EOF'
+Usage: check-flake-portability [--warn] [REPO_ROOT]
+
+Fails when a flake input resolves only on one machine (an absolute `path:` input
+or a `file://` git URL), which breaks `nix flake update` on every other machine
+in the fleet and makes the flake unevaluable in CI.
+
+  --warn   report findings but exit 0 (advisory; used by the pre-commit hook)
+
+Exit codes: 0 = clean or --warn, 1 = non-portable input found, 2 = usage error.
+EOF
+			exit 0
+			;;
+		-*) printf 'check-flake-portability: unknown option: %s\n' "$1" >&2; exit 2 ;;
+		*)  repo_root="$1"; shift ;;
+	esac
+done
+
+if [ -z "$repo_root" ]; then
+	repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+fi
+
+flake_nix="$repo_root/flake.nix"
+flake_lock="$repo_root/flake.lock"
+
+if [ ! -f "$flake_nix" ]; then
+	printf 'check-flake-portability: no flake.nix in %s\n' "$repo_root" >&2
+	exit 2
+fi
+
+violations=""
+
+add_violation() { violations="${violations}${violations:+$'\n'}  • $1"; }
+
+# --- 1. Locked inputs (authoritative: this is what nix actually resolved) ---
+if [ -f "$flake_lock" ]; then
+	if ! command -v jq >/dev/null 2>&1; then
+		printf 'check-flake-portability: jq is required to inspect flake.lock\n' >&2
+		exit 2
+	fi
+	# Emit "<input name>\t<reason>" for each node whose locked source is machine-local.
+	while IFS=$'\t' read -r name reason; do
+		[ -n "$name" ] && add_violation "input '$name' — $reason"
+	done < <(jq -r '
+		.nodes // {}
+		| to_entries[]
+		| select(.key != "root")
+		| . as $entry
+		| (.value.locked // empty) as $l
+		| if   ($l.type == "path") and (($l.path // "") | startswith("/"))
+		  then "\($entry.key)\tabsolute path input: \($l.path)"
+		  elif (($l.url // "") | test("^(git\\+)?file://"))
+		  then "\($entry.key)\tlocal file:// URL: \($l.url)"
+		  else empty
+		  end
+	' "$flake_lock" 2>/dev/null)
+fi
+
+# --- 2. flake.nix source (catches an input written but not yet locked) ---
+while IFS= read -r line; do
+	[ -n "$line" ] && add_violation "flake.nix:$line"
+done < <(grep -nE 'url[[:space:]]*=[[:space:]]*"(path:/|(git\+)?file://)' "$flake_nix" 2>/dev/null \
+         | sed -E 's/^([0-9]+):[[:space:]]*/\1: /')
+
+if [ -z "$violations" ]; then
+	exit 0
+fi
+
+{
+	printf 'Non-portable flake input(s) — these resolve only on one machine:\n'
+	printf '%s\n' "$violations"
+	printf '\nA fleet-shared flake must evaluate on every machine and in CI.\n'
+	printf 'Fix: push the source and reference it by URL, e.g.\n'
+	printf '  url = "github:pmarreck/<repo>/<branch>";\n'
+} >&2
+
+[ "$warn_only" -eq 1 ] && exit 0
+exit 1
