@@ -407,7 +407,18 @@ in
     services = {
       # some of these things were tweaked to speed up booting.
       # See output of: systemd-analyze blame
-      systemd-journal-flush.enable = false; # had super high disk ute in jbd2
+      # 2026-07-26: RE-ENABLED. This mask is why there were no persistent logs
+      # since 2022-09-06 — a masked flush can never copy /run/log/journal to
+      # /var/log/journal, so journald stayed volatile every boot regardless of
+      # Storage=. The 2026-07-25 root-pool incident therefore left no forensic
+      # trail at all.
+      # The original reason is obsolete: jbd2 is the EXT4 journaling daemon, and
+      # this host has a ZFS root (rpool/nixos/var/log is its own dataset), so the
+      # high-disk-utilization failure mode it worked around cannot occur here.
+      # Flush cost is now bounded by SystemMaxUse=1G in journald.extraConfig.
+      # If boot time regresses noticeably, lower that bound rather than
+      # re-masking and going blind again.
+      systemd-journal-flush.enable = true;
       # note that the following may cause zfs pools not to mount, even though it shouldn't;
       # please see discussion @ https://github.com/openzfs/zfs/issues/10891
       # systemd-udev-settle.enable = false; # speed up booting
