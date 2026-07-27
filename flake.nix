@@ -21,13 +21,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Peter's local Ollama fork enables parallel embedding runners. It is a
-    # locked path input because the desired commit is intentionally local until
-    # its upstream push; flake.lock records the exact source snapshot. To adopt
-    # a later local fork revision: `cd /etc/nixos && nix flake update ollama`,
-    # then `ixnay reify --no-update` when it is safe to restart the daemon.
+    # Peter's Ollama fork enables parallel embedding runners.
+    #
+    # Referenced by URL, NOT as a `path:` input. It was previously
+    # `path:/home/pmarreck/Code/ollama` — "intentionally local until its upstream
+    # push" — but that push did not happen, so every OTHER machine's
+    # `nix flake update` died with "path does not exist" and no CI could evaluate
+    # this flake at all. bin/check-flake-portability now refuses that shape.
+    # To adopt a later fork revision: `nix flake update ollama`, then
+    # `ixnay reify no-upgrade` when it is safe to restart the daemon.
     ollama = {
-      url = "path:/home/pmarreck/Code/ollama";
+      url = "github:pmarreck/ollama/yolo";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
