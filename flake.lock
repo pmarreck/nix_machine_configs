@@ -75,14 +75,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1784815533,
-        "narHash": "sha256-bVfK3wfGegz5cCH+D/pgCI8qobSZcEd5cuSV7/zJr0M=",
-        "path": "/home/pmarreck/Code/ollama",
-        "type": "path"
+        "lastModified": 1784779680,
+        "narHash": "sha256-Ego+W/MbXeXaASh5kgPCfD2e5oQEao6AttsGDi5cqNo=",
+        "owner": "pmarreck",
+        "repo": "ollama",
+        "rev": "4f71813b6e2c11f56f3f31387e8a6812e938f181",
+        "type": "github"
       },
       "original": {
-        "path": "/home/pmarreck/Code/ollama",
-        "type": "path"
+        "owner": "pmarreck",
+        "ref": "yolo",
+        "repo": "ollama",
+        "type": "github"
       }
     },
     "root": {
