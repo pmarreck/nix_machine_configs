@@ -113,6 +113,7 @@ in
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
+      ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
