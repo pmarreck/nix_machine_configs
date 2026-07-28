@@ -71,7 +71,17 @@ in
     [popup]
     font_size = 24
     timeout_ms = 5000
-    keep_open = true
+
+    # MUST STAY false. Upstream defaults this to true in BOTH config.default.toml
+    # and the code (PopupConfig::default_keep_open), and it is broken:
+    # state_machine.rs handle_popup(), "Release of the held key" — with
+    # keep_open the daemon returns Action::Suppress for the key-UP of the held
+    # key, while its key-DOWN was already relayed. The compositor therefore
+    # never sees the release and the key is logically stuck down, producing an
+    # auto-repeat storm and wedging subsequent keystrokes.
+    # Observed live 2026-07-28: Peter got "aluuûuüuu" and a dead Delete key
+    # within a minute of activation.
+    keep_open = false
 
     [locale]
     active = "${activeLocale}"
@@ -79,7 +89,19 @@ in
 
   systemd.services.accentd = {
     description = "Accent character daemon (press-and-hold popup)";
-    wantedBy = [ "multi-user.target" ];
+
+    # DELIBERATELY NOT auto-started. `wantedBy = [ "multi-user.target" ]` was
+    # here and is removed on purpose: this daemon takes an EXCLUSIVE evdev grab
+    # of every keyboard, so any bug in it degrades or kills real typing — which
+    # it did on 2026-07-28, first try. A thing that can brick input must be
+    # opted into per boot, not silently armed at startup.
+    #
+    # Start it when you actually want it:
+    #     sudo systemctl start accentd && systemctl --user start accentd-popup
+    # Stop it the moment it misbehaves:
+    #     sudo systemctl stop accentd
+    # Note `systemctl disable` does NOT stick on NixOS — activation recreates
+    # the .wants symlinks — so absence of wantedBy here is the real control.
     after = [ "systemd-logind.service" ];
 
     serviceConfig = {
@@ -113,7 +135,8 @@ in
 
   systemd.user.services.accentd-popup = {
     description = "Accent character popup (accentd UI)";
-    wantedBy = [ "graphical-session.target" ];
+    # Also not auto-started — it is useless without the daemon, and the daemon
+    # is opt-in. partOf still ties its lifetime to the session once started.
     partOf = [ "graphical-session.target" ];
     after = [ "graphical-session.target" ];
 
