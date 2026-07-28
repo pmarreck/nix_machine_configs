@@ -1107,7 +1107,15 @@ in
       free42 # hp-42S reverse-engineered from the ground up
       # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
-      unstable.ollama # llms in the terminal
+      # 2026-07-28: was `unstable.ollama` (STOCK). Replaced with Peter's fork, the
+      # same package the ollama.service runs, so exactly ONE ollama implementation
+      # exists on this host. Stock cannot serve Jina embeddings — it returns HTTP
+      # 501 because it cannot configure Jina's required last-token pooling, which
+      # is why the fork exists and why codescan depends on it.
+      # A stock binary on PATH is not harmless: on 2026-07-27 one was started by
+      # hand, bound 127.0.0.1:11434 against the stale ~/.ollama store, and silently
+      # locked out the real service until the process was killed.
+      inputs.ollama.packages.${system}.default # llms in the terminal (Peter's fork)
       unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)
       # mathematica # because why the heck not?
       # actually, NOPE:

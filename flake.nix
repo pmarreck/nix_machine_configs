@@ -31,7 +31,7 @@
     # To adopt a later fork revision: `nix flake update ollama`, then
     # `ixnay reify no-upgrade` when it is safe to restart the daemon.
     ollama = {
-      url = "github:pmarreck/ollama/yolo";
+      url = "github:pmarreck/ollama/main"; # main, not yolo: this is a FORK of ollama/ollama, whose upstream default is main — and yolo was 13 commits stale, missing the CUDA toolkit pin (edab7d2) that this build requires
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

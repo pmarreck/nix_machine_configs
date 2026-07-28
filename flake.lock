@@ -75,16 +75,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1784779680,
-        "narHash": "sha256-Ego+W/MbXeXaASh5kgPCfD2e5oQEao6AttsGDi5cqNo=",
+        "lastModified": 1785178788,
+        "narHash": "sha256-fn6MJYOLpyUEwPmkWLdatd9O+sSCC2y53fTSH34LyQk=",
         "owner": "pmarreck",
         "repo": "ollama",
-        "rev": "4f71813b6e2c11f56f3f31387e8a6812e938f181",
+        "rev": "edab7d269cb51d64caa51052ab1a7944b19114b3",
         "type": "github"
       },
       "original": {
         "owner": "pmarreck",
-        "ref": "yolo",
+        "ref": "main",
         "repo": "ollama",
         "type": "github"
       }
