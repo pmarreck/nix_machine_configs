@@ -114,6 +114,7 @@ in
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
+      ./rotational-io.nix   # bfq + deeper queues for the USB-docked spinning rpool; Klipsch name fix — Einstein 2026-07-28
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
@@ -265,6 +266,15 @@ in
                      # 38M cumulative arc_prune calls and 8h+ of arc_prune CPU over one
                      # 3-day uptime. 48GB arc + 25% gives a 12GB dnode budget (13% used).
                      "zfs.zfs_arc_dnode_limit_percent=25"
+                     # rpool (/, /home, /var) is a 7200rpm mirror behind a USB dock, so
+                     # every txg commit costs full-stroke seeks to rewrite uberblocks at
+                     # the labels on both ends of the platter. At the 5s default that is a
+                     # seek storm every 5 seconds forever — audible as continuous clicking
+                     # even at ~0% utilisation, and it starves interactive reads.
+                     # 15s means a third as many commits, each larger. Raise further only
+                     # with eyes open: this is the window of writes lost on a hard power
+                     # cut (ZIL still protects anything fsync'd). Peter, 2026-07-28.
+                     "zfs.zfs_txg_timeout=15"
                      "zfs.prefetch_disable=1"
                     #  "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
                     #  EDIT: I believe I fixed the runaway z_wr_iss/z_wr_int process spawn issue just by reverting to lz4 compression for now
@@ -311,6 +321,7 @@ in
       l2arc_mfuonly=0 \
       zfs_arc_max=51539607552 \
       zfs_arc_dnode_limit_percent=25 \
+      zfs_txg_timeout=15 \
       prefetch_disable=1
     '';
   };
