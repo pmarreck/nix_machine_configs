@@ -1128,6 +1128,7 @@ in
       # hand, bound 127.0.0.1:11434 against the stale ~/.ollama store, and silently
       # locked out the real service until the process was killed.
       inputs.ollama.packages.${system}.default # llms in the terminal (Peter's fork)
+      inputs.himalaya.packages.${system}.default # CLI email client (pimalaya) — v2.0 from upstream flake, since nixpkgs is still 1.2.0; manages both Gmail accounts + composable CLI mail core. Accounts configured per-user in ~/.config/himalaya/, NOT here.
       unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)
       # mathematica # because why the heck not?
       # actually, NOPE:
