@@ -208,7 +208,23 @@ in
     hardwareScan = true; # tried to make udev run faster at boot by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
 
     kernel.sysctl = {
-      "vm.swappiness" = 40; # 90 when swapping to ssd; default is 60
+      # 2026-07-30: 40 -> 10. Swap lives on /dev/sdd4 — a 7200rpm USB-docked
+      # spinning drive (~20 ms/seek), the SLOWEST device in the machine. At 40,
+      # 17.2 GB had been evicted there: gnome-shell 766 MB, Firefox content
+      # processes 600-680 MB each, ghostty 424 MB. Touching an idle tab then
+      # paid ~100k page-ins at 20 ms — the "tabs take forever to load" symptom.
+      #
+      # Aggravated by ZFS: ARC sat at 46.7 of its 48 GiB cap, and ARC reclaims
+      # far more slowly than the page cache under pressure, so the kernel
+      # evicted APPLICATION pages instead of shrinking ARC. 10 tells it to
+      # reclaim cache/ARC first. Deliberately NOT lowering zfs_arc_max — that
+      # 48 GiB was raised from 16 GiB in b26ef2e to fix dnode-cache thrash
+      # (8h+ of arc_prune CPU); cutting it would reintroduce that.
+      #
+      # Raise toward 60-90 ONLY after swap moves to NVMe (see PLAN.md) — the
+      # original comment below is right that swappiness is a function of how
+      # fast the swap device is.
+      "vm.swappiness" = 10; # 90 when swapping to ssd; default is 60
       "vm.vfs_cache_pressure" = 80; # default is 100
       "vm.dirty_ratio" = 60; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
       "vm.max_map_count" = 16777216; # literally based on a recommendation for the game Hogwarts Legacy to crash less
