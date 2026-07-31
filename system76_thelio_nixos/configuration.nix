@@ -380,6 +380,32 @@ in
     # "A stop job is running for <unit>" — that names the culprit to fix at root.)
     # NB: nixpkgs-unstable removed `systemd.extraConfig`; use settings.Manager.
     settings.Manager.DefaultTimeoutStopSec = "30s";
+
+    # systemd-oomd DISABLED (Peter, 2026-07-31) — it was killing healthy
+    # processes based on a sensor this machine cannot report honestly.
+    #
+    # Evidence, 2026-07-31 14:04-14:06 (`journalctl -b -u systemd-oomd`): it
+    # marked and killed FOUR cgroups whose reported "Current Memory Usage" was
+    # 18.4 MB and 19.5 MB — on a 125 GiB machine with ~74 GiB available —
+    # solely because per-cgroup PSI memory pressure read 92-99%, over the
+    # 60%-for-30s default trigger. There were ZERO kernel OOM-killer entries:
+    # the machine was never actually out of memory. And because oomd kills
+    # whole CGROUPS, and the tmux server lived inside a ghostty surface scope,
+    # EVERY tmux session on the box died at once. Cost: ~3 hours of work time.
+    #
+    # Root cause of the false signal: ZFS ARC at its 48 GiB cap drives
+    # continuous reclaim, which gets attributed as per-cgroup memory pressure.
+    # PSI is independently known-unreliable on this host — /proc/pressure/io
+    # reads ~97% while both disks measure 0% busy. (Third metric this machine
+    # invalidates, all ZFS-related: iowait, /proc/pressure/*, /proc/PID/io.)
+    #
+    # Safe because: 125 GiB RAM, and the KERNEL OOM killer remains as the real
+    # backstop — it acts on actual allocation failure rather than on a pressure
+    # estimate. In its present state oomd could only ever produce false kills.
+    #
+    # Revisit if PSI ever becomes trustworthy under ZFS; until then this is a
+    # sensor problem, not a policy problem.
+    oomd.enable = false;
     user = {
       services = {
         # GNOME's LocalSearch/Tracker successor crawls and extracts metadata from
