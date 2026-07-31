@@ -221,10 +221,15 @@ in
       # 48 GiB was raised from 16 GiB in b26ef2e to fix dnode-cache thrash
       # (8h+ of arc_prune CPU); cutting it would reintroduce that.
       #
-      # Raise toward 60-90 ONLY after swap moves to NVMe (see PLAN.md) — the
-      # original comment below is right that swappiness is a function of how
-      # fast the swap device is.
-      "vm.swappiness" = 10; # 90 when swapping to ssd; default is 60
+      # 2026-07-31: 10 -> 50, now that swap lives on NVMe (nvme0n1p3) instead of
+      # the USB-docked spinning drives. A deliberate compromise, not the full 60:
+      # 10 was correct for ~20 ms swap, but on fast swap it is over-conservative
+      # — suppressing swap that hard pushes reclaim pressure onto the ZFS ARC
+      # instead, and ARC reclaim churn is precisely what generated the bogus
+      # per-cgroup PSI readings that made systemd-oomd kill 19 MB cgroups.
+      # 50 lets the kernel use cheap NVMe paging again without swinging all the
+      # way back to the default. Revisit with evidence, one variable at a time.
+      "vm.swappiness" = 50; # 90 when swapping to ssd; default is 60
       "vm.vfs_cache_pressure" = 80; # default is 100
       "vm.dirty_ratio" = 60; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
       "vm.max_map_count" = 16777216; # literally based on a recommendation for the game Hogwarts Legacy to crash less
@@ -480,9 +485,56 @@ in
       # more booting speedup... for the next 2 lines, see: https://github.com/NixOS/nixpkgs/issues/41055
       modem-manager.enable = false;
       "dbus-org.freedesktop.ModemManager1".enable = false;
+      # ── Envelope so a CI build cannot starve the desktop ────────────────
+      # Peter, 2026-07-31: "Kicking off a CI build shouldn't completely slam my
+      # machine." Correct — and the fix is NOT where it looks.
+      #
+      # MEASURED (nixos-perf-review, during a live `nix build`): the Mechatron
+      # worker shells out to ordinary `nix build`, and the multi-user Nix
+      # daemon creates the builders — /proc/PID/cgroup placed the build shell
+      # and `make -j8` under /system.slice/nix-daemon.service, NOT the worker's
+      # cgroup. Limits on the worker unit would therefore constrain only its
+      # bash/jq orchestration and do NOTHING to the compilers. The envelope
+      # belongs here.
+      #
+      # Weights alone (what this block used to be) only help when a sibling
+      # cgroup is already contending; they never stop Nix occupying all 128
+      # threads when capacity is free. Host: 128 logical / 64 physical CPUs,
+      # nix max-jobs=16 x cores=8 = 128 nominal, previously CPUQuota=infinity,
+      # MemoryMax=infinity, TasksMax=1048576 — no ceiling at all.
+      #
+      # NB: these apply to ALL Nix builds, including Peter's manual ones.
       nix-daemon.serviceConfig = {
-        CPUWeight = 50;
-        IOWeight = 50;
+        # 80 of 128 logical CPUs. Deliberately ABOVE the 64-CPU scheduler
+        # target so a derivation that oversubscribes (nix `cores` is advisory,
+        # not enforced) still cannot take the box, while reserving ~48 CPUs
+        # for the desktop.
+        CPUQuota = "8000%";
+        CPUWeight = 25; # was 50; yield harder to interactive work
+        Nice = 10;
+        # MemoryHigh is the throttle intended to bite; MemoryMax is the last
+        # line of defence. Observed daemon peak since boot was 16.7 GB, so
+        # there is substantial headroom.
+        MemoryHigh = "48G";
+        MemoryMax = "64G";
+        MemorySwapMax = "8G";
+        # Defence-in-depth only — ZFS cgroup I/O attribution is not trusted on
+        # this host (same reason PSI is unusable here).
+        IOWeight = 25; # was 50
+        TasksMax = 8192;
+      };
+
+      # ORCHESTRATION ONLY — explicitly NOT a build cap; see the note above.
+      # Documented loudly so nobody later mistakes this for the thing that
+      # limits compilers. Measured worker peak: 284 MB.
+      mechatron-prime-worker.serviceConfig = {
+        CPUQuota = "200%";
+        CPUWeight = 25;
+        Nice = 10;
+        MemoryHigh = "512M";
+        MemoryMax = "1G";
+        IOWeight = 25;
+        TasksMax = 512;
       };
       # Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
       "getty@tty1".enable = false;
@@ -1171,6 +1223,7 @@ in
       # locked out the real service until the process was killed.
       inputs.ollama.packages.${system}.default # llms in the terminal (Peter's fork)
       inputs.himalaya.packages.${system}.default # CLI email client (pimalaya) — v2.0 from upstream flake, since nixpkgs is still 1.2.0; manages both Gmail accounts + composable CLI mail core. Accounts configured per-user in ~/.config/himalaya/, NOT here.
+      bluebubbles # iMessage client for Linux (Peter, 2026-07-31). Talks to the BlueBubbles SERVER already installed on his Mac, which relays iMessage — so iMessages reach this Linux dev box. Client only; nothing server-side is configured here.
       darktable # RAW photo processor. Two reasons (Peter, 2026-07-29): (1) a source of real-world RAW/image formats + a reference decoder (rawspeed/libraw) for Mecha Validate's RAW coverage and corruption-detection corpus; (2) scriptable via its built-in Lua API + headless `darktable-cli`, so agents can automate fixture generation / batch conversion. lua-scripts (darktable-org) is a separate optional package if wanted.
       unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)
       # mathematica # because why the heck not?
