@@ -296,7 +296,29 @@ in
                      # with eyes open: this is the window of writes lost on a hard power
                      # cut (ZIL still protects anything fsync'd). Peter, 2026-07-28.
                      "zfs.zfs_txg_timeout=15"
-                     "zfs.prefetch_disable=1"
+                     # 2026-07-31: was `zfs.prefetch_disable=1` — a TYPO that
+                     # silently did nothing. The module parameter is
+                     # `zfs_prefetch_disable`; `prefetch_disable` does not
+                     # exist, so the kernel ignored it. Confirmed by
+                     # /sys/module/zfs/parameters/zfs_prefetch_disable reading
+                     # 0 (i.e. prefetch ENABLED) despite this line. Note the
+                     # working ARC lines above use the same shape —
+                     # `zfs.zfs_arc_max` — where `zfs.` is the module and
+                     # `zfs_arc_max` is the real parameter name.
+                     #
+                     # Intent (rpool is 34% fragmented on USB-docked spinning
+                     # disks, and the workload is not large sequential files):
+                     # speculative prefetch there costs seeks for data that is
+                     # often not used.
+                     #
+                     # CAVEAT: this now actually takes effect at next boot, so
+                     # it IS a live behaviour change after years of being inert.
+                     # ARC hit rate is already 99.6%, so most reads never reach
+                     # a disk — the win may be small. If anything regresses,
+                     # revert this one line (or write 0 to
+                     # /sys/module/zfs/parameters/zfs_prefetch_disable at
+                     # runtime, no reboot needed).
+                     "zfs.zfs_prefetch_disable=1"
                     #  "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
                     #  EDIT: I believe I fixed the runaway z_wr_iss/z_wr_int process spawn issue just by reverting to lz4 compression for now
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
@@ -343,7 +365,7 @@ in
       zfs_arc_max=51539607552 \
       zfs_arc_dnode_limit_percent=25 \
       zfs_txg_timeout=15 \
-      prefetch_disable=1
+      zfs_prefetch_disable=1
     '';
   };
 
