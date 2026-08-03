@@ -324,7 +324,13 @@ while IFS= read -r item; do
 							> "$target_paths" 2>> "$log_file"
 						build_status=$?
 						target_status=success
-						[ "$build_status" -eq 0 ] || target_status=failure
+						if [ "$build_status" -ne 0 ]; then
+							if build_exit_was_stopped "$build_status"; then
+								target_status=stopped
+							else
+								target_status=failure
+							fi
+						fi
 						output_paths_json="$(jq -Rsc 'split("\n") | map(select(length > 0))' < "$target_paths")" || exit 1
 						jq -cn \
 							--argjson ordinal "$target_number" \
@@ -334,9 +340,15 @@ while IFS= read -r item; do
 							'{ordinal:$ordinal,target:$target,status:$status,output_paths:$output_paths}' \
 							>> "$target_results_file" || exit 1
 						if [ "$build_status" -ne 0 ]; then
-							status="failure"
-							failure_stage="nix-build"
-							failure_detail="target failed: $target"
+							if [ "$target_status" = stopped ]; then
+								status="stopped"
+								failure_stage="build-stopped"
+								failure_detail="target stopped: $target"
+							else
+								status="failure"
+								failure_stage="nix-build"
+								failure_detail="target failed: $target"
+							fi
 							break
 						fi
 						cat "$target_paths" >> "$paths_file"
@@ -373,6 +385,10 @@ while IFS= read -r item; do
 				failure_stage="status-publication"
 				failure_detail="could not publish PASSING badge"
 			fi
+		elif [ "$status" = "stopped" ]; then
+			# A stopped build makes no claim about the repository, so it must
+			# not publish the failing badge that sends its agent debugging.
+			write_badge_status "$badge_dir" "$repo" STOPPED "$sha" || true
 		else
 			write_badge_status "$badge_dir" "$repo" FAILING "$sha" || true
 		fi

@@ -663,13 +663,11 @@ in
     # Try to keep the settings groups in alphabetical order.
     desktopManager.gnome.extraGSettingsOverrides = ''
       [org.gnome.desktop.interface]
-      gtk-theme='Nordic'
       text-scaling-factor=1.25
 
       [org.gnome.desktop.wm.preferences]
       button-layout=':minimize,maximize,close'
       resize-with-right-button=true
-      theme='Nordic'
 
       [org.gnome.nautilus.preferences]
       always-use-location-entry=true
@@ -904,7 +902,26 @@ in
 
     # ZFS, yeah, baby, yeah!!
     zfs = {
-      autoScrub.enable = true;
+      autoScrub = {
+        enable = true;
+        # First MONDAY of the month at 00:00, instead of the NixOS default
+        # "monthly" (which is *-*-01 00:00 -- the 1st, whatever weekday that is).
+        # Peter, 2026-08-01, after the 1st landed on a Saturday and a ~9h rpool
+        # scrub collided with a working day.
+        #
+        # Monday 00:00 rather than Sunday 00:00 because "Sunday night" in the
+        # colloquial sense IS Monday morning once the clock passes midnight;
+        # Sunday 00:00 would actually be Saturday night.
+        #
+        # `Mon *-*-01..07` is the systemd idiom for "first Monday": exactly one
+        # Monday can fall within days 1-7. Verified with
+        #   systemd-analyze calendar "Mon *-*-01..07 00:00:00" --iterations=6
+        # -> 2026-08-03, 09-07, 10-05, 11-02, 12-07, 2027-01-04. All first Mondays.
+        #
+        # Note rpool lives on the two USB-docked spinning drives, so its scrub
+        # takes ~9 hours and is felt; the NVMe pools finish in seconds to minutes.
+        interval = "Mon *-*-01..07 00:00:00";
+      };
       trim.enable = true;
     };
 
@@ -1135,6 +1152,9 @@ in
     openFirewall = true;
     useRoutingFeatures = "both";
   };
+
+  services.resolved.enable = true;
+
   services.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen (renamed out of services.xserver)
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
@@ -1495,11 +1515,10 @@ in
       ghostty                       # terminal emulator (laptop-only tier; added on request)
       coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
       gh
-      nodejs_24
+      nodejs                        # unversioned: rides nixpkgs' current default (24.18.0 today)
       corepack
       bun
       pnpm
-      volta
       nim
       nixd
       gemini-cli
@@ -1596,7 +1615,6 @@ in
       luajitPackages.moonscript # `moonc` CLI for moonrun/yuerun (separate from the baked module)
       sd # sed-alternative the dotfiles call
       # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
-      nordic # for nordic theme
       whitesur-gtk-theme
       whitesur-icon-theme
       # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.

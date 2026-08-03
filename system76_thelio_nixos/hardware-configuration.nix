@@ -59,6 +59,10 @@
       fsType = "zfs"; options = [ "zfsutil" "X-mount.mkdir" ];
     };
 
+  # ⛔ bpool is read by GRUB ITSELF and is pinned to `compatibility=grub2`.
+  # NEVER `zpool upgrade bpool` -- `zpool status` advises it, and that advice is
+  # wrong here; it enables features GRUB cannot parse and the host stops booting.
+  # Full explanation at the `grub.zfsSupport` line in zfs.nix.
   fileSystems."/boot" =
     { device = "bpool/nixos/root";
       neededForBoot = true;

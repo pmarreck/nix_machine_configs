@@ -7,12 +7,17 @@
 #
 # 2026-07-28: the model moved from bge-m3 to jina-code-embeddings:1.5b (better
 # code-relevance oracle, 8192 context). This file kept pre-pulling bge-m3 for three
-# weeks after nothing consumed it. Keep `loadModels` and the per-repo config.ini in
-# agreement — a mismatch is invisible until you notice two models resident in VRAM.
+# weeks after nothing consumed it.
+#
+# Models are NOT declared here. `loadModels` is deliberately empty; see the note
+# beside it. The embedding model is a hand-modified local build that no registry
+# can serve, and declaring models also creates a background downloader we do not
+# want on this link. Install and update models with `ollama pull` / `ollama create`
+# by hand, and keep each repo's config.ini pointed at whatever is actually resident.
 #
 # After `ixnay reify`:
 #   - service `ollama.service` comes up on http://127.0.0.1:11434
-#   - the embedding model is pulled automatically (loadModels)
+#   - models are whatever was installed imperatively; verify with `ollama list`
 #   - point each repo's .codescan/config.ini at it:
 #         embedding_url=http://127.0.0.1:11434
 #         embedding_model=jina-code-embeddings:1.5b
@@ -30,12 +35,25 @@
     package = inputs.ollama.packages.${system}.default;
     host = "127.0.0.1";           # localhost only (codescan is local). Expose to tailnet later if needed.
     port = 11434;
-    # 2026-07-28: was `[ "bge-m3" ]`. Every one of the 110 indexed repos actually
-    # uses jina-code-embeddings:1.5b, so this line was pre-pulling and pinning a
-    # SECOND embedding model into VRAM that nothing consumed — 664 MB of GPU and a
-    # competing llama-server process. Peter deleted the model by hand; without this
-    # change the next activation would silently re-download it.
-    loadModels = [ "jina-code-embeddings:1.5b" ];
+    # Models on this host are managed IMPERATIVELY, on purpose. Leave this empty.
+    #
+    # 2026-07-28: this briefly listed jina-code-embeddings:1.5b and failed every
+    # activation with `pull model manifest: file does not exist`. That model is a
+    # local build whose metadata was modified by hand; it does not exist in any
+    # registry, so `ollama pull` can never satisfy a declaration of it. The name
+    # is resolvable only on this machine.
+    #
+    # An empty list is also what removes the downloader entirely: the nixpkgs
+    # module generates ollama-model-loader.service under
+    # `lib.mkIf (cfg.loadModels != [ ] || cfg.syncModels)`, so an empty list plus
+    # syncModels=false means no unit is created and nothing downloads models in
+    # the background. That is deliberate — embedding models are large enough that
+    # an unattended pull can saturate this link when it is wanted elsewhere.
+    #
+    # DO NOT set `syncModels = true`. It deletes every installed model not named
+    # here, which would destroy the customized jina build with no way to re-fetch
+    # it. Keeping this list empty while syncModels is true would wipe everything.
+    loadModels = [ ];
     environmentVariables.OLLAMA_NUM_PARALLEL = "3";
   };
 
