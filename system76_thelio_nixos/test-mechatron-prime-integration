@@ -4,7 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
-source_commit=2413bdd
+source_commit=3444e66
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -58,7 +58,7 @@ check_sha256 scripts/receiver.bash cf0ca4468f5ecdc75fa66f979734f9f00e2d732af324b
 check_sha256 scripts/worker.bash b1f7d3928bcb57cfe39a9b00702af2fd8a3eb765aa1d811c6c30d7d1542ef833
 check_sha256 scripts/control_lib.bash ede26d52aef1dbf93d8d17855ac18e4248c23572955bbd63b85f1656835bb4a4
 check_sha256 scripts/mechatron-ci 8e269c781065a279f47203fa5ccb5645dd825a7f7545158ff9264f24c3e0e638
-check_sha256 scripts/mechatron-prime-control 486ad75ec869608ac10e40183f6d3bf453e400841244030f113d824c592d328f
+check_sha256 scripts/mechatron-prime-control f5e767c0a632f10121010df1ae4813b775f39fb4c1bcff5b2a21298ce662430e
 check_sha256 scripts/status_store.bash 41f0a872bd0e36128f5d7a0840ef4d34feb03ca8017819b14d67bdb2a95a215b
 check_sha256 ops/actions.lua 71cc452f35d57e6982f65f61726750e6b12936f6d231a18988cc064de896294c
 check_sha256 ops/app.lua ecb33f41da8beb8492857d705ec433e8cd430121fc44c5ba02a6712b92b03083

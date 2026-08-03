@@ -94,7 +94,7 @@ case "$action" in
 			drop_ref="$(jq -r '.ref // ""' <<< "$drop_record")"
 			drop_sha="$(jq -r '.sha // ""' <<< "$drop_record")"
 			drop_delivery="$(jq -r '.delivery // ""' <<< "$drop_record")"
-			valid_repo_full_name "$drop_repo" && valid_commit_sha "$drop_sha" || continue
+			if ! valid_repo_full_name "$drop_repo" || ! valid_commit_sha "$drop_sha"; then continue; fi
 			record_ci_result "$state_dir/results.sqlite3" \
 				"drop-$now-$drop_line-${drop_sha:0:12}" "$drop_delivery" "$drop_repo" "$drop_ref" "$drop_sha" '' \
 				"$now" "$now" stopped cancelled "cancelled from the queue by an operator" \
