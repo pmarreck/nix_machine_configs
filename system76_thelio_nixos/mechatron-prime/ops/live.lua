@@ -163,7 +163,11 @@ function M.collect(source)
 	local clocksound = source.timer("clocksound.timer")
 	clocksound.schedule = "07:00–23:00 plus midnight"
 	clocksound.source = "/etc/nixos/system76_thelio_nixos/configuration.nix:385"
-	health_services[#health_services + 1] = {id = "clocksound-timer", label = "Grandfather clock timer", state = clocksound.state, expected = "waiting", severity = "warning"}
+	clocksound.chime = probes.classify_chime(clocksound.load_state, clocksound.active_state)
+	-- This check asks whether the chime is in a state somebody CHOSE, not
+	-- whether it is currently chiming. A deliberate mute must never raise an
+	-- alarm; a timer that failed on its own still must.
+	health_services[#health_services + 1] = {id = "clocksound-timer", label = "Grandfather clock timer", state = clocksound.chime.healthy and "ok" or clocksound.chime.state, expected = "ok", severity = "warning"}
 
 	local fsearch = source.timer("fsearch-update.timer")
 	fsearch.schedule = "03:30 daily"

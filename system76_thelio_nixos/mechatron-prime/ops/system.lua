@@ -22,6 +22,7 @@ local fixed_commands = {
 
 local codex_binary = "/home/pmarreck/.local/bin/codex"
 local mechatron_control_binary = "/run/current-system/sw/bin/mechatron-prime-control"
+local clocksound_timer = "clocksound.timer"
 local recent_ci_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]]
 local ci_history_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 100;]]
 
@@ -93,12 +94,17 @@ function M.new(adapter)
 		return state == "" and "unknown" or state
 	end
 
+	--- Read a user timer's arming state.  LoadState is requested alongside the
+	--- run state because a masked unit reports ActiveState=failed: without it a
+	--- deliberate mute is indistinguishable from a genuine timer fault.
 	function system.timer(unit)
-		local argv = user_command({"systemctl", "--user", "show", unit, "-p", "ActiveState", "-p", "SubState", "-p", "NextElapseUSecRealtime", "--no-pager"})
+		local argv = user_command({"systemctl", "--user", "show", unit, "-p", "LoadState", "-p", "ActiveState", "-p", "SubState", "-p", "NextElapseUSecRealtime", "--no-pager"})
 		local output = timed(argv)
 		local properties = probes.parse_properties(output or "")
 		return {
 			state = properties.SubState or properties.ActiveState or "unknown",
+			load_state = properties.LoadState or "unknown",
+			active_state = properties.ActiveState or "unknown",
 			next_run = properties.NextElapseUSecRealtime ~= "" and properties.NextElapseUSecRealtime or "unknown",
 		}
 	end
@@ -154,6 +160,19 @@ function M.new(adapter)
 			local output, ok = timed(command)
 			if not ok then return false, trim(output) ~= "" and trim(output) or "Mechatron action failed" end
 			return true, trim(output)
+		end
+		--- Chime controls run a fixed SEQUENCE and abort on the first failure.
+		--- Continuing past a failed unmask would start a timer that is still
+		--- masked, reporting success while the chime stayed silent.
+		if action.kind == "clocksound" then
+			for _, step in ipairs(action.steps) do
+				local command = {"systemctl", "--user"}
+				append(command, step)
+				command[#command + 1] = clocksound_timer
+				local output, ok = timed(user_command(command))
+				if not ok then return false, trim(output) ~= "" and trim(output) or "chime action failed" end
+			end
+			return true
 		end
 		local argv = {"systemctl", "--no-block", action.verb, action.unit}
 		if action.scope == "user" then

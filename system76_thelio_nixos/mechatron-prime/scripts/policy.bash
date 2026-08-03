@@ -80,6 +80,86 @@ now_utc() {
 	fi
 }
 
+# Collapse a claimed batch so a queue slot belongs to (repository, branch)
+# rather than to a commit. Within each group the newest record — the last one
+# accepted, since the queue is append-ordered — takes the group's EARLIEST
+# position, and the commits it displaces keep the group's remaining positions
+# marked `superseded`.
+#
+# The displaced records are retained rather than deleted because superseding is
+# irreversible: the receiver dedupes against an append-only accepted ledger, so
+# a dropped commit could never be rebuilt from a webhook and would end up with
+# no CI verdict at all. Keeping them in place also keeps the batch line count
+# stable, which interrupt recovery indexes into by line number.
+#
+# Reads NDJSON on stdin, writes NDJSON on stdout. Records missing repo or ref
+# group under the empty key and are therefore left for downstream validation to
+# reject rather than being silently coalesced together.
+collapse_queue_batch() {
+	jq -c -s '
+		[ to_entries[] | .value + {__i: .key} ]
+		| group_by(
+			if (.repo | type) == "string" and (.ref | type) == "string"
+			   and .repo != "" and .ref != ""
+			then "k " + .repo + " " + .ref
+			# A record with no usable identity is its own group. Grouping these
+			# together would coalesce unrelated malformed records into one
+			# another and suppress the validation failure each one is owed.
+			else "u " + (.__i | tostring)
+			end
+		)
+		| map(
+			. as $group
+			| ($group | map(.__i)) as $slots
+			| ($group | last) as $newest
+			| ($group[0:-1]) as $displaced
+			| [ {i: $slots[0], r: ($newest | del(.__i))} ]
+			  + [ range(0; ($displaced | length)) as $n
+			      | {i: $slots[$n + 1], r: (($displaced[$n] | del(.__i)) + {superseded: true})} ]
+		)
+		| flatten
+		| sort_by(.i)
+		| .[].r
+	'
+}
+
+# Partition queued records for operator-initiated cancellation. Mode `match`
+# emits the records a query selects; `exclude` emits the survivors. The two are
+# exact complements, which is what lets a caller rewrite the queue and report
+# what it removed without scanning twice with different logic.
+#
+# An empty branch or commit is a wildcard, but an empty project is NOT: a query
+# must name a project, so a typo can never widen into "cancel everything".
+# Project and branch compare exactly rather than by prefix, so dropping `z7` can
+# never take `z7z`; only the commit is a prefix, matching how humans quote SHAs.
+select_queue_records() {
+	local mode="${1:-}"
+	local project="${2:-}"
+	local branch="${3:-}"
+	local commit="${4:-}"
+	local negate=false
+	case "$mode" in
+		match) ;;
+		exclude) negate=true ;;
+		*) return 1 ;;
+	esac
+	[ -n "$project" ] || return 1
+	# Accept `name` or `owner/name`, and `branch` or `refs/heads/branch`.
+	project="${project##*/}"
+	branch="${branch#refs/heads/}"
+	jq -c \
+		--arg project "$project" \
+		--arg branch "$branch" \
+		--arg commit "$commit" \
+		--argjson negate "$negate" '
+		def matches:
+			((.repo // "") | split("/") | last) == $project
+			and ($branch == "" or ((.ref // "") | ltrimstr("refs/heads/")) == $branch)
+			and ($commit == "" or ((.sha // "") | startswith($commit)));
+		select((matches) != $negate)
+	'
+}
+
 # Decide whether a build exit status means the build was stopped rather than
 # that it ran and failed. `timeout` reports 124 when it fires, and reports
 # 128+N when the command died on signal N (137 for SIGKILL, which is what an
@@ -111,6 +191,17 @@ badge_json() {
 		# the project's code is broken. Amber, and deliberately not isError:
 		# the condition belongs to this host, not to the repository.
 		STOPPED) color=orange ;;
+		# A superseded commit was displaced in the queue by a newer commit on
+		# the same branch and will never build. Also not an error: it is a
+		# scheduling outcome, and the commit that replaced it carries the
+		# repository's real verdict.
+		SUPERSEDED) color=orange ;;
+		# An operator removed this commit from the queue before it ran. Like
+		# the two above it is not an error: it says a human made a scheduling
+		# decision, and it is deliberately distinct from SUPERSEDED so history
+		# shows whether a commit was displaced automatically or dropped on
+		# purpose.
+		CANCELLED) color=orange ;;
 		*) return 1 ;;
 	esac
 	jq -cn \
@@ -140,6 +231,24 @@ write_badge_document() {
 		return 1
 	}
 	mv -f "$temporary" "$destination"
+}
+
+# Publish only the commit-addressable badge, leaving the repository's latest
+# projection alone. Used for outcomes that describe a single commit without
+# describing the repository's current state — a superseded commit never ran, so
+# it must not overwrite the verdict of whatever actually built.
+write_commit_badge_status() {
+	local badge_dir="${1:-}"
+	local repo="${2:-}"
+	local state="${3:-}"
+	local sha="${4:-}"
+	local repo_name
+	repo_name="$(repo_name_from_full_name "$repo")" || return 1
+	[ -d "$badge_dir" ] || return 1
+	[ -n "$sha" ] || return 1
+	valid_commit_sha "$sha" || return 1
+	[ -d "$badge_dir/$repo_name" ] || mkdir -m 0750 "$badge_dir/$repo_name" || return 1
+	write_badge_document "$badge_dir/$repo_name/$sha.json" "$state"
 }
 
 # Publish the mutable latest badge plus an optional immutable commit address.

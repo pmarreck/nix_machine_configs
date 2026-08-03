@@ -169,6 +169,21 @@ while :; do
 	fi
 	recover_on_interrupt=true
 	mv "$queue_file" "$batch" || exit 1
+	# A queue slot belongs to (repository, branch), not to a commit. Collapse
+	# the claimed batch so the newest commit of each group takes that group's
+	# earliest position; displaced commits stay in the batch marked superseded
+	# so they still receive a terminal result. Collapsing here, under the claim
+	# lock and before any line numbers are handed to interrupt recovery, keeps
+	# the batch length stable.
+	# Coalescing is an optimisation, never a gate. A batch holding even one
+	# malformed record cannot be parsed as a whole, so fall back to draining it
+	# uncollapsed: every record still receives its own validation verdict, and
+	# a bad record must not be able to stall the queue for everyone else.
+	if collapse_queue_batch < "$batch" > "$batch.collapsed" 2>/dev/null; then
+		mv -f -- "$batch.collapsed" "$batch" || exit 1
+	else
+		rm -f -- "$batch.collapsed"
+	fi
 	: > "$queue_file" || exit 1
 	cp -- "$batch" "$active_queue_file" || exit 1
 	chmod 0640 "$batch" "$queue_file" "$active_queue_file" || exit 1
@@ -223,6 +238,15 @@ while IFS= read -r item; do
 		else
 			repo_name="$(repo_name_from_full_name "$repo")"
 			run_id="$run_id-${sha:0:12}"
+			if [ "$(jq -r '.superseded // false' <<< "$item")" = true ]; then
+				# Displaced in the queue by a newer commit on the same branch.
+				# It never ran, so it is stopped rather than failed, and it
+				# publishes only its own commit badge: the repository's current
+				# status belongs to the commit that actually built.
+				status="stopped"
+				failure_stage="superseded"
+				failure_detail="superseded by a newer commit on $ref"
+			else
 			log_file="$state_dir/logs/$repo_name-$run_id.log"
 			target_list="$state_dir/work/$repo_name-$run_id.targets"
 			paths_file="$state_dir/work/$repo_name-$run_id.paths"
@@ -355,6 +379,7 @@ while IFS= read -r item; do
 					done < "$target_list"
 				fi
 			fi
+			fi
 		fi
 	fi
 
@@ -379,7 +404,12 @@ while IFS= read -r item; do
 	fi
 
 	if [ -n "$repo_name" ]; then
-		if [ "$status" = "success" ]; then
+		if [ "$failure_stage" = "superseded" ]; then
+			# Commit-addressable only. A commit displaced from the queue never
+			# ran, so it must not overwrite the repository's latest badge — that
+			# belongs to the commit that actually built.
+			write_commit_badge_status "$badge_dir" "$repo" SUPERSEDED "$sha" || true
+		elif [ "$status" = "success" ]; then
 			if ! write_badge_status "$badge_dir" "$repo" PASSING "$sha"; then
 				status="failure"
 				failure_stage="status-publication"

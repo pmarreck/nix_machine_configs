@@ -7,8 +7,17 @@ if ! declare -F write_ci_admission >/dev/null; then
 	# shellcheck disable=SC1090
 	source "${MECHATRON_CONTROL_LIB:-$script_dir/control_lib.bash}"
 fi
+if ! declare -F select_queue_records >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_POLICY_LIB:-$script_dir/policy.bash}"
+fi
+if ! declare -F record_ci_result >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_STATUS_STORE_LIB:-$script_dir/status_store.bash}"
+fi
 
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
+badge_dir="${MECHATRON_BADGE_DIR:-/var/lib/mechatron-prime-public/badges}"
 systemctl_command="${MECHATRON_SYSTEMCTL:-systemctl}"
 now="${MECHATRON_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 action="${1:-}"
@@ -25,8 +34,89 @@ case "$action" in
 	cancel)
 		"$systemctl_command" --no-block stop mechatron-prime-worker.service || exit 1
 		;;
+	drop)
+		shift
+		drop_project=""
+		drop_branch=""
+		drop_commit=""
+		while [ "$#" -gt 0 ]; do
+			case "$1" in
+				--project) [ "$#" -ge 2 ] || { printf 'drop: --project requires a value\n' >&2; exit 2; }; shift; drop_project="$1" ;;
+				--branch) [ "$#" -ge 2 ] || { printf 'drop: --branch requires a value\n' >&2; exit 2; }; shift; drop_branch="$1" ;;
+				--commit) [ "$#" -ge 2 ] || { printf 'drop: --commit requires a value\n' >&2; exit 2; }; shift; drop_commit="$1" ;;
+				*) printf 'drop: unknown option: %s\n' "$1" >&2; exit 2 ;;
+			esac
+			shift
+		done
+		# A project is mandatory. Without it a typo or an empty variable would
+		# widen into "cancel every queued build on the host".
+		[ -n "$drop_project" ] || { printf 'drop: --project is required\n' >&2; exit 2; }
+
+		drop_queue="$state_dir/queue/builds.ndjson"
+		drop_lock="$state_dir/queue/.builds.lock"
+		[ -f "$drop_queue" ] || { jq -cn --arg action drop '{status:"ok",action:$action,dropped:0}'; exit 0; }
+
+		# Take the receiver's own lock. If the worker has already claimed the
+		# batch these records are no longer here, so the drop is correctly a
+		# no-op rather than a second verdict for a build that is about to run.
+		exec 8> "$drop_lock" || exit 1
+		flock 8 || exit 1
+
+		drop_matched="$(mktemp "${drop_queue}.drop.XXXXXX")" || exit 1
+		drop_kept="$(mktemp "${drop_queue}.keep.XXXXXX")" || exit 1
+		select_queue_records match "$drop_project" "$drop_branch" "$drop_commit" < "$drop_queue" > "$drop_matched" || { rm -f -- "$drop_matched" "$drop_kept"; exit 1; }
+		select_queue_records exclude "$drop_project" "$drop_branch" "$drop_commit" < "$drop_queue" > "$drop_kept" || { rm -f -- "$drop_matched" "$drop_kept"; exit 1; }
+
+		drop_count="$(wc -l < "$drop_matched" | tr -d ' ')"
+		if [ "$drop_count" -eq 0 ]; then
+			rm -f -- "$drop_matched" "$drop_kept"
+			exec 8>&-
+			jq -cn --arg action drop '{status:"ok",action:$action,dropped:0}'
+			exit 0
+		fi
+
+		chmod 0640 "$drop_kept" || { rm -f -- "$drop_matched" "$drop_kept"; exit 1; }
+		mv -f -- "$drop_kept" "$drop_queue" || { rm -f -- "$drop_matched"; exit 1; }
+		exec 8>&-
+
+		# Account for every removed commit. Dropping is irreversible — the
+		# receiver's accepted ledger is append-only — so a commit deleted here
+		# would otherwise carry no CI verdict for the rest of time. The badge is
+		# commit-addressable only: a commit that never ran cannot speak for the
+		# repository's current status.
+		drop_empty_targets="$(mktemp "${TMPDIR:-/tmp}/mechatron-drop-targets.XXXXXX.ndjson")" || exit 1
+		: > "$drop_empty_targets"
+		drop_line=0
+		while IFS= read -r drop_record; do
+			[ -n "$drop_record" ] || continue
+			drop_line=$((drop_line + 1))
+			drop_repo="$(jq -r '.repo // ""' <<< "$drop_record")"
+			drop_ref="$(jq -r '.ref // ""' <<< "$drop_record")"
+			drop_sha="$(jq -r '.sha // ""' <<< "$drop_record")"
+			drop_delivery="$(jq -r '.delivery // ""' <<< "$drop_record")"
+			valid_repo_full_name "$drop_repo" && valid_commit_sha "$drop_sha" || continue
+			record_ci_result "$state_dir/results.sqlite3" \
+				"drop-$now-$drop_line-${drop_sha:0:12}" "$drop_delivery" "$drop_repo" "$drop_ref" "$drop_sha" '' \
+				"$now" "$now" stopped cancelled "cancelled from the queue by an operator" \
+				'' "$drop_empty_targets" >/dev/null 2>&1 || true
+			printf '%s\n' "$(jq -cn \
+				--arg started_at "$now" --arg finished_at "$now" --arg delivery "$drop_delivery" \
+				--arg repo "$drop_repo" --arg ref "$drop_ref" --arg sha "$drop_sha" \
+				'{started_at:$started_at,finished_at:$finished_at,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,status:"stopped",failure_stage:"cancelled",failure_detail:"cancelled from the queue by an operator",targets:[],paths:[],log:""}')" \
+				>> "$state_dir/results.ndjson"
+			write_commit_badge_status "$badge_dir" "$drop_repo" CANCELLED "$drop_sha" || true
+		done < "$drop_matched"
+		rm -f -- "$drop_matched" "$drop_empty_targets"
+
+		jq -cn --arg action drop --argjson dropped "$drop_count" '{status:"ok",action:$action,dropped:$dropped}'
+		exit 0
+		;;
+	--help|-h)
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]}\n'
+		exit 0
+		;;
 	*)
-		printf 'Usage: mechatron-prime-control {halt|resume|cancel}\n' >&2
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]}\n' >&2
 		exit 2
 		;;
 esac

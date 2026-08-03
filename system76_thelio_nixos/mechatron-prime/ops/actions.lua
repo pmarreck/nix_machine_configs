@@ -9,6 +9,14 @@ local by_path = {
 	["/ops/actions/mechatron-worker/halt"] = {id = "mechatron-worker-halt", kind = "mechatron", argv = {"halt"}},
 	["/ops/actions/mechatron-worker/resume"] = {id = "mechatron-worker-resume", kind = "mechatron", argv = {"resume"}},
 	["/ops/actions/fsearch/run"] = {id = "fsearch-run", scope = "user", unit = "fsearch-update.service", verb = "start"},
+	-- The chime controls change only the timer's RUN state, never its schedule,
+	-- which stays owned by NixOS. `mask` is a durable override that outlives a
+	-- reboot and a NixOS activation; a plain `stop` lasts only until the next
+	-- boot re-arms the timer. Verbs are fixed here and the unit name lives in
+	-- the adapter, so no part of either is derivable from a request.
+	["/ops/actions/clocksound/mute-until-reboot"] = {id = "clocksound-mute-until-reboot", kind = "clocksound", steps = {{"stop"}}},
+	["/ops/actions/clocksound/mute"] = {id = "clocksound-mute", kind = "clocksound", steps = {{"mask", "--now"}}},
+	["/ops/actions/clocksound/unmute"] = {id = "clocksound-unmute", kind = "clocksound", steps = {{"unmask"}, {"start"}}},
 	["/ops/actions/codex-remote-control/status"] = {id = "codex-remote-control-status", kind = "codex", argv = {"app-server", "daemon", "version"}, present_result = true},
 	["/ops/actions/codex-remote-control/start"] = {id = "codex-remote-control-start", kind = "codex", argv = {"remote-control", "start", "--json"}, present_result = true},
 	["/ops/actions/codex-remote-control/stop"] = {id = "codex-remote-control-stop", kind = "codex", argv = {"remote-control", "stop", "--json"}},

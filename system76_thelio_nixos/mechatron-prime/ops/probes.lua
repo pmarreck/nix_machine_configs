@@ -151,6 +151,42 @@ function M.classify_zfs(summary, detail)
 	return "healthy"
 end
 
+local chime_specs = {
+	chiming = {label = "chiming", healthy = true},
+	muted = {label = "muted", healthy = true},
+	["muted-till-reboot"] = {label = "muted till reboot", healthy = true},
+	failed = {label = "failed", healthy = false},
+	unknown = {label = "unknown", healthy = false},
+}
+
+--- Classify the grandfather-clock timer from systemd's own load and run state,
+--- separating a deliberate operator mute from a genuine fault so muting the
+--- chime never degrades host health.  Load state is consulted FIRST because
+--- masking an active unit leaves it reporting ActiveState=failed: checking run
+--- state first would report every durable mute as a failure.  A masked unit is
+--- muted durably (the mask outlives reboot and NixOS activation); a merely
+--- stopped unit is muted only until the next boot re-arms it.
+function M.classify_chime(load_state, active_state)
+	load_state = load_state or ""
+	active_state = active_state or ""
+	local state
+	if load_state == "masked" then
+		state = "muted"
+	elseif load_state ~= "loaded" then
+		state = "unknown"
+	elseif active_state == "active" or active_state == "activating" then
+		state = "chiming"
+	elseif active_state == "inactive" or active_state == "deactivating" then
+		state = "muted-till-reboot"
+	elseif active_state == "failed" then
+		state = "failed"
+	else
+		state = "unknown"
+	end
+	local spec = chime_specs[state]
+	return {state = state, label = spec.label, healthy = spec.healthy}
+end
+
 function M.count_ndjson(text)
 	local count = 0
 	for line in text:gmatch("[^\n]+") do

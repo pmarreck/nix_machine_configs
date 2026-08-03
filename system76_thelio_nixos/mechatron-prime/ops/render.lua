@@ -128,8 +128,11 @@ function M.ci_history_json(generated_at, runs)
 	return encoded .. "\n"
 end
 
-local function status_badge(state)
-	return '<span class="status status-' .. html_escape(state) .. '">' .. html_escape(state) .. "</span>"
+--- Render a state pill.  The optional label lets a state carry a readable
+--- caption ("muted till reboot") while keeping a single hyphen-free token in
+--- the CSS class, since the state doubles as the class name.
+local function status_badge(state, label)
+	return '<span class="status status-' .. html_escape(state) .. '">' .. html_escape(label or state) .. "</span>"
 end
 
 local function action_forms(actions)
@@ -223,8 +226,10 @@ function M.page(model)
 		.model-section { margin-top:14px; }
 		.model-section h4 { margin:0; color:var(--muted); font-size:.76rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 		.status { display:inline-block; border:1px solid currentColor; border-radius:999px; padding:2px 8px; font:700 .72rem/1.4 ui-monospace,monospace; text-transform:uppercase; }
-		.status-active,.status-healthy,.status-waiting { color:var(--accent); }
-		.status-degraded,.status-resilvering,.status-inactive { color:var(--warn); }
+		.status-active,.status-healthy,.status-waiting,.status-chiming { color:var(--accent); }
+		/* A deliberate mute is amber, not red: the chime is silent because
+		   somebody chose that, which is a different thing from a fault. */
+		.status-degraded,.status-resilvering,.status-inactive,.status-muted,.status-muted-till-reboot { color:var(--warn); }
 		.status-critical,.status-failed,.status-stopped { color:var(--bad); }
 		dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; margin:0; }
 		dt { color:var(--muted); }
@@ -258,7 +263,7 @@ function M.page(model)
 	<section class="panel active" data-panel="services">
 		<div class="grid">
 			<article class="card"><div class="card-heading"><h3>Mechatron worker</h3>%s</div><dl><dt>Current build</dt><dd>%s</dd><dt>Queue depth</dt><dd>%s</dd></dl>%s</article>
-			<article class="card"><div class="card-heading"><h3>Grandfather clock</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd><dt>Declarative source</dt><dd><code>%s</code></dd></dl></article>
+			<article class="card"><div class="card-heading"><h3>Grandfather clock</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd><dt>Declarative source</dt><dd><code>%s</code></dd></dl>%s</article>
 			<article class="card"><div class="card-heading"><h3>FSearch database</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd></dl>%s</article>
 			%s
 		</div>
@@ -296,10 +301,18 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 			{label = "Resume CI", path = "/ops/actions/mechatron-worker/resume"},
 			{label = "Cancel build", path = "/ops/actions/mechatron-worker/stop", danger = true},
 		}),
-		status_badge(model.clocksound.state),
+		status_badge(model.clocksound.chime.state, model.clocksound.chime.label),
 		html_escape(model.clocksound.schedule),
 		html_escape(model.clocksound.next_run),
 		html_escape(model.clocksound.source),
+		-- Run-state controls only. The schedule above stays read-only because
+		-- NixOS owns it; muting changes when the chime sounds, never when it is
+		-- declared to sound.
+		action_forms({
+			{label = "Mute till reboot", path = "/ops/actions/clocksound/mute-until-reboot"},
+			{label = "Mute", path = "/ops/actions/clocksound/mute"},
+			{label = "Unmute", path = "/ops/actions/clocksound/unmute"},
+		}),
 		status_badge(model.fsearch.state),
 		html_escape(model.fsearch.schedule),
 		html_escape(model.fsearch.next_run),
