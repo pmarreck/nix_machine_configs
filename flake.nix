@@ -21,6 +21,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Keep the WSL integration on the same release series as the NixOS host.
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs-2605";
+    };
+
     # Peter's Ollama fork enables parallel embedding runners.
     #
     # Referenced by URL, NOT as a `path:` input. It was previously
@@ -51,7 +57,7 @@
     himalaya.url = "github:pimalaya/himalaya";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, ... }@inputs:
+  outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, nixos-wsl, ... }@inputs:
     let
       system = "x86_64-linux";
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
@@ -70,6 +76,14 @@
         # Framework uses the latest released package set for cache hits; the
         # module still receives `inputs.nixpkgs` as its explicit unstable scope.
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
+        tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs system; };
+          modules = [
+            nixos-wsl.nixosModules.default
+            ./tiki-wsl-nixos/configuration.nix
+          ];
+        };
       };
     };
 }
