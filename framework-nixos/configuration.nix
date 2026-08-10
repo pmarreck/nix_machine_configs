@@ -568,6 +568,7 @@ in
       gmp # GNU Multiple Precision Arithmetic Library
       gravit # gravity simulator
       gthumb # image viewer
+      halloy # Iced-based IRC client
       harmonist # roguelike
       hyperfine # command-line benchmarking tool
       hyperrogue # roguelike
@@ -651,6 +652,7 @@ in
         rkpd2 # Fork of popular roguelike game Shattered Pixel Dungeon that drastically buffs heroes and thus makes the game significantly easier
         rat-king-adventure # An expansive fork of RKPD2, itself a fork of the Shattered Pixel Dungeon roguelike
       shortwave # internet radio
+      sniffnet # Iced-based network traffic monitor
       shotwell # photo organizer like iPhoto
       sil # Rogue-like game set in the First Age of Middle-earth
       slack # the chat app du jour

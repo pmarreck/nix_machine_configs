@@ -1280,6 +1280,7 @@ in
       blesh # bluetooth shell
       xscreensaver # note that this seems to require setup in home manager
       gthumb # image viewer
+      halloy # Iced-based IRC client
       hyperfine # command-line benchmarking tool
       # for desktop gaming
       # simply setting config.programs.steam.enable to true adds stable steam
@@ -1386,6 +1387,7 @@ in
       stable.handbrake # forced stable on 1/20/2023 due to build failure on unstable with ffmpeg
       vlc # video player
       shortwave # internet radio
+      sniffnet # Iced-based network traffic monitor
       renoise # super cool mod-tracker-like audio app
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022
       # custom_python3 # for a language I don't care about but which remains too popular
