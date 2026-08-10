@@ -111,6 +111,7 @@ in
     es
     gawk
     gcc
+    halloy
     ghostty
     gnumake
     jq
@@ -148,6 +149,7 @@ in
     pkg-config
     zed-editor
     zellij
+    sniffnet
     zip
   ]);
 
