@@ -101,15 +101,24 @@ function M.collect_mechatron(source, include_recent)
 		admission = {state = "unknown", changed_at = ""}
 	end
 	local worker_state = source.service("system", "mechatron-prime-worker.service")
+	-- A running Type=oneshot unit reports `activating` until its process exits,
+	-- so it never reaches `active` at all. Rather than enumerate the states
+	-- that mean "running", suppress only the two that positively assert nothing
+	-- is: a killed worker never runs its exit trap, so current.json can outlive
+	-- the build it describes, and that is the sole reason for this gate.
+	--
+	-- Everything else, including `unknown`, must leave the record visible.
+	-- system.service returns `unknown` when `systemctl is-active` yields no
+	-- output inside its five-second budget, which is likeliest precisely when a
+	-- heavy build has loaded the machine. Treating a slow probe as proof of
+	-- idleness erased the very build it was asked about.
+	local worker_stopped = worker_state == "inactive" or worker_state == "failed"
+	local active_worker = not worker_stopped
 	local current = nil
-	-- A running Type=oneshot unit reports `activating` until its process exits.
-	-- Treat it as live work so the operations console does not call an active
-	-- build idle merely because it has not reached systemd's `active` state.
-	if (worker_state == "active" or worker_state == "activating") and current_text and current_text:match("%S") then
+	if active_worker and current_text and current_text:match("%S") then
 		local decoded = cjson.decode(current_text)
 		if decoded and (decoded.state == "building" or decoded.state == "preparing") then current = decoded end
 	end
-	local active_worker = worker_state == "active" or worker_state == "activating"
 	local claimed_text = active_worker and active_queue_text or ""
 	local claimed_depth = probes.count_ndjson(claimed_text)
 	local waiting_depth = probes.count_ndjson(queue_text)

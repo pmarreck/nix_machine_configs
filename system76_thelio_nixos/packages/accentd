@@ -1,0 +1,75 @@
+# accentd — macOS-style press-and-hold accent character popup for Linux.
+#
+# Added 2026-07-28 (Einstein). Upstream ships no Nix package, only an AUR
+# PKGBUILD (dist/PKGBUILD), which this derivation mirrors.
+#
+# Three binaries from one Cargo workspace:
+#   accentd        root daemon; evdev in, uinput out
+#   accentd-popup  per-user GTK4 overlay
+#   accentctl      CLI, talks to the daemon over a Unix socket
+#
+# Service wiring lives in ../accentd.nix, not here.
+
+{ lib
+, rustPlatform
+, fetchFromGitHub
+, pkg-config
+, wrapGAppsHook4
+, glib
+, gtk4
+, gtk4-layer-shell
+}:
+
+rustPlatform.buildRustPackage rec {
+  pname = "accentd";
+  version = "0.2.1";
+
+  # Pinned to the v0.2.1 tag, not the default branch. The branch has moved
+  # past the last release (beb6ec76, 2026-02-24) and an unpinned HEAD is not
+  # reproducible.
+  src = fetchFromGitHub {
+    owner = "gildo";
+    repo = "accentd";
+    rev = "v${version}";
+    hash = "sha256-mvqBWmAlPKMLMbfKe+8DBSTq4a/aaQnQWLIXhcVPxAE=";
+  };
+
+  cargoHash = "sha256-qT/S4P4CzWnnhK24GnaPUPoJOunyLsyxOdbeQtyuuck=";
+
+  nativeBuildInputs = [
+    pkg-config
+    wrapGAppsHook4 # accentd-popup is GTK4: needs GSETTINGS/GDK_PIXBUF wiring
+  ];
+
+  buildInputs = [
+    glib
+    gtk4
+    gtk4-layer-shell
+  ];
+
+  # The only FHS assumption in the entire source tree: config.rs hardcodes
+  # /usr/share/accentd/locales as the system locale directory.
+  #
+  # --replace-fail rather than --replace on purpose. If upstream renames or
+  # moves this path, the build breaks loudly instead of silently shipping a
+  # daemon that can never find its locale files — a failure that would
+  # otherwise surface as a confusing runtime "locale not found" months later.
+  postPatch = ''
+    substituteInPlace crates/accentd-core/src/config.rs \
+      --replace-fail '/usr/share/accentd/locales' "$out/share/accentd/locales"
+  '';
+
+  # Cargo installs the three binaries; the data files are ours to place.
+  postInstall = ''
+    install -Dm644 -t $out/share/accentd/locales data/locales/*.toml
+    install -Dm644 data/config.default.toml $out/share/accentd/config.default.toml
+  '';
+
+  meta = {
+    description = "macOS-style press-and-hold accent character popup for Linux";
+    homepage = "https://github.com/gildo/accentd";
+    license = lib.licenses.mit;
+    platforms = lib.platforms.linux;
+    mainProgram = "accentctl";
+  };
+}

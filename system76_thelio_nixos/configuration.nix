@@ -117,6 +117,8 @@ in
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
+      ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
+      ./rotational-io.nix   # bfq + deeper queues for the USB-docked spinning rpool; Klipsch name fix — Einstein 2026-07-28
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
@@ -210,7 +212,28 @@ in
     hardwareScan = true; # tried to make udev run faster at boot by falsing, but then my keyboard and mouse stopped working lol (usb driver not loaded, perhaps?)
 
     kernel.sysctl = {
-      "vm.swappiness" = 40; # 90 when swapping to ssd; default is 60
+      # 2026-07-30: 40 -> 10. Swap lives on /dev/sdd4 — a 7200rpm USB-docked
+      # spinning drive (~20 ms/seek), the SLOWEST device in the machine. At 40,
+      # 17.2 GB had been evicted there: gnome-shell 766 MB, Firefox content
+      # processes 600-680 MB each, ghostty 424 MB. Touching an idle tab then
+      # paid ~100k page-ins at 20 ms — the "tabs take forever to load" symptom.
+      #
+      # Aggravated by ZFS: ARC sat at 46.7 of its 48 GiB cap, and ARC reclaims
+      # far more slowly than the page cache under pressure, so the kernel
+      # evicted APPLICATION pages instead of shrinking ARC. 10 tells it to
+      # reclaim cache/ARC first. Deliberately NOT lowering zfs_arc_max — that
+      # 48 GiB was raised from 16 GiB in b26ef2e to fix dnode-cache thrash
+      # (8h+ of arc_prune CPU); cutting it would reintroduce that.
+      #
+      # 2026-07-31: 10 -> 50, now that swap lives on NVMe (nvme0n1p3) instead of
+      # the USB-docked spinning drives. A deliberate compromise, not the full 60:
+      # 10 was correct for ~20 ms swap, but on fast swap it is over-conservative
+      # — suppressing swap that hard pushes reclaim pressure onto the ZFS ARC
+      # instead, and ARC reclaim churn is precisely what generated the bogus
+      # per-cgroup PSI readings that made systemd-oomd kill 19 MB cgroups.
+      # 50 lets the kernel use cheap NVMe paging again without swinging all the
+      # way back to the default. Revisit with evidence, one variable at a time.
+      "vm.swappiness" = 50; # 90 when swapping to ssd; default is 60
       "vm.vfs_cache_pressure" = 80; # default is 100
       "vm.dirty_ratio" = 60; # https://sites.google.com/site/sumeetsingh993/home/experiments/dirty-ratio-and-dirty-background-ratio
       "vm.max_map_count" = 16777216; # literally based on a recommendation for the game Hogwarts Legacy to crash less
@@ -268,7 +291,38 @@ in
                      # 38M cumulative arc_prune calls and 8h+ of arc_prune CPU over one
                      # 3-day uptime. 48GB arc + 25% gives a 12GB dnode budget (13% used).
                      "zfs.zfs_arc_dnode_limit_percent=25"
-                     "zfs.prefetch_disable=1"
+                     # rpool (/, /home, /var) is a 7200rpm mirror behind a USB dock, so
+                     # every txg commit costs full-stroke seeks to rewrite uberblocks at
+                     # the labels on both ends of the platter. At the 5s default that is a
+                     # seek storm every 5 seconds forever — audible as continuous clicking
+                     # even at ~0% utilisation, and it starves interactive reads.
+                     # 15s means a third as many commits, each larger. Raise further only
+                     # with eyes open: this is the window of writes lost on a hard power
+                     # cut (ZIL still protects anything fsync'd). Peter, 2026-07-28.
+                     "zfs.zfs_txg_timeout=15"
+                     # 2026-07-31: was `zfs.prefetch_disable=1` — a TYPO that
+                     # silently did nothing. The module parameter is
+                     # `zfs_prefetch_disable`; `prefetch_disable` does not
+                     # exist, so the kernel ignored it. Confirmed by
+                     # /sys/module/zfs/parameters/zfs_prefetch_disable reading
+                     # 0 (i.e. prefetch ENABLED) despite this line. Note the
+                     # working ARC lines above use the same shape —
+                     # `zfs.zfs_arc_max` — where `zfs.` is the module and
+                     # `zfs_arc_max` is the real parameter name.
+                     #
+                     # Intent (rpool is 34% fragmented on USB-docked spinning
+                     # disks, and the workload is not large sequential files):
+                     # speculative prefetch there costs seeks for data that is
+                     # often not used.
+                     #
+                     # CAVEAT: this now actually takes effect at next boot, so
+                     # it IS a live behaviour change after years of being inert.
+                     # ARC hit rate is already 99.6%, so most reads never reach
+                     # a disk — the win may be small. If anything regresses,
+                     # revert this one line (or write 0 to
+                     # /sys/module/zfs/parameters/zfs_prefetch_disable at
+                     # runtime, no reboot needed).
+                     "zfs.zfs_prefetch_disable=1"
                     #  "spl_taskq_thread_dynamic=0" # attempt to fix continuous spawn of runaway z_wr_iss/z_wr_int processes during nixos builds
                     #  EDIT: I believe I fixed the runaway z_wr_iss/z_wr_int process spawn issue just by reverting to lz4 compression for now
                     #  "zfs.l2arc_rebuild_enabled=1" # may be the default now, but why not be explicit?
@@ -314,7 +368,8 @@ in
       l2arc_mfuonly=0 \
       zfs_arc_max=51539607552 \
       zfs_arc_dnode_limit_percent=25 \
-      prefetch_disable=1
+      zfs_txg_timeout=15 \
+      zfs_prefetch_disable=1
     '';
   };
 
@@ -356,6 +411,32 @@ in
     # "A stop job is running for <unit>" — that names the culprit to fix at root.)
     # NB: nixpkgs-unstable removed `systemd.extraConfig`; use settings.Manager.
     settings.Manager.DefaultTimeoutStopSec = "30s";
+
+    # systemd-oomd DISABLED (Peter, 2026-07-31) — it was killing healthy
+    # processes based on a sensor this machine cannot report honestly.
+    #
+    # Evidence, 2026-07-31 14:04-14:06 (`journalctl -b -u systemd-oomd`): it
+    # marked and killed FOUR cgroups whose reported "Current Memory Usage" was
+    # 18.4 MB and 19.5 MB — on a 125 GiB machine with ~74 GiB available —
+    # solely because per-cgroup PSI memory pressure read 92-99%, over the
+    # 60%-for-30s default trigger. There were ZERO kernel OOM-killer entries:
+    # the machine was never actually out of memory. And because oomd kills
+    # whole CGROUPS, and the tmux server lived inside a ghostty surface scope,
+    # EVERY tmux session on the box died at once. Cost: ~3 hours of work time.
+    #
+    # Root cause of the false signal: ZFS ARC at its 48 GiB cap drives
+    # continuous reclaim, which gets attributed as per-cgroup memory pressure.
+    # PSI is independently known-unreliable on this host — /proc/pressure/io
+    # reads ~97% while both disks measure 0% busy. (Third metric this machine
+    # invalidates, all ZFS-related: iowait, /proc/pressure/*, /proc/PID/io.)
+    #
+    # Safe because: 125 GiB RAM, and the KERNEL OOM killer remains as the real
+    # backstop — it acts on actual allocation failure rather than on a pressure
+    # estimate. In its present state oomd could only ever produce false kills.
+    #
+    # Revisit if PSI ever becomes trustworthy under ZFS; until then this is a
+    # sensor problem, not a policy problem.
+    oomd.enable = false;
     user = {
       services = {
         # GNOME's LocalSearch/Tracker successor crawls and extracts metadata from
@@ -430,9 +511,56 @@ in
       # more booting speedup... for the next 2 lines, see: https://github.com/NixOS/nixpkgs/issues/41055
       modem-manager.enable = false;
       "dbus-org.freedesktop.ModemManager1".enable = false;
+      # ── Envelope so a CI build cannot starve the desktop ────────────────
+      # Peter, 2026-07-31: "Kicking off a CI build shouldn't completely slam my
+      # machine." Correct — and the fix is NOT where it looks.
+      #
+      # MEASURED (nixos-perf-review, during a live `nix build`): the Mechatron
+      # worker shells out to ordinary `nix build`, and the multi-user Nix
+      # daemon creates the builders — /proc/PID/cgroup placed the build shell
+      # and `make -j8` under /system.slice/nix-daemon.service, NOT the worker's
+      # cgroup. Limits on the worker unit would therefore constrain only its
+      # bash/jq orchestration and do NOTHING to the compilers. The envelope
+      # belongs here.
+      #
+      # Weights alone (what this block used to be) only help when a sibling
+      # cgroup is already contending; they never stop Nix occupying all 128
+      # threads when capacity is free. Host: 128 logical / 64 physical CPUs,
+      # nix max-jobs=16 x cores=8 = 128 nominal, previously CPUQuota=infinity,
+      # MemoryMax=infinity, TasksMax=1048576 — no ceiling at all.
+      #
+      # NB: these apply to ALL Nix builds, including Peter's manual ones.
       nix-daemon.serviceConfig = {
-        CPUWeight = 50;
-        IOWeight = 50;
+        # 80 of 128 logical CPUs. Deliberately ABOVE the 64-CPU scheduler
+        # target so a derivation that oversubscribes (nix `cores` is advisory,
+        # not enforced) still cannot take the box, while reserving ~48 CPUs
+        # for the desktop.
+        CPUQuota = "8000%";
+        CPUWeight = 25; # was 50; yield harder to interactive work
+        Nice = 10;
+        # MemoryHigh is the throttle intended to bite; MemoryMax is the last
+        # line of defence. Observed daemon peak since boot was 16.7 GB, so
+        # there is substantial headroom.
+        MemoryHigh = "48G";
+        MemoryMax = "64G";
+        MemorySwapMax = "8G";
+        # Defence-in-depth only — ZFS cgroup I/O attribution is not trusted on
+        # this host (same reason PSI is unusable here).
+        IOWeight = 25; # was 50
+        TasksMax = 8192;
+      };
+
+      # ORCHESTRATION ONLY — explicitly NOT a build cap; see the note above.
+      # Documented loudly so nobody later mistakes this for the thing that
+      # limits compilers. Measured worker peak: 284 MB.
+      mechatron-prime-worker.serviceConfig = {
+        CPUQuota = "200%";
+        CPUWeight = 25;
+        Nice = 10;
+        MemoryHigh = "512M";
+        MemoryMax = "1G";
+        IOWeight = 25;
+        TasksMax = 512;
       };
       # Workaround for GNOME autologin: https://github.com/NixOS/nixpkgs/issues/103746#issuecomment-945091229
       "getty@tty1".enable = false;
@@ -539,13 +667,11 @@ in
     # Try to keep the settings groups in alphabetical order.
     desktopManager.gnome.extraGSettingsOverrides = ''
       [org.gnome.desktop.interface]
-      gtk-theme='Nordic'
       text-scaling-factor=1.25
 
       [org.gnome.desktop.wm.preferences]
       button-layout=':minimize,maximize,close'
       resize-with-right-button=true
-      theme='Nordic'
 
       [org.gnome.nautilus.preferences]
       always-use-location-entry=true
@@ -780,7 +906,26 @@ in
 
     # ZFS, yeah, baby, yeah!!
     zfs = {
-      autoScrub.enable = true;
+      autoScrub = {
+        enable = true;
+        # First MONDAY of the month at 00:00, instead of the NixOS default
+        # "monthly" (which is *-*-01 00:00 -- the 1st, whatever weekday that is).
+        # Peter, 2026-08-01, after the 1st landed on a Saturday and a ~9h rpool
+        # scrub collided with a working day.
+        #
+        # Monday 00:00 rather than Sunday 00:00 because "Sunday night" in the
+        # colloquial sense IS Monday morning once the clock passes midnight;
+        # Sunday 00:00 would actually be Saturday night.
+        #
+        # `Mon *-*-01..07` is the systemd idiom for "first Monday": exactly one
+        # Monday can fall within days 1-7. Verified with
+        #   systemd-analyze calendar "Mon *-*-01..07 00:00:00" --iterations=6
+        # -> 2026-08-03, 09-07, 10-05, 11-02, 12-07, 2027-01-04. All first Mondays.
+        #
+        # Note rpool lives on the two USB-docked spinning drives, so its scrub
+        # takes ~9 hours and is felt; the NVMe pools finish in seconds to minutes.
+        interval = "Mon *-*-01..07 00:00:00";
+      };
       trim.enable = true;
     };
 
@@ -1011,6 +1156,9 @@ in
     openFirewall = true;
     useRoutingFeatures = "both";
   };
+
+  services.resolved.enable = true;
+
   services.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen (renamed out of services.xserver)
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
@@ -1111,7 +1259,18 @@ in
       free42 # hp-42S reverse-engineered from the ground up
       # numworks-epsilon # whoa, cool calc! # disabled due to disuse, and troubleshooting an issue
       browsh # graphical web browser in the terminal
-      unstable.ollama # llms in the terminal
+      # 2026-07-28: was `unstable.ollama` (STOCK). Replaced with Peter's fork, the
+      # same package the ollama.service runs, so exactly ONE ollama implementation
+      # exists on this host. Stock cannot serve Jina embeddings — it returns HTTP
+      # 501 because it cannot configure Jina's required last-token pooling, which
+      # is why the fork exists and why codescan depends on it.
+      # A stock binary on PATH is not harmless: on 2026-07-27 one was started by
+      # hand, bound 127.0.0.1:11434 against the stale ~/.ollama store, and silently
+      # locked out the real service until the process was killed.
+      inputs.ollama.packages.${system}.default # llms in the terminal (Peter's fork)
+      inputs.himalaya.packages.${system}.default # CLI email client (pimalaya) — v2.0 from upstream flake, since nixpkgs is still 1.2.0; manages both Gmail accounts + composable CLI mail core. Accounts configured per-user in ~/.config/himalaya/, NOT here.
+      bluebubbles # iMessage client for Linux (Peter, 2026-07-31). Talks to the BlueBubbles SERVER already installed on his Mac, which relays iMessage — so iMessages reach this Linux dev box. Client only; nothing server-side is configured here.
+      darktable # RAW photo processor. Two reasons (Peter, 2026-07-29): (1) a source of real-world RAW/image formats + a reference decoder (rawspeed/libraw) for Mecha Validate's RAW coverage and corruption-detection corpus; (2) scriptable via its built-in Lua API + headless `darktable-cli`, so agents can automate fixture generation / batch conversion. lua-scripts (darktable-org) is a separate optional package if wanted.
       unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)
       # mathematica # because why the heck not?
       # actually, NOPE:
@@ -1360,11 +1519,10 @@ in
       ghostty                       # terminal emulator (laptop-only tier; added on request)
       coreutils-prefixed            # the g-prefixed GNU tools (gtimeout, gdate, …)
       gh
-      nodejs_24
+      nodejs                        # unversioned: rides nixpkgs' current default (24.18.0 today)
       corepack
       bun
       pnpm
-      volta
       nim
       nixd
       gemini-cli

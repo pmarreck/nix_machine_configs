@@ -59,6 +59,10 @@
       fsType = "zfs"; options = [ "zfsutil" "X-mount.mkdir" ];
     };
 
+  # ⛔ bpool is read by GRUB ITSELF and is pinned to `compatibility=grub2`.
+  # NEVER `zpool upgrade bpool` -- `zpool status` advises it, and that advice is
+  # wrong here; it enables features GRUB cannot parse and the host stops booting.
+  # Full explanation at the `grub.zfsSupport` line in zfs.nix.
   fileSystems."/boot" =
     { device = "bpool/nixos/root";
       neededForBoot = true;
@@ -100,9 +104,35 @@
   #   options = [ "bind" ];
   # };
 
-  swapDevices = [ 
-    { device = "/dev/disk/by-uuid/88801519-1d48-4572-9435-1598b75402c7"; }
-    { device = "/dev/disk/by-uuid/e9ea414c-dce0-4a50-8d52-4eeda6519e5b"; }
+  # Swap moved OFF the USB-docked spinning drives onto NVMe (Peter, 2026-07-31).
+  #
+  # WHY: the two 10TB drives (sdd/sde) are both on ONE USB bus (usb6), and they
+  # carried BOTH rpool (/, /home, /var) AND swap (sdd4/sde4). So memory reclaim
+  # saturated the USB channel with paging, every filesystem read then queued
+  # behind it, and the compositor blocked in uninterruptible sleep — producing
+  # TOTAL GUI freezes: no cursor, no mouse pointer, for minutes. This was bus
+  # contention between swap and the root filesystem, not merely a slow disk.
+  #
+  # Sized 32 GiB, not the previous 309 GiB: measured peak use was 3.8 GiB, and
+  # cumulative writes were 32.7 GiB over 93 hours of uptime. Hibernation is NOT
+  # enabled on this host (no resume= in /proc/cmdline), so swap does not need to
+  # be >= RAM.
+  #
+  # NVMe wear was Peter's concern and the numbers answer it: both NVMes report
+  # "Percentage Used: 1%" after 31.4 TB written, and observed swap traffic is
+  # ~8.4 GB/day ≈ 3 TB/yr ≈ 0.1%/yr. Placed on nvme0n1 because it is marginally
+  # less worn AND its neighbour is devpool rather than steampool, so swap does
+  # not contend with game loading.
+  #
+  # The old USB swap partitions (sdd4/sde4) are deliberately NOT listed. Leaving
+  # them at lower priority would let the kernel spill onto the USB bus again
+  # once NVMe swap filled — which is the exact failure being removed. They
+  # remain on disk, unused, and can be reclaimed as free space later.
+  #
+  # Follow-up: vm.swappiness was lowered to 10 BECAUSE swap was slow. With swap
+  # on NVMe that is now over-conservative; consider restoring ~60.
+  swapDevices = [
+    { device = "/dev/disk/by-uuid/8bbac7b3-c013-4aa8-b7ca-adff01064770"; } # nvme0n1p3, label swap-nvme0
   ];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking

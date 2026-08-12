@@ -225,7 +225,7 @@ function M.page(model)
 		.status { display:inline-block; border:1px solid currentColor; border-radius:999px; padding:2px 8px; font:700 .72rem/1.4 ui-monospace,monospace; text-transform:uppercase; }
 		.status-active,.status-healthy,.status-waiting { color:var(--accent); }
 		.status-degraded,.status-resilvering,.status-inactive { color:var(--warn); }
-		.status-critical,.status-failed { color:var(--bad); }
+		.status-critical,.status-failed,.status-stopped { color:var(--bad); }
 		dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; margin:0; }
 		dt { color:var(--muted); }
 		dd { margin:0; min-width:0; overflow-wrap:anywhere; }
@@ -283,7 +283,11 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 ]],
 		html_escape(model.generated_at),
 		status_badge(model.health.status),
-		status_badge(model.mechatron.admission.state == "halted" and "halted" or model.mechatron.worker_state),
+		-- Halted admission outranks the worker's own state, and is deliberately
+		-- shown in the alarm colour rather than the warning colour: a normally
+		-- idle worker is already "inactive" in amber, so amber here would be
+		-- indistinguishable from healthy idleness.
+		status_badge(model.mechatron.admission.state == "halted" and "stopped" or model.mechatron.worker_state),
 		html_escape(current_build),
 		html_escape(model.mechatron.queue_depth),
 		action_forms({

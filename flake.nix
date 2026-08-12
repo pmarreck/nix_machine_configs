@@ -21,6 +21,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Keep the WSL integration on the same release series as the NixOS host.
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/release-26.05";
+      inputs.nixpkgs.follows = "nixpkgs-2605";
+    };
+
     # Peter's Ollama fork enables parallel embedding runners.
     #
     # Referenced by URL, NOT as a `path:` input. It was previously
@@ -31,12 +37,27 @@
     # To adopt a later fork revision: `nix flake update ollama`, then
     # `ixnay reify no-upgrade` when it is safe to restart the daemon.
     ollama = {
-      url = "github:pmarreck/ollama/yolo";
+      url = "github:pmarreck/ollama/main"; # main, not yolo: this is a FORK of ollama/ollama, whose upstream default is main — and yolo was 13 commits stale, missing the CUDA toolkit pin (edab7d2) that this build requires
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Himalaya — CLI email client (pimalaya). Wanted for its 2.0 release, which
+    # nixpkgs does not yet carry (nixpkgs is still 1.2.0 as of 2026-07-29), so
+    # the package MUST come from upstream's flake rather than `pkgs.himalaya`.
+    # Reason for adoption: the built-in Gmail tooling binds a single account;
+    # Himalaya manages both (lumbergh@gmail.com + peter@marreck.com) and gives a
+    # composable CLI mail core.
+    #
+    # Deliberately does NOT `follows = nixpkgs`, unlike ollama above. Himalaya is
+    # a fenix-based Rust build with its own pinned nixpkgs; forcing our nixpkgs
+    # onto a fenix toolchain is how these builds break, and leaving it pinned
+    # means the system build reuses the exact derivation `nix run
+    # github:pimalaya/himalaya` already produced instead of recompiling. Passes
+    # bin/check-flake-portability (github: input, not a path:/file:// one).
+    himalaya.url = "github:pimalaya/himalaya";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, ... }@inputs:
+  outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, nixos-wsl, ... }@inputs:
     let
       system = "x86_64-linux";
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
@@ -55,6 +76,14 @@
         # Framework uses the latest released package set for cache hits; the
         # module still receives `inputs.nixpkgs` as its explicit unstable scope.
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
+        tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs system; };
+          modules = [
+            nixos-wsl.nixosModules.default
+            ./tiki-wsl-nixos/configuration.nix
+          ];
+        };
       };
     };
 }

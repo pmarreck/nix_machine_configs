@@ -80,6 +80,21 @@ now_utc() {
 	fi
 }
 
+# Decide whether a build exit status means the build was stopped rather than
+# that it ran and failed. `timeout` reports 124 when it fires, and reports
+# 128+N when the command died on signal N (137 for SIGKILL, which is what an
+# out-of-memory kill looks like). Neither outcome observed the project's code,
+# so neither may be reported as a failing build.
+build_exit_was_stopped() {
+	local code="${1:-}"
+	case "$code" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$code" -eq 124 ] && return 0
+	[ "$code" -ge 128 ] && return 0
+	return 1
+}
+
 badge_json() {
 	local state="${1:-}"
 	local color
@@ -92,6 +107,10 @@ badge_json() {
 			color=red
 			is_error=true
 			;;
+		# A stopped build never ran to completion, so it is not evidence that
+		# the project's code is broken. Amber, and deliberately not isError:
+		# the condition belongs to this host, not to the repository.
+		STOPPED) color=orange ;;
 		*) return 1 ;;
 	esac
 	jq -cn \

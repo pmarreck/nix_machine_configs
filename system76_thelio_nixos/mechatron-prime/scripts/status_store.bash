@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS ci_runs (
 	default_branch TEXT NOT NULL,
 	started_at TEXT NOT NULL,
 	finished_at TEXT NOT NULL,
-	status TEXT NOT NULL CHECK (status IN ('success', 'failure')),
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
 	failure_stage TEXT NOT NULL,
 	failure_detail TEXT NOT NULL,
 	log_path TEXT NOT NULL
@@ -41,16 +41,80 @@ CREATE TABLE IF NOT EXISTS ci_targets (
 	run_id TEXT NOT NULL REFERENCES ci_runs(run_id) ON DELETE CASCADE,
 	ordinal INTEGER NOT NULL CHECK (ordinal > 0),
 	target TEXT NOT NULL,
-	status TEXT NOT NULL CHECK (status IN ('success', 'failure')),
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
 	output_paths_json TEXT NOT NULL CHECK (json_valid(output_paths_json)),
 	PRIMARY KEY (run_id, ordinal),
 	UNIQUE (run_id, target)
 );
-PRAGMA user_version = 1;
 SQL
 	local status=$?
 	[ "$status" -eq 0 ] || return "$status"
+	# The version stamp deliberately lives in the upgrade step, not above. If
+	# the create block stamped it, an existing v1 ledger would be relabelled as
+	# v2 while still carrying v1's narrower CHECK constraint, and the rebuild
+	# would then be skipped as already done.
+	upgrade_status_store "$database" || return 1
 	chmod 0640 "$database"
+}
+
+# Widen the run and target status vocabulary from ('success','failure') to
+# include 'stopped'. SQLite cannot alter a CHECK constraint in place, so each
+# table is rebuilt and its rows copied. CREATE TABLE IF NOT EXISTS above is a
+# no-op on an existing ledger, which is precisely why this exists: a v1 file
+# keeps its narrow constraint until it is rebuilt here.
+upgrade_status_store() {
+	local database="${1:-}"
+	local version
+	[ -n "$database" ] || return 1
+	version="$(sqlite3 -bail "$database" 'PRAGMA user_version;')" || return 1
+	case "$version" in
+		2) return 0 ;;
+		# A freshly created ledger already carries the widened constraint and
+		# needs only its version stamp.
+		0) sqlite3 -bail "$database" 'PRAGMA user_version = 2;' >/dev/null; return $? ;;
+		1) ;;
+		*) return 1 ;;
+	esac
+	sqlite3 -bail "$database" >/dev/null <<'SQL'
+PRAGMA foreign_keys = OFF;
+BEGIN IMMEDIATE;
+CREATE TABLE ci_runs_upgraded (
+	run_id TEXT PRIMARY KEY,
+	delivery_id TEXT NOT NULL,
+	repository TEXT NOT NULL,
+	ref TEXT NOT NULL,
+	commit_sha TEXT NOT NULL,
+	default_branch TEXT NOT NULL,
+	started_at TEXT NOT NULL,
+	finished_at TEXT NOT NULL,
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
+	failure_stage TEXT NOT NULL,
+	failure_detail TEXT NOT NULL,
+	log_path TEXT NOT NULL
+);
+INSERT INTO ci_runs_upgraded SELECT * FROM ci_runs;
+DROP TABLE ci_runs;
+ALTER TABLE ci_runs_upgraded RENAME TO ci_runs;
+CREATE INDEX IF NOT EXISTS ci_runs_repository_commit
+	ON ci_runs (repository, commit_sha);
+CREATE INDEX IF NOT EXISTS ci_runs_repository_finished
+	ON ci_runs (repository, finished_at DESC);
+CREATE TABLE ci_targets_upgraded (
+	run_id TEXT NOT NULL REFERENCES ci_runs(run_id) ON DELETE CASCADE,
+	ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+	target TEXT NOT NULL,
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
+	output_paths_json TEXT NOT NULL CHECK (json_valid(output_paths_json)),
+	PRIMARY KEY (run_id, ordinal),
+	UNIQUE (run_id, target)
+);
+INSERT INTO ci_targets_upgraded SELECT * FROM ci_targets;
+DROP TABLE ci_targets;
+ALTER TABLE ci_targets_upgraded RENAME TO ci_targets;
+PRAGMA user_version = 2;
+COMMIT;
+PRAGMA foreign_keys = ON;
+SQL
 }
 
 migrate_legacy_results() {
@@ -132,7 +196,7 @@ record_ci_result() {
 	local output_paths_json
 	local render_status=0
 
-	case "$status" in success|failure) ;; *) return 1 ;; esac
+	case "$status" in success|failure|stopped) ;; *) return 1 ;; esac
 	[ -n "$database" ] && [ -n "$run_id" ] && [ -f "$target_results_file" ] || return 1
 	sql_file="$(mktemp "${TMPDIR:-/tmp}/mechatron-status.XXXXXX.sql")" || return 1
 	{
@@ -150,7 +214,7 @@ record_ci_result() {
 			target_status="$(jq -er '.status | strings' <<< "$target_result")" || { render_status=1; break; }
 			output_paths_json="$(jq -ec '.output_paths | arrays' <<< "$target_result")" || { render_status=1; break; }
 			valid_nix_target "$target" || { render_status=1; break; }
-			case "$target_status" in success|failure) ;; *) render_status=1; break ;; esac
+			case "$target_status" in success|failure|stopped) ;; *) render_status=1; break ;; esac
 			printf 'INSERT INTO ci_targets (run_id, ordinal, target, status, output_paths_json) VALUES (%s, %s, %s, %s, %s);\n' \
 				"$(sql_quote "$run_id")" "$ordinal" "$(sql_quote "$target")" \
 				"$(sql_quote "$target_status")" "$(sql_quote "$output_paths_json")"

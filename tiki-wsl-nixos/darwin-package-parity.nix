@@ -1,0 +1,134 @@
+{ pkgs }:
+
+# Cross-platform package inventory mirrored from
+# ~/.config/nix/flake.nix's active baseSystemPackages entries on 2026-08-07.
+#
+# Darwin-only packages deliberately omitted after evaluating meta.platforms on
+# x86_64-linux: macmon, stats, and tart. The Darwin-only g-prefixed wrapper is
+# also omitted because GNU tools already have their canonical names on NixOS.
+let
+  yuescript = pkgs.callPackage ./yuescript.nix { };
+in
+with pkgs;
+[
+  angband
+  aspell
+  bashInteractive
+  bat
+  bc
+  blesh
+  bottom
+  btop
+  bun
+  capstone
+  circumflex
+  colordiff
+  coreutils-prefixed
+  crystal
+  curl
+  curl-impersonate
+  delta
+  dirb
+  direnv
+  elan
+  beamPackages.elixir
+  exiftool
+  eza
+  fclones
+  fd
+  ffmpeg
+  figlet
+  file
+  fontconfig
+  fortune
+  frawk
+  fzf
+  gawkInteractive
+  gemini-cli
+  gh
+  ghostscript
+  git
+  git-bug
+  git-lfs
+  glow
+  gmp
+  gnugrep
+  gnupg
+  gnused
+  gping
+  gum
+  htop
+  hyperfine
+  imagemagick
+  jjui
+  lean4
+  less
+  libheif
+  libjxl
+  libpar2
+  libwebp
+  llama-cpp
+  lz4
+  mcfly
+  micro
+  mosh
+  mpv
+  murex
+  nethack
+  nim
+  nixd
+  nmap
+  nnn
+  nufmt
+  nushell
+  nushellPlugins.gstat
+  nushellPlugins.query
+  nushellPlugins.skim
+  openai-whisper
+  opencode
+  p7zip
+  pandoc
+  par2cmdline-turbo
+  pbzip2
+  pnpm
+  poppler-utils
+  presenterm
+  procps
+  pv
+  python312Packages.pygments
+  qpdf
+  ripgrep
+  sampler
+  sc-im
+  sd
+  sourceHighlight
+  sqlite
+  sqlitebrowser
+  starship
+  taoup
+  television
+  tesseract
+  tmux
+  tokei
+  tree
+  trippy
+  unzip
+  uutils-coreutils
+  uv
+  vim
+  visidata
+  vsce
+  wasm-tools
+  watchman
+  wazero
+  wdiff
+  wget
+  wiper
+  xxhash
+  xz
+  yuescript
+  zig_0_16
+  zls
+  zoxide
+  zstd
+]
