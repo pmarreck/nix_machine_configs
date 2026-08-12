@@ -39,6 +39,10 @@ let
   # Prefer the packaged stable OpenCode: the local fetchGit build bypasses caches.
   opencode = stable.opencode;
   cfunge = pkgs.callPackage ./cfunge.nix { };
+  # Official prebuilt Cosmopolitan toolchain from cosmo.zip — see the doc
+  # comment in ../cosmocc-bin.nix for why we don't use nixpkgs' cosmocc
+  # (stale 2.2 + its from-source test suite fails on ZFS roots).
+  cosmocc-bin = pkgs.callPackage ../cosmocc-bin.nix { };
   # roc is dynamically compiled, so it's not usable in NixOS yet
   # roc = (import (pkgs.fetchFromGitHub {
   #   owner = "roc-lang";
@@ -144,6 +148,7 @@ in
     (import ./firefox-overlay.nix)
     (import ./packages)
     #(self: super: { nix-direnv = super.nix-direnv.override { enableFlakes = true; }; } )
+
 
     # DISABLED: test-only overrides change output hashes and force local builds.
     # Keep upstream Arrow cached; the stable visidata selection below avoids this
@@ -466,6 +471,16 @@ in
   # tailscale
   services.tailscale.enable = true;
   services.tailscale.openFirewall = true;  # opens 41641/udp etc.
+  # Pinned to the `unstable` scope for a SECURITY fix (2026-08-10).
+  # This host's base is nixpkgs-2605 (release-26.05), which still ships
+  # tailscale 1.98.x — 1.98.5 was running here, and 1.98.10 is the most the
+  # 26.05 branch offers. The fix landed in 1.102.2, which is only present on
+  # nixos-unstable. The package is a self-contained Go binary driven by the
+  # stock NixOS module, so crossing scopes here is low-risk.
+  # REMOVE this pin once release-26.05 carries >= 1.102.2 (check with:
+  #   nix eval --raw nixpkgs-2605#tailscale.version) so the host goes back to
+  # tracking its own base channel.
+  services.tailscale.package = unstable.tailscale;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.pmarreck = {
@@ -871,7 +886,7 @@ in
       conky # system monitor
       cool-retro-term # a retro terminal emulator
       coreutils-prefixed # most gnu utils prefixed with "g" to disambiguate them in cross platform scripts that make buggy assumptions
-      cosmocc # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++
+      cosmocc-bin # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++ — prebuilt from cosmo.zip, NOT nixpkgs (see ../cosmocc-bin.nix)
       cowsay # a classic
       curl # curl is better than wget because it supports more protocols
       dcfldd # dd with progress bar and inline hash verification

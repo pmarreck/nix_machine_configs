@@ -61,6 +61,10 @@ let
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
+  # Official prebuilt Cosmopolitan toolchain from cosmo.zip — see the doc
+  # comment in ../cosmocc-bin.nix for why we don't use nixpkgs' cosmocc
+  # (stale 2.2 + its from-source test suite fails on ZFS roots like this one).
+  cosmocc-bin = pkgs.callPackage ../cosmocc-bin.nix { };
   # which particular version of elixir and erlang I want globally
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR26.elixir_1_15;
@@ -1457,7 +1461,7 @@ in
       luajitPackages.moonscript # `moonc` CLI for moonrun/yuerun (separate from the baked module)
       sd # sed-alternative the dotfiles call
       # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
-      nordic # for nordic theme
+      # nordic # for nordic theme # REMOVED from nixpkgs (2026-08 lock bump): depended on gtk-engine-murrine (unmaintained, GTK 2). whitesur themes below still work.
       whitesur-gtk-theme
       whitesur-icon-theme
       # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
@@ -1600,7 +1604,7 @@ in
       rustc # rust compiler
       gcc # C compiler
       gnumake # make
-      cosmocc # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++
+      cosmocc-bin # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++ — prebuilt from cosmo.zip, NOT nixpkgs (see ../cosmocc-bin.nix)
       idris2 # Idris2 functional statically-typed programming language that looks cool and compiles to C
       chez # Chez Scheme (useful for idris)
       gmp # GNU Multiple Precision Arithmetic Library
