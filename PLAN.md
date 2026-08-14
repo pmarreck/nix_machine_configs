@@ -1,5 +1,29 @@
 # NixOS plan
 
+## Codex Linux GUI package (2026-08-14)
+
+- [x] Add a failing package contract for an x86_64 Linux derivation sourced
+  from OpenAI's official `.deb`: fixed version/hash, desktop/icon payload,
+  executable closure, and no vendor APT maintainer scripts. Curiosity poke:
+  Electron's sandbox and bundled updater may assume a mutable FHS install even
+  when every ELF dependency is patched.
+  Completed 2026-08-14 13:59 EDT: the five-assertion contract first failed 0/4,
+  then gained and witnessed the deprecated-X11-name failure before passing 5/5.
+- [x] Implement the smallest standalone Nix package, expose it as a flake
+  package/check, build it, and run a noninteractive launch smoke test without
+  adding it to the Thelio system profile. Curiosity poke: a successful
+  `autoPatchelfHook` pass does not prove GPU/Wayland startup or prevent a hidden
+  self-update path from writing into `/nix/store`.
+  Completed 2026-08-14 13:59 EDT: the official payload runs unchanged in a
+  Nix-built FHS environment; the sandboxed check invokes the launcher and
+  requires exact version `26.810.41047`. The 3.0 GiB closure is not activated.
+- [x] Document the verified architecture and usage, update dirtree notes, run
+  `./test` plus the package check, then commit the known-good package.
+  Completed 2026-08-14 13:59 EDT: 16 repository assertions, package build,
+  sandboxed launch check, and full `nix flake check --no-build` pass.
+- [ ] Publish the exact derivation and guide as a public GitHub gist, verify its
+  local and remote bytes, then email Peter both mutable and immutable gist URLs.
+
 ## Flake portability gate (2026-07-26)
 
 - [x] Gate machine-local flake inputs. The `ollama` input was added as

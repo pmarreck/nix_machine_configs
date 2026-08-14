@@ -54,6 +54,27 @@
   outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, ... }@inputs:
     let
       system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+      codexApp = pkgs.callPackage ./packages/codex-app.nix { };
+      codexAppSmoke = pkgs.runCommand "codex-app-smoke-${codexApp.version}" {
+        nativeBuildInputs = [ codexApp ];
+      } ''
+        export HOME=/tmp/codex-app-smoke
+        export XDG_CONFIG_HOME="$HOME/config"
+        export XDG_CACHE_HOME="$HOME/cache"
+        mkdir -p "$HOME" "$out"
+        cd "$HOME"
+        actual="$(chatgpt --version)"
+        if [ "$actual" != "${codexApp.version}" ]; then
+          printf 'expected Codex app %s, got %s\n' \
+            "${codexApp.version}" "$actual" >&2
+          exit 1
+        fi
+        printf '%s\n' "$actual" > "$out/version"
+      '';
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
@@ -65,6 +86,9 @@
         modules = [ module ];
       };
     in {
+      packages.${system}.codex-app = codexApp;
+      checks.${system}.codex-app = codexAppSmoke;
+
       nixosConfigurations = {
         thelio-nixos = mkHost nixpkgs ./system76_thelio_nixos/configuration.nix;
         # Framework uses the latest released package set for cache hits; the
