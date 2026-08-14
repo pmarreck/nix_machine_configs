@@ -134,11 +134,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785178788,
-        "narHash": "sha256-fn6MJYOLpyUEwPmkWLdatd9O+sSCC2y53fTSH34LyQk=",
+        "lastModified": 1786737499,
+        "narHash": "sha256-8wA14GDefu6N4ykNfaEBFkCq6VE1yAL4AuuhkClhF/M=",
         "owner": "pmarreck",
         "repo": "ollama",
-        "rev": "edab7d269cb51d64caa51052ab1a7944b19114b3",
+        "rev": "72b647621462a080e26a2f85761e8a88cd56940d",
         "type": "github"
       },
       "original": {

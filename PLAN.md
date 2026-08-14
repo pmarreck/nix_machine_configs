@@ -1,5 +1,28 @@
 # NixOS plan
 
+## Ollama Muse-Glimmer support (2026-08-14)
+
+- [x] Advance Peter's Ollama fork to 0.32.13 and llama.cpp b10380 while
+  preserving the parallel-embedding scheduler change and deterministic CUDA
+  toolkit root. Completed 2026-08-14 15:57 EDT after the local flake check
+  built the CUDA runner and passed Ollama's Go test phase.
+  - Curiosity poke answered: Ollama 0.32.0 could inspect the GGUF but its older
+    llama.cpp runner rejected the new `muse-glimmer` architecture at load time.
+- [x] Pin the Thelio flake to fork commit `72b64762`, build the complete system
+  generation from the immutable GitHub source, and activate it without a
+  reboot. Completed 2026-08-14 16:11 EDT; `ollama.service` restarted healthy as
+  `0.32.13-pmarreck.1` with CUDA compute capability 8.6 detected.
+  - Curiosity poke answered: the final system build repeated the package build
+    because the immutable GitHub source has a distinct Nix identity from the
+    local checkout; both candidates passed independently.
+- [x] Prove `muse-glimmer-30b-heretic:IQ2_M` through a typed fleet-summary
+  contract, then unload it from the GPU. Completed 2026-08-14 16:24 EDT; fixed
+  seed plus JSON Schema reproduced every scalar exactly at 3.67 tokens/s.
+  - Curiosity poke answered: GGUF imported under Ollama 0.32.0 carried an
+    invalid `<|message|>` stop and no Glimmer renderer/parser. The stable local
+    manifest explicitly sets `renderer=glimmer`, `parser=glimmer`, `<|eot|>`
+    stops, and reuses the original model/projector blobs without duplication.
+
 ## Codex Linux GUI package (2026-08-14)
 
 - [x] Add a failing package contract for an x86_64 Linux derivation sourced
