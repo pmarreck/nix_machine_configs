@@ -21,8 +21,11 @@
   `./test` plus the package check, then commit the known-good package.
   Completed 2026-08-14 13:59 EDT: 16 repository assertions, package build,
   sandboxed launch check, and full `nix flake check --no-build` pass.
-- [ ] Publish the exact derivation and guide as a public GitHub gist, verify its
+- [x] Publish the exact derivation and guide as a public GitHub gist, verify its
   local and remote bytes, then email Peter both mutable and immutable gist URLs.
+  Completed 2026-08-14 14:01 EDT: cloned and byte-compared gist
+  `ff5cc10a6b15ca1e01b0d0901c0e365c`; emailed its friendly and immutable
+  revision URLs to `peter@marreck.com` from the connected Gmail account.
 
 ## Flake portability gate (2026-07-26)
 
