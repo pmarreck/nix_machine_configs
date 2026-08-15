@@ -24,7 +24,13 @@ local codex_binary = "/home/pmarreck/.local/bin/codex"
 local mechatron_control_binary = "/run/current-system/sw/bin/mechatron-prime-control"
 local clocksound_timer = "clocksound.timer"
 local recent_ci_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]]
-local ci_history_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 100;]]
+-- The history projection is bounded only as a runaway guard, not as a display
+-- window. It used to stop at 100 rows, which silently hid most of the ledger
+-- from filtered lookups; filtering now happens over everything the guard admits,
+-- and the query asks for one row PAST the bound so truncation is detectable
+-- rather than assumed.
+local ci_history_bound = 5000
+local ci_history_query = string.format([[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT %d;]], ci_history_bound + 1)
 
 local function trim(text)
 	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -94,6 +100,21 @@ function M.new(adapter)
 		return state == "" and "unknown" or state
 	end
 
+	--- Read a managed system unit's load and run state.  `is-active` cannot
+	--- answer the question the console needs, because an operator's mask and a
+	--- service that died both read as not-active; only LoadState separates them.
+	function system.unit(scope, unit)
+		local argv = {"systemctl", "show", unit, "-p", "LoadState", "-p", "ActiveState", "-p", "SubState", "--no-pager"}
+		if scope == "user" then argv = user_command({"systemctl", "--user", "show", unit, "-p", "LoadState", "-p", "ActiveState", "-p", "SubState", "--no-pager"}) end
+		local output = timed(argv)
+		local properties = probes.parse_properties(output or "")
+		return {
+			load_state = properties.LoadState or "unknown",
+			active_state = properties.ActiveState or "unknown",
+			sub_state = properties.SubState or "unknown",
+		}
+	end
+
 	--- Read a user timer's arming state.  LoadState is requested alongside the
 	--- run state because a masked unit reports ActiveState=failed: without it a
 	--- deliberate mute is indistinguishable from a genuine timer fault.
@@ -119,22 +140,38 @@ function M.new(adapter)
 		return output
 	end
 
-	--- Project the ten newest terminal CI outcomes without exposing SQL, logs,
-	--- output paths, or direct database access to tailnet clients.
-	function system.recent_ci_runs()
-		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", recent_ci_query})
-		if not ok then return {} end
+	--- Read one fixed, newest-first ledger projection.  Returns the decoded rows,
+	--- or nil and a reason -- NEVER an empty list on failure, because an empty
+	--- list is indistinguishable from a truthful empty ledger and that ambiguity
+	--- is how a failed read came to look like "no such run".
+	local function read_ledger(query)
+		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", query})
+		if not ok then
+			return nil, trim(output) ~= "" and trim(output) or "the result ledger could not be read"
+		end
+		-- sqlite3 prints nothing for a zero-row result; that IS the empty ledger.
+		if trim(output) == "" then return {} end
 		local decoded = cjson.decode(output)
-		return type(decoded) == "table" and decoded or {}
+		if type(decoded) ~= "table" then return nil, "the result ledger returned an unreadable projection" end
+		return decoded
 	end
 
-	--- Return a fixed, newest-first SQLite projection bounded independently of
-	--- client input; private paths and delivery identifiers never enter SQL.
+	--- Project the ten newest terminal CI outcomes without exposing SQL, logs,
+	--- output paths, or direct database access to tailnet clients.  Returns nil
+	--- when the ledger cannot be read, so the page can say so.
+	function system.recent_ci_runs()
+		return read_ledger(recent_ci_query)
+	end
+
+	--- Return the newest-first ledger projection bounded independently of client
+	--- input; private paths and delivery identifiers never enter SQL.  Filtering
+	--- happens above this, over the rows returned here.
 	function system.ci_history()
-		local output, ok = timed({"sqlite3", "-json", "/var/lib/mechatron-prime/results.sqlite3", ci_history_query})
-		if not ok then return {} end
-		local decoded = cjson.decode(output)
-		return type(decoded) == "table" and decoded or {}
+		local rows, reason = read_ledger(ci_history_query)
+		if not rows then return nil, reason end
+		local truncated = #rows > ci_history_bound
+		while #rows > ci_history_bound do rows[#rows] = nil end
+		return {runs = rows, truncated = truncated, generated_at = system.now()}
 	end
 
 	--- Read only the small CI state projection.  This avoids running host-health
@@ -171,6 +208,19 @@ function M.new(adapter)
 				command[#command + 1] = clocksound_timer
 				local output, ok = timed(user_command(command))
 				if not ok then return false, trim(output) ~= "" and trim(output) or "chime action failed" end
+			end
+			return true
+		end
+		--- System-unit controls run the same abort-on-first-failure sequence as
+		--- the chime.  Starting a service whose mask is still in place would
+		--- report success while it stayed down.
+		if action.kind == "system-unit" then
+			for _, step in ipairs(action.steps) do
+				local command = {"systemctl"}
+				append(command, step)
+				command[#command + 1] = action.unit
+				local output, ok = timed(command)
+				if not ok then return false, trim(output) ~= "" and trim(output) or "service action failed" end
 			end
 			return true
 		end

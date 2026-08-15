@@ -166,25 +166,92 @@ local chime_specs = {
 --- state first would report every durable mute as a failure.  A masked unit is
 --- muted durably (the mask outlives reboot and NixOS activation); a merely
 --- stopped unit is muted only until the next boot re-arms it.
-function M.classify_chime(load_state, active_state)
+--- Reduce systemd's load and run state to the four outcomes an operator can
+--- act on, so every caller inherits the same load-state-first ordering rather
+--- than re-deriving it.  Returns "masked", "running", "stopped", "failed" or
+--- "unknown"; callers supply their own vocabulary for those.
+local function derive_run_state(load_state, active_state)
 	load_state = load_state or ""
 	active_state = active_state or ""
-	local state
-	if load_state == "masked" then
-		state = "muted"
-	elseif load_state ~= "loaded" then
-		state = "unknown"
-	elseif active_state == "active" or active_state == "activating" then
-		state = "chiming"
-	elseif active_state == "inactive" or active_state == "deactivating" then
-		state = "muted-till-reboot"
-	elseif active_state == "failed" then
-		state = "failed"
-	else
-		state = "unknown"
-	end
+	if load_state == "masked" then return "masked" end
+	if load_state ~= "loaded" then return "unknown" end
+	if active_state == "active" or active_state == "activating" then return "running" end
+	if active_state == "inactive" or active_state == "deactivating" then return "stopped" end
+	if active_state == "failed" then return "failed" end
+	return "unknown"
+end
+
+function M.classify_chime(load_state, active_state)
+	local state = ({masked = "muted", running = "chiming", stopped = "muted-till-reboot", failed = "failed"})[derive_run_state(load_state, active_state)] or "unknown"
 	local spec = chime_specs[state]
 	return {state = state, label = spec.label, healthy = spec.healthy}
+end
+
+local unit_specs = {
+	serving = {label = "serving", healthy = true},
+	masked = {label = "stopped (masked)", healthy = true},
+	inactive = {label = "stopped", healthy = true},
+	failed = {label = "failed", healthy = false},
+	unknown = {label = "unknown", healthy = false},
+}
+
+--- Classify a managed system service the operator is allowed to stop, keeping a
+--- deliberate stop out of the health alarm.  A NixOS system unit lives in the
+--- read-only store, so its only available mask is a runtime one; that still
+--- reports LoadState=masked, which is why load state is read first.  The masked
+--- and merely-inactive stops stay separate states because only the mask refuses
+--- a later start.
+function M.classify_unit(load_state, active_state)
+	local state = ({masked = "masked", running = "serving", stopped = "inactive", failed = "failed"})[derive_run_state(load_state, active_state)] or "unknown"
+	local spec = unit_specs[state]
+	return {state = state, label = spec.label, healthy = spec.healthy}
+end
+
+--- Validate and normalise CI history filters independently of any client.
+--- Rejecting a malformed filter matters more than it looks: silently ignoring
+--- one would answer a broader question than the caller asked while looking like
+--- a successful narrow query.  Returns normalised filters, or nil and a reason.
+function M.validate_ci_filters(query)
+	query = query or {}
+	local filters = {}
+	local project = query.project
+	if project ~= nil and project ~= "" then
+		if not project:match("^[%w._-]+$") and not project:match("^[%w._-]+/[%w._-]+$") then
+			return nil, "project must be a repository name, optionally owner-qualified"
+		end
+		filters.project = project:lower()
+	elseif project == "" then
+		return nil, "project filter is empty"
+	end
+	local commit = query.commit
+	if commit ~= nil and commit ~= "" then
+		if not commit:match("^%x+$") or #commit < 7 or #commit > 40 then
+			return nil, "commit must be 7 to 40 hexadecimal characters"
+		end
+		filters.commit = commit:lower()
+	elseif commit == "" then
+		return nil, "commit filter is empty"
+	end
+	return filters
+end
+
+--- Select the ledger rows a filter asks for, preserving the order given.
+--- Project matching is exact on either the full `owner/name` or the repository's
+--- own name -- never a prefix, since a prefix would fold `randomizer` results
+--- into `random`.  Commit matching IS a prefix, because short shas are how
+--- humans and agents refer to commits.
+function M.filter_ci_runs(runs, filters)
+	filters = filters or {}
+	local kept = {}
+	for _, run in ipairs(runs or {}) do
+		local repository = (run.repository or ""):lower()
+		local name = repository:match("([^/]+)$") or repository
+		local matches = true
+		if filters.project and filters.project ~= repository and filters.project ~= name then matches = false end
+		if filters.commit and (run.commit_sha or ""):lower():sub(1, #filters.commit) ~= filters.commit then matches = false end
+		if matches then kept[#kept + 1] = run end
+	end
+	return kept
 end
 
 function M.count_ndjson(text)

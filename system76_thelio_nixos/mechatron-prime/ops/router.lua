@@ -1,5 +1,6 @@
 local cjson = require("cjson.safe")
 local actions = require("ops.actions")
+local probes = require("ops.probes")
 local render = require("ops.render")
 
 local M = {}
@@ -92,11 +93,23 @@ function M.dispatch(request, dependencies)
 			response.headers.Allow = "GET"
 			return response
 		end
-		local runs, generated_at = dependencies.ci_history()
+		-- Validate before reading: a refused filter is cheaper than a ledger
+		-- read, and answering a broader question than the one asked would look
+		-- like a successful narrow query.
+		local filters, filter_error = probes.validate_ci_filters(request.query)
+		if not filters then return text_response(400, filter_error .. "\n") end
+		local history, reason = dependencies.ci_history()
+		if not history then
+			return text_response(503, "the result ledger is unavailable: " .. tostring(reason) .. "\n")
+		end
+		local matched = probes.filter_ci_runs(history.runs, filters)
 		return {
 			status = 200,
 			headers = headers("application/json; charset=utf-8"),
-			body = render.ci_history_json(generated_at or "unknown", runs),
+			body = render.ci_history_json(history.generated_at or "unknown", matched, {
+				total_runs = #history.runs,
+				truncated = history.truncated or false,
+			}),
 		}
 	end
 

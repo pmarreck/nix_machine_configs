@@ -16,6 +16,39 @@ local status_text = {
 	[503] = "Service Unavailable",
 }
 
+--- Decode one percent-encoded query token.  A malformed escape is rejected
+--- rather than passed through, so a decoded value is always a faithful copy of
+--- what the client sent and never a quietly different string.
+local function decode_component(text)
+	text = text:gsub("+", " ")
+	if text:find("%%") and not text:find("%%%x%x") then return nil end
+	local decoded, failed = text:gsub("%%(..)", function(hex)
+		local byte = tonumber(hex, 16)
+		if not byte then return nil end
+		return string.char(byte)
+	end)
+	if failed and decoded:find("%%") then return nil end
+	if decoded:find("%z") then return nil end
+	return decoded
+end
+
+--- Split a query string into plain string values.  These are only ever
+--- compared against ledger rows; nothing here reaches SQL or a command vector,
+--- so the routed path stays an exact, closed identity.
+local function parse_query(text)
+	local query = {}
+	if not text or text == "" then return query end
+	for pair in text:gmatch("[^&]+") do
+		local name, value = pair:match("^([^=]*)=(.*)$")
+		if not name then name, value = pair, "" end
+		name = decode_component(name)
+		value = decode_component(value)
+		if not name or not value then return nil end
+		if name ~= "" then query[name] = value end
+	end
+	return query
+end
+
 --- Parse one bounded HTTP/1 request with no pipelining or transfer coding;
 --- this deliberately tiny protocol surface matches the internal console.
 function M.parse(raw)
@@ -30,6 +63,14 @@ function M.parse(raw)
 	if not method then return nil, 400 end
 	if #path > 4096 then return nil, 414 end
 	if path:sub(1, 1) ~= "/" or path:find("[%z\r\n]") then return nil, 400 end
+	local query_text
+	local separator = path:find("?", 1, true)
+	if separator then
+		query_text = path:sub(separator + 1)
+		path = path:sub(1, separator - 1)
+	end
+	local query = parse_query(query_text)
+	if not query then return nil, 400 end
 
 	local headers = {}
 	if remaining ~= "" then
@@ -51,7 +92,7 @@ function M.parse(raw)
 	end
 	if content_length > 4096 then return nil, 413 end
 	if #body ~= content_length then return nil, 400 end
-	return {method = method, path = path, version = version, headers = headers, body = body}
+	return {method = method, path = path, query = query, version = version, headers = headers, body = body}
 end
 
 --- Serialize a response with validated headers and an exact byte length so a

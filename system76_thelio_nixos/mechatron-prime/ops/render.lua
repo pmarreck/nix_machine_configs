@@ -82,6 +82,9 @@ function M.ci_json(model)
 			current = ci_current_json(mechatron.current),
 		},
 		recent = json_array(recent),
+		-- Distinguishes "no runs yet" from "the ledger could not be read", which
+		-- otherwise render identically as an empty list.
+		recent_available = mechatron.recent_available ~= false,
 	})
 	if not encoded then error("could not encode CI JSON: " .. tostring(encode_error)) end
 	return encoded .. "\n"
@@ -107,7 +110,7 @@ end
 
 --- Whitelist the bounded history API fields so storage-only metadata cannot
 --- escape if the ledger schema or system adapter grows later.
-function M.ci_history_json(generated_at, runs)
+function M.ci_history_json(generated_at, runs, meta)
 	local results = {}
 	for _, run in ipairs(runs or {}) do
 		results[#results + 1] = {
@@ -120,9 +123,15 @@ function M.ci_history_json(generated_at, runs)
 			finished_at = run.finished_at,
 		}
 	end
+	-- `total_runs` is the size of the set the filter searched, and `truncated`
+	-- says whether that set was itself cut short. Together they let a client
+	-- tell "no such run" from "not in the part I was shown".
+	meta = meta or {}
 	local encoded, encode_error = cjson.encode({
 		generated_at = generated_at,
 		results = json_array(results),
+		total_runs = meta.total_runs or #results,
+		truncated = meta.truncated or false,
 	})
 	if not encoded then error("could not encode CI history JSON: " .. tostring(encode_error)) end
 	return encoded .. "\n"
@@ -170,7 +179,7 @@ local function service_cards(services)
 		<article class="card">
 			<div class="card-heading"><h3>%s</h3>%s</div>
 			<p>%s</p>%s%s%s
-		</article>]], html_escape(service.label), status_badge(service.state), html_escape(service.detail),
+		</article>]], html_escape(service.label), status_badge(service.state, service.state_label), html_escape(service.detail),
 			service.models and model_section("Installed models", service.models, service.model_inventory_available, "No installed models") or "",
 			service.loaded_models and model_section("Loaded now", service.loaded_models, service.loaded_models_available, "No models currently loaded") or "",
 			action_forms(service.actions))
@@ -226,10 +235,10 @@ function M.page(model)
 		.model-section { margin-top:14px; }
 		.model-section h4 { margin:0; color:var(--muted); font-size:.76rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 		.status { display:inline-block; border:1px solid currentColor; border-radius:999px; padding:2px 8px; font:700 .72rem/1.4 ui-monospace,monospace; text-transform:uppercase; }
-		.status-active,.status-healthy,.status-waiting,.status-chiming { color:var(--accent); }
+		.status-active,.status-healthy,.status-waiting,.status-chiming,.status-serving { color:var(--accent); }
 		/* A deliberate mute is amber, not red: the chime is silent because
 		   somebody chose that, which is a different thing from a fault. */
-		.status-degraded,.status-resilvering,.status-inactive,.status-muted,.status-muted-till-reboot { color:var(--warn); }
+		.status-degraded,.status-resilvering,.status-inactive,.status-muted,.status-muted-till-reboot,.status-masked { color:var(--warn); }
 		.status-critical,.status-failed,.status-stopped { color:var(--bad); }
 		dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; margin:0; }
 		dt { color:var(--muted); }

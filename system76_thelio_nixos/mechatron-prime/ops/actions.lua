@@ -17,6 +17,11 @@ local by_path = {
 	["/ops/actions/clocksound/mute-until-reboot"] = {id = "clocksound-mute-until-reboot", kind = "clocksound", steps = {{"stop"}}},
 	["/ops/actions/clocksound/mute"] = {id = "clocksound-mute", kind = "clocksound", steps = {{"mask", "--now"}}},
 	["/ops/actions/clocksound/unmute"] = {id = "clocksound-unmute", kind = "clocksound", steps = {{"unmask"}, {"start"}}},
+	-- A NixOS system unit can only carry a RUNTIME mask, since the persistent
+	-- mask location resolves into the read-only store. It still blocks the start
+	-- that NixOS activation would otherwise perform, and clears at reboot.
+	["/ops/actions/ollama/stop"] = {id = "ollama-stop", kind = "system-unit", unit = "ollama.service", steps = {{"mask", "--runtime", "--now"}}},
+	["/ops/actions/ollama/start"] = {id = "ollama-start", kind = "system-unit", unit = "ollama.service", steps = {{"unmask", "--runtime"}, {"start"}}},
 	["/ops/actions/codex-remote-control/status"] = {id = "codex-remote-control-status", kind = "codex", argv = {"app-server", "daemon", "version"}, present_result = true},
 	["/ops/actions/codex-remote-control/start"] = {id = "codex-remote-control-start", kind = "codex", argv = {"remote-control", "start", "--json"}, present_result = true},
 	["/ops/actions/codex-remote-control/stop"] = {id = "codex-remote-control-stop", kind = "codex", argv = {"remote-control", "stop", "--json"}},

@@ -22,6 +22,10 @@ let
       pkgs.findutils
       pkgs.gawk
       pkgs.iproute2
+      # The Codex CLI at ~/.local/bin/codex is a `#!/usr/bin/env node` script.
+      # nodejs-slim matches what the system already provides, so this adds no
+      # second Node to the closure.
+      pkgs.nodejs-slim
       pkgs.procps
       pkgs.sqlite
       pkgs.systemd

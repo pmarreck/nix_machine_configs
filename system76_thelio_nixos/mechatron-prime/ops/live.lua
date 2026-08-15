@@ -8,7 +8,10 @@ local service_specs = {
 	{scope = "system", unit = "NetworkManager.service", id = "network-manager", label = "NetworkManager", expected = "active", severity = "critical", detail = "wired and wireless network orchestration"},
 	{scope = "system", unit = "tailscaled.service", id = "tailscale", label = "Tailscale", expected = "active", severity = "critical", detail = "tailnet connectivity"},
 	{scope = "system", unit = "atticd.service", id = "attic", label = "Attic cache", expected = "active", severity = "warning", detail = "tailnet-local binary cache"},
-	{scope = "system", unit = "ollama.service", id = "ollama", label = "Ollama", expected = "active", severity = "warning", detail = "local embedding service", model_inventory = true},
+	{scope = "system", unit = "ollama.service", id = "ollama", label = "Ollama", expected = "active", severity = "warning", detail = "local embedding service", model_inventory = true, run_state = true, actions = {
+		{label = "Stop", path = "/ops/actions/ollama/stop", danger = true},
+		{label = "Start", path = "/ops/actions/ollama/start"},
+	}},
 	{scope = "system", unit = "mechatron-prime-webhook.service", id = "mechatron-webhook", label = "Mechatron webhook", expected = "active", severity = "critical", detail = "accepting signed GitHub pushes", actions = {
 		{label = "Start", path = "/ops/actions/mechatron-webhook/start"},
 		{label = "Stop", path = "/ops/actions/mechatron-webhook/stop", danger = true},
@@ -122,6 +125,15 @@ function M.collect_mechatron(source, include_recent)
 	local claimed_text = active_worker and active_queue_text or ""
 	local claimed_depth = probes.count_ndjson(claimed_text)
 	local waiting_depth = probes.count_ndjson(queue_text)
+	-- A nil from the probe means the ledger could not be read. That is reported
+	-- as unavailable rather than folded into an empty list, which would read as
+	-- "this host has never built anything".
+	local recent, recent_available = {}, true
+	if include_recent and source.recent_ci_runs then
+		local rows = source.recent_ci_runs()
+		if rows then recent = rows else recent_available = false end
+	end
+
 	return {
 		admission = admission,
 		worker_state = worker_state,
@@ -131,7 +143,8 @@ function M.collect_mechatron(source, include_recent)
 		claimed_depth = claimed_depth,
 		waiting_depth = waiting_depth,
 		queue_depth = claimed_depth + waiting_depth,
-		recent = include_recent and source.recent_ci_runs and source.recent_ci_runs() or {},
+		recent = recent,
+		recent_available = recent_available,
 	}
 end
 
@@ -141,8 +154,18 @@ function M.collect(source)
 	local services = {}
 	local health_services = {}
 	for _, spec in ipairs(service_specs) do
-		local state = spec.probe and source[spec.probe]() or source.service(spec.scope, spec.unit)
-		local service = {id = spec.id, label = spec.label, state = state, detail = spec.detail, actions = spec.actions}
+		-- A unit the console can stop must be read through its load state, so a
+		-- stop the operator chose never reports as a fault. Everything else
+		-- stays on the cheaper is-active probe.
+		local state, state_label, deliberate
+		if spec.run_state then
+			local run = source.unit(spec.scope, spec.unit)
+			local classified = probes.classify_unit(run.load_state, run.active_state)
+			state, state_label, deliberate = classified.state, classified.label, classified.healthy
+		else
+			state = spec.probe and source[spec.probe]() or source.service(spec.scope, spec.unit)
+		end
+		local service = {id = spec.id, label = spec.label, state = state, state_label = state_label, detail = spec.detail, actions = spec.actions}
 		if spec.model_inventory then
 			local models = probes.parse_ollama_models(source.run("ollama_tags") or "")
 			local loaded_models = probes.parse_ollama_loaded_models(source.run("ollama_ps") or "")
@@ -156,7 +179,13 @@ function M.collect(source)
 		end
 		services[#services + 1] = service
 		if spec.health ~= false then
-			health_services[#health_services + 1] = {id = spec.id, label = spec.label, state = state, expected = spec.expected, severity = spec.severity}
+			-- For a stoppable unit the health question is whether the state was
+			-- CHOSEN, not whether it is running; only a genuine fault alarms.
+			local health_state, expected = state, spec.expected
+			if spec.run_state then
+				health_state, expected = deliberate and "ok" or state, "ok"
+			end
+			health_services[#health_services + 1] = {id = spec.id, label = spec.label, state = health_state, expected = expected, severity = spec.severity}
 		end
 	end
 

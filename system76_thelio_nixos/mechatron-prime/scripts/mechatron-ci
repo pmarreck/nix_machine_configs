@@ -17,6 +17,8 @@ message() {
 		recent) printf 'Recent outcomes' ;;
 		history) printf 'Mechatron Prime CI history' ;;
 		none) printf 'none' ;;
+		ledger_unavailable) printf 'unavailable (the result ledger could not be read)' ;;
+		truncated_history) printf 'the server truncated its ledger projection; older runs were not searched' ;;
 		unknown_command) printf 'unknown command' ;;
 		unsupported_locale) printf 'unsupported locale' ;;
 		invalid_response) printf 'server returned an invalid CI status document' ;;
@@ -32,6 +34,10 @@ message() {
 			'  status       Show admission, worker, queue, current job, and recent results' \
 			'  queue        Show current, claimed, and waiting jobs with elapsed time' \
 			'  log          Show a bounded, sanitized history of CI results' \
+			'               A finished run is queryable as soon as it finishes: the' \
+			'               worker records it before starting the next job, and the' \
+			'               server reads the ledger per request. Nothing is batched,' \
+			'               so polling faster than a job takes only adds load.' \
 			'  halt         Persistently halt admission and cancel/requeue active work' \
 			'  resume       Reopen admission and immediately drain queued work' \
 			'  cancel       Cancel/requeue only the active build; admission stays unchanged' \
@@ -237,8 +243,29 @@ fetch_status() {
 	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci.json"
 }
 
+# Percent-encode everything outside the unreserved set so a filter value can
+# never introduce another query parameter or alter the routed path.
+url_encode() {
+	local text="$1" index character output=""
+	for (( index = 0; index < ${#text}; index++ )); do
+		character="${text:index:1}"
+		case "$character" in
+			[A-Za-z0-9._~-]) output+="$character" ;;
+			*) output+="$(printf '%%%02X' "'$character")" ;;
+		esac
+	done
+	printf '%s' "$output"
+}
+
+# Filters are sent to the server so they apply to the WHOLE ledger. Filtering
+# only after the fetch confines the answer to whatever slice the server chose to
+# return, which made runs outside that slice look as though they never ran.
 fetch_history() {
-	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci-log.json"
+	local query=""
+	[ -n "$project_filter" ] && query+="&project=$(url_encode "$project_filter")"
+	[ -n "$commit_filter" ] && query+="&commit=$(url_encode "$commit_filter")"
+	[ -n "$query" ] && query="?${query#&}"
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci-log.json$query"
 }
 
 fetch_queue() {
@@ -317,6 +344,11 @@ if [ "$command" = log ]; then
 	' <<< "$document" >/dev/null 2>&1; then
 		printf '%s: %s\n' "$(message title)" "$(message invalid_history)" >&2
 		exit 1
+	fi
+	# Never let a bound pass unremarked: a filtered miss over a truncated set is
+	# not the same answer as a filtered miss over the whole ledger.
+	if [ "$(jq -r '.truncated // false' <<< "$document")" = true ]; then
+		printf '%s: %s\n' "$(message title)" "$(message truncated_history)" >&2
 	fi
 	document="$(add_history_durations <<< "$document")" || exit $?
 	document="$(filter_history <<< "$document")" || exit $?
@@ -452,7 +484,8 @@ jq -r \
 	--arg recent_label "$(message recent)" \
 	--arg alarm_start "$alarm_start" \
 	--arg alarm_reset "$alarm_reset" \
-	--arg none "$(message none)" '
+	--arg none "$(message none)" \
+	--arg unavailable "$(message ledger_unavailable)" '
 	(if .admission.state == "halted"
 	 then $alarm_start + "STOPPED" + $alarm_reset
 	 else (.admission.state | ascii_upcase) end) as $admission |
@@ -462,6 +495,8 @@ jq -r \
 	 $worker_label + ": " + $worker + "  " + $queue_label + ": " + (.worker.queue_depth | tostring),
 	 $current_label + ": " + $current,
 	 $recent_label + ":"] +
-	(if (.recent | length) == 0 then ["  " + $none] else [.recent[] | "  " + (if .status == "success" then "PASS" else "FAIL" end) + "  " + .repository + "@" + (.commit_sha[0:12]) + (if .failure_stage == "" then "" else "  " + .failure_stage end)] end) |
+	(if .recent_available == false then ["  " + $unavailable]
+	 elif (.recent | length) == 0 then ["  " + $none]
+	 else [.recent[] | "  " + (if .status == "success" then "PASS" else "FAIL" end) + "  " + .repository + "@" + (.commit_sha[0:12]) + (if .failure_stage == "" then "" else "  " + .failure_stage end)] end) |
 	.[]
 ' <<< "$document"

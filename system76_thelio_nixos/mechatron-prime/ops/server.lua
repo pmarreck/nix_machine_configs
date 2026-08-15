@@ -9,7 +9,9 @@ local port = tonumber(os.getenv("MECHATRON_OPS_PORT") or "9002")
 
 local provider = {
 	model = function() return live.collect(system) end,
-	ci_history = function() return system.ci_history(), system.now() end,
+	-- Passed through verbatim: the adapter reports its own timestamp, and a nil
+	-- here is a real failure the router must surface rather than an empty list.
+	ci_history = function() return system.ci_history() end,
 	ci_queue = function() return system.ci_queue(), system.now() end,
 	execute_action = system.execute_action,
 	authorize_action = function(request)
