@@ -9,13 +9,20 @@
   Completed 2026-08-15 15:09 EDT: the new sixth assertion failed against the
   prior host, then passed only after evaluating `codex-app` in Peter's complete
   user package set and outside the complete global package set.
-- [ ] Activate the existing pinned Codex GUI derivation for `pmarreck`, rebuild
+- [x] Activate the existing pinned Codex GUI derivation for `pmarreck`, rebuild
   `/etc/nixos#thelio-nixos`, and verify its executable and desktop entry from
   the live generation. Curiosity poke: activation must preserve the existing
   `~/.codex` conversation and authentication state rather than creating an
   isolated profile.
-- [ ] Update the package guide, run the full suite and package smoke check, then
+  Completed 2026-08-15 16:44 EDT: live generation
+  `xzyh99q054x8dxdzcsniyn19cl5nz3dk` exposes `chatgpt` and its desktop entry
+  from `/etc/profiles/per-user/pmarreck`; the executable reports
+  `26.810.41047`. The existing `~/.codex` directory retained inode `25868`.
+- [x] Update the package guide, run the full suite and package smoke check, then
   commit the known-good configuration.
+  Completed 2026-08-15 16:44 EDT: all 17 repository assertions and the isolated
+  package smoke check passed from clean commit `0e686a0`; the clean full-system
+  build exactly matched the active generation.
 
 ## Ollama Muse-Glimmer support (2026-08-14)
 
