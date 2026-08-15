@@ -1,5 +1,22 @@
 # NixOS plan
 
+## Activate Codex Linux GUI for Peter (2026-08-15)
+
+- [x] Add an evaluated package-placement contract requiring `codex-app` in
+  Peter's NixOS user packages and forbidding it from the global system package
+  set. Curiosity poke: a textual assertion could pass while the evaluated host
+  omits the package, so inspect the complete evaluated package sets.
+  Completed 2026-08-15 15:09 EDT: the new sixth assertion failed against the
+  prior host, then passed only after evaluating `codex-app` in Peter's complete
+  user package set and outside the complete global package set.
+- [ ] Activate the existing pinned Codex GUI derivation for `pmarreck`, rebuild
+  `/etc/nixos#thelio-nixos`, and verify its executable and desktop entry from
+  the live generation. Curiosity poke: activation must preserve the existing
+  `~/.codex` conversation and authentication state rather than creating an
+  isolated profile.
+- [ ] Update the package guide, run the full suite and package smoke check, then
+  commit the known-good configuration.
+
 ## Ollama Muse-Glimmer support (2026-08-14)
 
 - [x] Advance Peter's Ollama fork to 0.32.13 and llama.cpp b10380 while

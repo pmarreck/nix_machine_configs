@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Contract for the official Codex Linux GUI package without activating it.
+# Contract for the official Codex Linux GUI package and its host placement.
 
 set -u
 
@@ -50,6 +50,26 @@ if [ "$check_status" -eq 0 ] && [ -n "$check_name" ]; then
 	pass 'flake exposes a codex-app package check'
 else
 	fail 'flake must expose a codex-app package check'
+fi
+
+placement="$(
+	nix eval --raw \
+		"$ROOT_DIR#nixosConfigurations.thelio-nixos.config" \
+		--apply '
+			config:
+			let
+				isCodexApp = package: (package.pname or "") == "codex-app";
+				inUserPackages = builtins.any isCodexApp config.users.users.pmarreck.packages;
+				inSystemPackages = builtins.any isCodexApp config.environment.systemPackages;
+			in
+				if inUserPackages && !inSystemPackages then "user-only" else "incorrect"
+		' 2>/dev/null
+)"
+placement_status=$?
+if [ "$placement_status" -eq 0 ] && [ "$placement" = 'user-only' ]; then
+	pass 'Thelio installs codex-app for Peter without making it a global system package'
+else
+	fail 'Thelio must install codex-app only in users.users.pmarreck.packages'
 fi
 
 printf '%d/%d assertions passed\n' "$((total - failures))" "$total"

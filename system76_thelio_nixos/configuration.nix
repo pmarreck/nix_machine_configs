@@ -6,7 +6,7 @@
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix) — replaces
 # the old <nixos-unstable>/<nixos-master> NIX_PATH channel lookups. `system` is threaded to each
 # scope `import` because pure flake eval has no `builtins.currentSystem`. Migrated to flake 2026-07-05.
-{ options, config, pkgs, lib, inputs, system, ... }:
+{ options, config, pkgs, lib, inputs, system, codexApp, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -1193,6 +1193,10 @@ in
 
     # TODO: move these to home-manager
     packages = with pkgs; [
+      # The official Codex GUI shares Peter's ~/.codex state and belongs in his
+      # profile, not every user's system-wide PATH. It is defined and tested as
+      # /etc/nixos#codex-app, then injected here through flake specialArgs.
+      codexApp
       # erlang # the inspiration for the best language
       # elixir # the best language
       # ruby # my OG love

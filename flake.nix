@@ -81,7 +81,7 @@
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system; };
+        specialArgs = { inherit inputs system codexApp; };
 
         modules = [ module ];
       };

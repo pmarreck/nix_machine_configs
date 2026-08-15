@@ -23,7 +23,19 @@ The check invokes the packaged launcher with an isolated home and requires its
 reported version to equal the derivation version. It does not open a window or
 modify the live Codex profile.
 
-Run it without adding it to a system profile:
+The Thelio host installs the app in `users.users.pmarreck.packages`. This keeps
+the GUI in Peter's profile and desktop menu without adding it to every user's
+global environment. The wrapper exposes Peter's real home directory, including
+the existing `~/.codex` state; activation does not copy or replace that state.
+
+After activating `/etc/nixos#thelio-nixos`, launch it from GNOME or run:
+
+```bash
+cd "$HOME"
+chatgpt
+```
+
+It can also run directly from the flake without activation:
 
 ```bash
 cd "$HOME"
@@ -33,8 +45,7 @@ nix run /etc/nixos#codex-app
 The FHS wrapper exposes normal user and temporary paths. Starting it with a
 current directory under the host's `/etc` fails because that path is outside
 the bubblewrap namespace; launch it from `$HOME`, `/tmp`, or the desktop entry.
-The package is deliberately absent from `environment.systemPackages` until
-Peter chooses to activate it on a host.
+It remains deliberately absent from `environment.systemPackages`.
 
 ## Update
 
