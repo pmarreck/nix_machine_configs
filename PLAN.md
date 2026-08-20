@@ -20,10 +20,14 @@
   Completed 2026-08-20 12:08 EDT: isolated-home probes returned v0.1.13 and
   witnessed both mutation commands fail before touching state; the full suite
   passed 22/22 assertions and `nix flake check --all-systems` passed.
-- [ ] Activate the built Thelio generation, verify `tode` from Peter's live
+- [x] Activate the built Thelio generation, verify `tode` from Peter's live
   profile and its desktop entry, then record the generation and commit. No
   reboot should be required. Curiosity poke: a successful package check does
   not prove the per-user profile symlink switched to the candidate generation.
+  Completed 2026-08-20 12:13 EDT: privileged dry activation passed before the
+  real switch; live generation `12g364rayalp52i0kk3c1ik48iqknhxq` exposes
+  `/etc/profiles/per-user/pmarreck/bin/tode`, reports v0.1.13, and provides the
+  Terminal Code desktop entry. No reboot was required.
 
 ## Activate Codex Linux GUI for Peter (2026-08-15)
 
