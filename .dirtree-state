@@ -10,7 +10,7 @@ annotate=[
 	docs/codex-app.md = Build, smoke-test, runtime-boundary, and update guide for the official Codex app package.
 	flake.nix = Canonical NixOS hosts plus standalone Codex and Terminal Code packages with executable smoke checks
 	packages/codex-app.nix = Official x86_64 OpenAI Codex app package from a hash-pinned Debian payload.
-	packages/tode.nix = Pinned Terminal Code + matching code-server binary payload packaged in a Nix-managed FHS runtime
+	packages/tode.nix = Pinned Terminal Code + code-server FHS package with immutable-store-safe browser launcher and XDG state isolation.
 	system76_thelio_nixos/configuration.nix = Thelio NixOS host module: imports hardware, services, Mechatron, and declares the global system package set
 	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime b83a195 NixOS modules and scripts
 	system76_thelio_nixos/mechatron-prime-ops.nix = Stable wrapper importing the vendored operations module
@@ -25,5 +25,5 @@ annotate=[
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
 	tests/mechatron_targets_test.sh = Regression contract for the exact Mechatron target set, target evaluation, and canonical README badge
-	tests/tode_package_test.sh = TDD contract for pinned tode artifacts, flake outputs, smoke check, and Peter-only installation
+	tests/tode_package_test.sh = TDD contract for pinned Tode artifacts, immutable runtime resolution, XDG launcher isolation, smoke check, and Peter-only installation.
 ]

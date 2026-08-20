@@ -51,6 +51,29 @@ let
           'return (0, uninstall_1.uninstallCommand)(args.slice(1));' \
           'throw new Error("this Terminal Code install is managed by Nix; remove tode from /etc/nixos instead");'
 
+      # Upstream rewrites this launcher on every ordinary invocation so it can
+      # inject isolated XDG homes. Nix store files are immutable, so resolve the
+      # already-built launcher directly and bake the same runtime behavior into
+      # it while the derivation is still writable.
+      substituteInPlace "$out/lib/tode/dist/runtime/release.js" \
+        --replace-fail \
+          'return { bin: writeLauncher(VENDORED), root: VENDORED, version, source: "vendored" };' \
+          'return { bin: node_path_1.default.join(VENDORED, "bin", "terminal-browser"), root: VENDORED, version, source: "vendored" };'
+
+      substituteInPlace "$out/lib/tode/vendor/terminal-browser/bin/terminal-browser" \
+        --replace-fail \
+          'export ELECTRON_RUN_AS_NODE=1' \
+          'export ELECTRON_RUN_AS_NODE=1
+case "''${XDG_DATA_HOME:-}" in /*) tode_data_home="$XDG_DATA_HOME" ;; *) tode_data_home="$HOME/.local/share" ;; esac
+case "''${XDG_STATE_HOME:-}" in /*) tode_state_home="$XDG_STATE_HOME" ;; *) tode_state_home="$HOME/.local/state" ;; esac
+case "''${XDG_CACHE_HOME:-}" in /*) tode_cache_home="$XDG_CACHE_HOME" ;; *) tode_cache_home="$HOME/.cache" ;; esac
+export XDG_DATA_HOME="''${TODE_BROWSER_DATA:-$tode_data_home/tode/browser/share}"
+export XDG_STATE_HOME="''${TODE_BROWSER_STATE:-$tode_state_home/tode/browser/state}"
+export XDG_CACHE_HOME="''${TODE_BROWSER_CACHE:-$tode_cache_home/tode/browser}"
+if [ -n "''${TODE_BROWSER_RUN:-}" ]; then export XDG_RUNTIME_DIR="$TODE_BROWSER_RUN"; fi
+export TERMINAL_BROWSER_APPDATA="''${TODE_BROWSER_APPDATA:-$tode_data_home/tode/browser/chromium}"
+mkdir -p -- "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$TERMINAL_BROWSER_APPDATA"'
+
       wrapProgram "$out/lib/tode/bin/tode" \
         --set TODE_INSTALL_ROOT "$out/lib/tode" \
         --set TODE_CODE_SERVER "$out/lib/code-server/bin/code-server"

@@ -66,5 +66,33 @@ else
 	fail 'Thelio must install tode only in users.users.pmarreck.packages'
 fi
 
+nix build --no-link "$ROOT_DIR#packages.x86_64-linux.tode.payload" >/dev/null 2>&1
+payload_build_status=$?
+payload_path="$(nix eval --raw "$ROOT_DIR#packages.x86_64-linux.tode.payload.outPath" 2>/dev/null)"
+payload_eval_status=$?
+release_resolver="$payload_path/lib/tode/dist/runtime/release.js"
+browser_launcher="$payload_path/lib/tode/vendor/terminal-browser/bin/terminal-browser"
+
+if [ "$payload_build_status" -eq 0 ] &&
+	[ "$payload_eval_status" -eq 0 ] &&
+	[ -f "$release_resolver" ] &&
+	! rg -Fq 'bin: writeLauncher(VENDORED)' "$release_resolver"; then
+	pass 'vendored runtime resolution never rewrites the immutable browser tree'
+else
+	fail 'vendored runtime resolution must not write its launcher inside the Nix store'
+fi
+
+launcher_contract_failures=0
+for token in TODE_BROWSER_DATA TODE_BROWSER_STATE TODE_BROWSER_CACHE TODE_BROWSER_APPDATA; do
+	if ! [ -f "$browser_launcher" ] || ! rg -Fq "$token" "$browser_launcher"; then
+		launcher_contract_failures=$((launcher_contract_failures + 1))
+	fi
+done
+if [ "$launcher_contract_failures" -eq 0 ] && rg -Fq 'mkdir -p' "$browser_launcher"; then
+	pass 'immutable browser launcher creates isolated mutable XDG directories'
+else
+	fail 'immutable browser launcher must preserve every Tode browser-home override and create its directories'
+fi
+
 printf '%d/%d assertions passed\n' "$((total - failures))" "$total"
 exit "$failures"

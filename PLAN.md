@@ -1,5 +1,25 @@
 # NixOS plan
 
+## Repair Tode startup on immutable Nix storage (2026-08-20)
+
+- [x] Reproduce ordinary startup's attempt to rewrite the vendored
+  `terminal-browser` launcher in `/nix/store` with a package-output contract.
+  Curiosity poke: `--version` bypasses runtime resolution, so a version-only
+  smoke test can remain green while every useful invocation fails.
+  Completed 2026-08-20 15:41 EDT: both new assertions failed against the live
+  payload, proving its resolver called `writeLauncher(VENDORED)` and its stored
+  launcher lacked the four mutable browser-home overrides.
+- [x] Preserve Tode's isolated browser XDG directories without copying the
+  bundled browser tree into mutable user storage, then run the complete package
+  and system gates. Curiosity poke: the repair must honor existing
+  `TODE_BROWSER_*` overrides and must never hardcode Peter's home directory.
+  Completed 2026-08-20 15:45 EDT: the built launcher selects absolute XDG homes
+  at runtime, honors all four overrides, and creates their directories. The
+  focused 7/7 test, complete suite, all-system flake check, Tode smoke check,
+  and Thelio system build passed.
+- [ ] Dry-activate, switch, and manually verify Tode starts from an ordinary
+  project directory without an immutable-store error. No reboot should be needed.
+
 ## Reconcile local and remote configuration (2026-08-20)
 
 - [x] Merge the three remote-only Tiki, Tailscale, and cosmocc commits with the
