@@ -5,6 +5,7 @@ show=[
 ]
 
 annotate=[
+	.mechatron-prime/targets = Exact Mechatron Prime CI contract: all three host closures plus Codex and Terminal Code smoke checks
 	PLAN.md = Current machine-configuration work and activation safety gates
 	docs/codex-app.md = Build, smoke-test, runtime-boundary, and update guide for the official Codex app package.
 	flake.nix = Canonical NixOS hosts plus standalone Codex and Terminal Code packages with executable smoke checks
@@ -23,5 +24,6 @@ annotate=[
 	system76_thelio_nixos/test-luajit-system-path = Builds the Thelio system package profile and verifies LuaJIT module plus LuaRocks CLI availability.
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
+	tests/mechatron_targets_test.sh = Regression contract for the exact Mechatron target set, target evaluation, and canonical README badge
 	tests/tode_package_test.sh = TDD contract for pinned tode artifacts, flake outputs, smoke check, and Peter-only installation
 ]

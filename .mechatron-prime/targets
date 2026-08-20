@@ -1,0 +1,8 @@
+# Build every managed host so a shared-input change cannot break an untested machine.
+nixosConfigurations.thelio-nixos.config.system.build.toplevel
+nixosConfigurations.framework-nixos.config.system.build.toplevel
+nixosConfigurations.tiki-wsl-nixos.config.system.build.toplevel
+
+# Execute the standalone package smoke checks as separate CI contracts.
+checks.x86_64-linux.codex-app
+checks.x86_64-linux.tode
