@@ -61,6 +61,10 @@ let
   # my custom proprietary fonts
   key-rebel-moon = pkgs.callPackage ./key-rebel-moon.nix { };
   tech-alive = pkgs.callPackage ./tech-alive.nix { };
+  # Official prebuilt Cosmopolitan toolchain from cosmo.zip — see the doc
+  # comment in ../cosmocc-bin.nix for why we don't use nixpkgs' cosmocc
+  # (stale 2.2 + its from-source test suite fails on ZFS roots like this one).
+  cosmocc-bin = pkgs.callPackage ../cosmocc-bin.nix { };
   # which particular version of elixir and erlang I want globally
   erlang = unstable.erlang; # I like to live dangerously. For fallback, use stable of: # erlangR25;
   elixir = pkgs.beam.packages.erlangR26.elixir_1_15;
@@ -1624,6 +1628,7 @@ in
       luajitPackages.moonscript # `moonc` CLI for moonrun/yuerun (separate from the baked module)
       sd # sed-alternative the dotfiles call
       # NOTE: yuescript (`yue`) is NOT in nixpkgs — needs a separate source later.
+      # nordic # for nordic theme # REMOVED from nixpkgs (2026-08 lock bump): depended on gtk-engine-murrine (unmaintained, GTK 2). whitesur themes below still work.
       whitesur-gtk-theme
       whitesur-icon-theme
       # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
@@ -1766,61 +1771,7 @@ in
       rustc # rust compiler
       gcc # C compiler
       gnumake # make
-      # Two Cosmopolitan tests assume a particular allocated-block count.  That
-      # is not guaranteed on this ZFS filesystem.  Probe both unmodified tests
-      # first: skip them only for their known local failure signatures, while a
-      # passing or unexpected test stays in the upstream suite for review.
-      ((cosmopolitan.overrideAttrs (old: {
-        preCheck = (old.preCheck or "") + "\n" + ''
-          ftruncate_test_source=test/libc/calls/ftruncate_test.c
-          ftruncate_test_binary=o//test/libc/calls/ftruncate_test.com
-          ftruncate_test_log="$NIX_BUILD_TOP/ftruncate-test.log"
-          lunix_test_source=test/tool/net/lunix_test.lua
-          lunix_test_binary=o//tool/net/redbean.com
-          lunix_test_log="$NIX_BUILD_TOP/lunix-test.log"
-          ftruncate_known_failure=0
-
-          if [ -f "$ftruncate_test_source" ]; then
-            if make "$ftruncate_test_binary"; then
-              if "$ftruncate_test_binary" >"$ftruncate_test_log" 2>&1; then
-                echo "warning: Cosmopolitan ftruncate workaround appears stale; remove it after review." >&2
-              elif grep -Fq "ASSERT_EQ(4096 / 512, st.st_blocks)" "$ftruncate_test_log" \
-                && grep -Fq "need 8" "$ftruncate_test_log" \
-                && grep -Fq "got 1" "$ftruncate_test_log"; then
-                ftruncate_known_failure=1
-              else
-                cat "$ftruncate_test_log" >&2
-                echo "warning: Cosmopolitan ftruncate test failed unexpectedly; keeping it in the suite." >&2
-              fi
-            else
-              echo "warning: Cosmopolitan ftruncate test could not be built; keeping it in the suite." >&2
-            fi
-          else
-            echo "warning: Cosmopolitan ftruncate test disappeared upstream; remove this workaround after review." >&2
-          fi
-
-          if [ "$ftruncate_known_failure" -eq 1 ]; then
-            if [ -f "$lunix_test_source" ] && make "$lunix_test_binary"; then
-              lunix_tmp_root="$NIX_BUILD_TOP/lunix-test-tmp"
-              mkdir -p "$lunix_tmp_root"
-              if TMPDIR="$lunix_tmp_root" "$lunix_test_binary" -i "$lunix_test_source" >"$lunix_test_log" 2>&1; then
-                rm -rf "$lunix_tmp_root"
-                echo "warning: Cosmopolitan lunix test now passes while ftruncate still has the old failure; keeping both tests for review." >&2
-              elif grep -Fq "test/tool/net/lunix_test.lua:131: assertion failed!" "$lunix_test_log"; then
-                rm -rf "$lunix_tmp_root"
-                echo "info: applying Cosmopolitan ZFS block-allocation workaround to the two proven-equivalent tests." >&2
-                rm -vf "$ftruncate_test_source" "$ftruncate_test_binary" "$lunix_test_source"
-              else
-                rm -rf "$lunix_tmp_root"
-                cat "$lunix_test_log" >&2
-                echo "warning: Cosmopolitan lunix test failed unexpectedly; keeping both tests in the suite." >&2
-              fi
-            else
-              echo "warning: Cosmopolitan lunix test could not be built; keeping both tests in the suite." >&2
-            fi
-          fi
-        '';
-      })).cosmocc) # use via CC=cosmocc, CXX=cosmoc++
+      cosmocc-bin # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++ — prebuilt from cosmo.zip, NOT nixpkgs (see ../cosmocc-bin.nix)
       idris2 # Idris2 functional statically-typed programming language that looks cool and compiles to C
       chez # Chez Scheme (useful for idris)
       gmp # GNU Multiple Precision Arithmetic Library
