@@ -45,6 +45,10 @@ in
     description = "Mechatron Prime sequential multi-repository build worker";
     after = [ "network-online.target" "atticd.service" "nix-daemon.service" ];
     wants = [ "network-online.target" "atticd.service" ];
+    # Some exact-commit flakes use Git-backed inputs during evaluation.  The
+    # systemd unit gets a deliberately narrow PATH and cannot inherit Git from
+    # an operator's interactive shell.
+    path = [ pkgs.git ];
     # PathChanged is edge-triggered. This level check suppresses empty starts
     # from the reconciliation timer while preserving a durable queued-work
     # condition for normal path activation.
