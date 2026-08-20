@@ -1,5 +1,26 @@
 # NixOS plan
 
+## Reconcile local and remote configuration (2026-08-20)
+
+- [x] Merge the three remote-only Tiki, Tailscale, and cosmocc commits with the
+  eleven local-only Thelio, Codex, Terminal Code, and Mechatron commits without
+  dropping either side. Curiosity poke: compare candidate and committed tree
+  objects so a clean textual merge cannot hide an omitted file.
+  Completed 2026-08-20 14:29 EDT: commit `3a9391c` merged cleanly after the
+  complete suite, flake check, all three host builds, and a Thelio dry activation.
+- [x] Add an exact five-output Mechatron manifest and canonical badge, then
+  prove every target evaluates and builds. Curiosity poke: CI must build the
+  intended host closures instead of guessing a convenient default package.
+  Completed 2026-08-20 14:34 EDT in commit `ddf385b`; the manifest gate passed,
+  exposing a separate worker-only Git PATH failure during the Thelio build.
+- [x] Vendor and activate the upstream Mechatron worker PATH repair, then require
+  the pushed `nix_machine_configs` commit to pass all five targets on Mechatron.
+  Curiosity poke: interactive Git availability is irrelevant to an isolated
+  systemd service, so inspect the generated and live unit environments.
+  Completed 2026-08-20 14:48 EDT: upstream commit `46cab0f` passed its own CI;
+  config commit `1f2fa32` was dry-activated, switched, and passed all five exact
+  targets. The live worker PATH contains Git 2.55.0, and Tailscale remained online.
+
 ## Install Terminal Code through Nix (2026-08-20)
 
 - [x] Replace the upstream `curl -fsSL https://tode.sh/install | bash` path
