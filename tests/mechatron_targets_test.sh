@@ -17,6 +17,7 @@ fail() { total=$((total + 1)); failures=$((failures + 1)); printf 'not ok - %s\n
 expected_targets="$({
 	printf '%s\n' \
 		'checks.x86_64-linux.codex-app' \
+		'checks.x86_64-linux.terminal-browser' \
 		'checks.x86_64-linux.tode' \
 		'nixosConfigurations.framework-nixos.config.system.build.toplevel' \
 		'nixosConfigurations.thelio-nixos.config.system.build.toplevel' \
@@ -27,9 +28,9 @@ if [ -f "$TARGETS" ]; then
 	pass 'Mechatron target manifest exists'
 	actual_targets="$(sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$TARGETS" | sort)"
 	if [ "$actual_targets" = "$expected_targets" ]; then
-		pass 'Mechatron targets are the exact intentional five-output set'
+		pass 'Mechatron targets are the exact intentional six-output set'
 	else
-		fail 'Mechatron targets must cover all hosts and both executable smoke checks exactly'
+		fail 'Mechatron targets must cover all hosts and all three executable smoke checks exactly'
 	fi
 
 	resolved=0
@@ -41,14 +42,14 @@ if [ -f "$TARGETS" ]; then
 	done <<EOF
 $expected_targets
 EOF
-	if [ "$resolved" -eq 5 ]; then
+	if [ "$resolved" -eq 6 ]; then
 		pass 'every declared Mechatron target resolves to a derivation'
 	else
 		fail 'every declared Mechatron target must resolve to a derivation'
 	fi
 else
 	fail 'Mechatron target manifest exists'
-	fail 'Mechatron targets are the exact intentional five-output set'
+	fail 'Mechatron targets are the exact intentional six-output set'
 	fail 'every declared Mechatron target resolves to a derivation'
 fi
 

@@ -1,5 +1,30 @@
 # NixOS plan
 
+## Standalone Terminal Browser (2026-08-20)
+
+- [x] Verify the terminal dependency from upstream v0.5.8 source rather than
+  inferring it from Terminal Code behavior. Completed 2026-08-20 19:34 EDT:
+  Terminal Browser renders through the Kitty graphics protocol and ships
+  explicit WezTerm and tmux adapters; SSH degrades from file/shared-memory
+  frames to compressed inline frames when necessary. Ghostty is recommended,
+  not required.
+  - Curiosity poke answered: when tmux is present it intentionally wins
+    detection over WezTerm, enables passthrough/focus/CSI-u, and wraps each
+    graphics command for tmux. A generic `TERM=tmux-256color` is expected.
+- [x] Package the official Terminal Browser 0.5.8 x86_64 Linux release from its
+  GitHub asset and published SHA-256, refuse its curl-to-shell self-updater,
+  expose package and smoke-check outputs, and install it only for Peter.
+  Completed 2026-08-20 19:34 EDT: package contract 6/6, complete repository
+  suite, all-system flake evaluation, exact host build, and dry activation pass.
+- [x] Activate and test the complete human/agent path under WezTerm plus tmux.
+  Completed 2026-08-20 19:34 EDT without reboot: a live `example.com` browser
+  reported a 1342x1276 viewport; the CLI returned its accessibility tree and
+  DOM, produced an inspectable annotated 1332x1238 screenshot, and shutdown
+  removed its daemon, browser process, and temporary pane.
+  - Curiosity poke answered: this gives agents semantic DOM/accessibility
+    inspection, CDP actions, and pixels through screenshots. It is useful
+    browser vision, not a general-purpose view into unrelated GUI windows.
+
 ## Repair Tode startup on immutable Nix storage (2026-08-20)
 
 - [x] Reproduce ordinary startup's attempt to rewrite the vendored

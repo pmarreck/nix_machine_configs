@@ -65,6 +65,7 @@
         config.allowUnfree = true;
       };
       codexApp = pkgs.callPackage ./packages/codex-app.nix { };
+      terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
       codexAppSmoke = pkgs.runCommand "codex-app-smoke-${codexApp.version}" {
         nativeBuildInputs = [ codexApp ];
@@ -103,23 +104,43 @@
         esac
         printf '%s\n' "$actual" > "$out/version"
       '';
+      terminalBrowserSmoke = pkgs.runCommand "terminal-browser-smoke-${terminalBrowser.version}" {
+        nativeBuildInputs = [ terminalBrowser ];
+      } ''
+        export HOME=/tmp/terminal-browser-smoke
+        export XDG_CONFIG_HOME="$HOME/config"
+        export XDG_CACHE_HOME="$HOME/cache"
+        export XDG_DATA_HOME="$HOME/data"
+        export XDG_STATE_HOME="$HOME/state"
+        mkdir -p "$HOME" "$out"
+        cd "$HOME"
+        actual="$(terminal-browser --version)"
+        if [ "$actual" != "terminal-browser v${terminalBrowser.version}" ]; then
+          printf 'expected Terminal Browser v%s, got %s\n' \
+            "${terminalBrowser.version}" "$actual" >&2
+          exit 1
+        fi
+        printf '%s\n' "$actual" > "$out/version"
+      '';
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system codexApp tode; };
+        specialArgs = { inherit inputs system codexApp terminalBrowser tode; };
 
         modules = [ module ];
       };
     in {
       packages.${system} = {
         codex-app = codexApp;
+        terminal-browser = terminalBrowser;
         inherit tode;
       };
       checks.${system} = {
         codex-app = codexAppSmoke;
+        terminal-browser = terminalBrowserSmoke;
         tode = todeSmoke;
       };
 

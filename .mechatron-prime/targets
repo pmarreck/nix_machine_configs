@@ -5,4 +5,5 @@ nixosConfigurations.tiki-wsl-nixos.config.system.build.toplevel
 
 # Execute the standalone package smoke checks as separate CI contracts.
 checks.x86_64-linux.codex-app
+checks.x86_64-linux.terminal-browser
 checks.x86_64-linux.tode
