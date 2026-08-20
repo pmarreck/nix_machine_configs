@@ -59,6 +59,7 @@
         config.allowUnfree = true;
       };
       codexApp = pkgs.callPackage ./packages/codex-app.nix { };
+      tode = pkgs.callPackage ./packages/tode.nix { };
       codexAppSmoke = pkgs.runCommand "codex-app-smoke-${codexApp.version}" {
         nativeBuildInputs = [ codexApp ];
       } ''
@@ -75,19 +76,46 @@
         fi
         printf '%s\n' "$actual" > "$out/version"
       '';
+      todeSmoke = pkgs.runCommand "tode-smoke-${tode.version}" {
+        nativeBuildInputs = [ tode ];
+      } ''
+        export HOME=/tmp/tode-smoke
+        export XDG_CONFIG_HOME="$HOME/config"
+        export XDG_CACHE_HOME="$HOME/cache"
+        export XDG_DATA_HOME="$HOME/data"
+        export XDG_STATE_HOME="$HOME/state"
+        mkdir -p "$HOME" "$out"
+        cd "$HOME"
+        actual="$(tode --version)"
+        case "$actual" in
+          v${tode.version}|${tode.version}) ;;
+          *)
+            printf 'expected Terminal Code %s, got %s\n' \
+              "${tode.version}" "$actual" >&2
+            exit 1
+            ;;
+        esac
+        printf '%s\n' "$actual" > "$out/version"
+      '';
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system codexApp; };
+        specialArgs = { inherit inputs system codexApp tode; };
 
         modules = [ module ];
       };
     in {
-      packages.${system}.codex-app = codexApp;
-      checks.${system}.codex-app = codexAppSmoke;
+      packages.${system} = {
+        codex-app = codexApp;
+        inherit tode;
+      };
+      checks.${system} = {
+        codex-app = codexAppSmoke;
+        tode = todeSmoke;
+      };
 
       nixosConfigurations = {
         thelio-nixos = mkHost nixpkgs ./system76_thelio_nixos/configuration.nix;

@@ -1,5 +1,30 @@
 # NixOS plan
 
+## Install Terminal Code through Nix (2026-08-20)
+
+- [x] Replace the upstream `curl -fsSL https://tode.sh/install | bash` path
+  with a hash-pinned package for Terminal Code 0.1.13 and its required
+  code-server 4.132.0 runtime. Do not execute the installer or defer the
+  code-server download to first launch. Curiosity poke: the top-level installer
+  verifies its own tarball, but the application otherwise downloads a second
+  239 MB version-specific workbench after installation.
+  Completed 2026-08-20 12:08 EDT: both official GitHub release assets use their
+  published SHA-256 digests; the vendored Electron/native payload runs in a
+  Nix-built FHS environment.
+- [x] Keep update inspection available while making package ownership explicit:
+  `--upgrade --check` may query upstream, but mutable self-upgrade and uninstall
+  must fail with `/etc/nixos` instructions. Install `tode` only in Peter's user
+  package set. Curiosity poke: a Nix-store install whose bundled updater deletes
+  user state before failing on the immutable program tree is worse than an
+  early, explicit refusal.
+  Completed 2026-08-20 12:08 EDT: isolated-home probes returned v0.1.13 and
+  witnessed both mutation commands fail before touching state; the full suite
+  passed 22/22 assertions and `nix flake check --all-systems` passed.
+- [ ] Activate the built Thelio generation, verify `tode` from Peter's live
+  profile and its desktop entry, then record the generation and commit. No
+  reboot should be required. Curiosity poke: a successful package check does
+  not prove the per-user profile symlink switched to the candidate generation.
+
 ## Activate Codex Linux GUI for Peter (2026-08-15)
 
 - [x] Add an evaluated package-placement contract requiring `codex-app` in
