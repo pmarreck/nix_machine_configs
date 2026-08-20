@@ -17,8 +17,13 @@
   at runtime, honors all four overrides, and creates their directories. The
   focused 7/7 test, complete suite, all-system flake check, Tode smoke check,
   and Thelio system build passed.
-- [ ] Dry-activate, switch, and manually verify Tode starts from an ordinary
+- [x] Dry-activate, switch, and manually verify Tode starts from an ordinary
   project directory without an immutable-store error. No reboot should be needed.
+  Completed 2026-08-20 15:49 EDT: dry activation required no service changes;
+  the switch updated Peter's user profile; and a dedicated tmux smoke from
+  `sctui_rust` started code-server, the injector, terminal-browser, and its
+  browser daemon without EROFS. `tode --shutdown` removed every smoke process.
+  No reboot is required.
 
 ## Reconcile local and remote configuration (2026-08-20)
 
