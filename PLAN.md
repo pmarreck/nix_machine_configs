@@ -1,5 +1,28 @@
 # NixOS plan
 
+## Restore Thelio `/tmp` to tmpfs (2026-08-21)
+
+- [x] Establish whether tmpfs was intended here or only remembered from the
+  Framework host. Completed 2026-08-21 15:41 EDT: Thelio declared
+  `tmpOnTmpfs = true` until commit `c384a4d5` changed it to false on
+  2023-01-30 inside an unrelated broad PipeWire/package-stability commit. No
+  commit body, inline comment, Git note, or nearby tmpfs commit explains the
+  change. Framework has never declared the option.
+- [x] Add an effective-flake regression test, observe it fail only on
+  `useTmpfs`, restore the setting, and pass the complete configuration suite.
+  Completed 2026-08-21 15:47 EDT: the red run passed 3/4 assertions and failed
+  the mount contract; the green run passed 4/4, and the six-file repository
+  suite passed with zero failures.
+  - Curiosity poke answered: the test evaluates `path:/etc/nixos` rather than
+    grepping source, so another module cannot silently override the setting and
+    untracked TDD edits remain visible to Nix.
+- [ ] Build and dry-activate the candidate generation, commit and push it, then
+  reboot to mount tmpfs without hiding live agents' existing `/tmp` files.
+  After reboot, prove `findmnt -T /tmp` reports tmpfs and rerun the regression.
+  - Curiosity poke: keep giant generated AV fixture corpora on
+    `/mnt/devcache`; the 20% tmpfs ceiling is 25.6 GB and must not become an
+    invitation for a single test to exhaust RAM.
+
 ## Standalone Terminal Browser (2026-08-20)
 
 - [x] Verify the terminal dependency from upstream v0.5.8 source rather than

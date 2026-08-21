@@ -161,8 +161,12 @@ in
   # Bootloader.
   boot = {
     tmp = {
-      useTmpfs = false;
-      tmpfsSize = "20%"; # of 128GB = 25.6GB
+      # Restored 2026-08-21. This was true until c384a4d5 changed it without
+      # explanation in a broad 2023 PipeWire/package commit. With it false,
+      # generated AV fixtures drove the mirrored HDD rpool to 60-79% full I/O
+      # stall even though this host has ample RAM and an SSD-backed Nix store.
+      useTmpfs = true;
+      tmpfsSize = "20%"; # ceiling, allocated on demand; 25.6GB of 128GB
       cleanOnBoot = true;
     };
     crashDump.enable = true;
