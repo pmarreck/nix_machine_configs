@@ -554,15 +554,18 @@ in
         TasksMax = 8192;
       };
 
-      # ORCHESTRATION ONLY — explicitly NOT a build cap; see the note above.
-      # Documented loudly so nobody later mistakes this for the thing that
-      # limits compilers. Measured worker peak: 284 MB.
+      # ORCHESTRATION AND FLAKE EVALUATION ONLY — explicitly NOT a builder
+      # cap; see the note above. `nix build` evaluates the flake in this client
+      # cgroup before nix-daemon owns the builders. The former 512M/1G limits
+      # forced a 3.2 GiB NixOS evaluation into 2.6 GiB of HDD-backed swap and
+      # recorded 51,780 memory.high throttles on 2026-08-21.
       mechatron-prime-worker.serviceConfig = {
         CPUQuota = "200%";
         CPUWeight = 25;
         Nice = 10;
-        MemoryHigh = "512M";
-        MemoryMax = "1G";
+        MemoryHigh = "8G";
+        MemoryMax = "12G";
+        MemorySwapMax = "1G";
         IOWeight = 25;
         TasksMax = 512;
       };

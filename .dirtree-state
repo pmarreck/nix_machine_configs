@@ -27,6 +27,7 @@ annotate=[
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
 	tests/mechatron_targets_test.sh = Regression contract for the exact Mechatron target set, target evaluation, and canonical README badge
 	tests/terminal_browser_package_test.sh = Package, flake, upgrade-safety, and Peter-only placement contract for Terminal Browser
+	tests/thelio_mechatron_memory_test.sh = Effective-flake regression preventing Mechatron Nix evaluation from thrashing HDD-backed swap.
 	tests/thelio_tmpfs_test.sh = Effective-flake regression contract requiring Thelio /tmp tmpfs, 20% ceiling, and boot cleanup.
 	tests/tode_package_test.sh = TDD contract for pinned Tode artifacts, immutable runtime resolution, XDG launcher isolation, smoke check, and Peter-only installation.
 ]

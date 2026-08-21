@@ -1,5 +1,27 @@
 # NixOS plan
 
+## Stop Mechatron evaluation from churning HDD-backed swap (2026-08-21)
+
+- [x] Add an effective-flake regression for the worker's evaluator memory and
+  swap limits, observe the current 512 MiB / 1 GiB / unlimited-swap policy
+  fail, then give evaluation enough RAM without relaxing nix-daemon's separate
+  builder limits.
+  Completed 2026-08-21 16:37 EDT: the RED run passed only evaluation and failed
+  all three limit assertions. The GREEN run passed 4/4 with `MemoryHigh=8G`,
+  `MemoryMax=12G`, and `MemorySwapMax=1G`; the complete seven-file suite passed.
+  - Curiosity poke: the worker is orchestration-only after evaluation begins,
+    but `nix build` evaluates the flake in the client process before daemon
+    builders take over; the two cgroups need different measured budgets.
+- [x] Build the complete host closure and dry-activate the candidate without
+  changing the live generation.
+  Completed 2026-08-21 16:38 EDT: candidate
+  `h7zx5w9n1xr4xnfci6wlxivn7336912v` built successfully and dry activation
+  reported only the expected Mechatron worker restart.
+- [ ] Commit and push the known-good candidate, then require exact-commit
+  Mechatron success before activation.
+  - Curiosity poke: the current worker has already swapped about 2.6 GiB and
+    may need to finish or be restarted before it can validate its own repair.
+
 ## Restore Thelio `/tmp` to tmpfs (2026-08-21)
 
 - [x] Establish whether tmpfs was intended here or only remembered from the
