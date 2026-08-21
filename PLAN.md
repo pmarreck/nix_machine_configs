@@ -17,10 +17,16 @@
   Completed 2026-08-21 16:38 EDT: candidate
   `h7zx5w9n1xr4xnfci6wlxivn7336912v` built successfully and dry activation
   reported only the expected Mechatron worker restart.
-- [ ] Commit and push the known-good candidate, then require exact-commit
+- [x] Commit and push the known-good candidate, then require exact-commit
   Mechatron success before activation.
+  Completed 2026-08-21 16:52 EDT: commit `bf4c307` passed exact Mechatron CI
+  in 75 seconds. The evaluator peaked at about 2.91 GiB of cgroup RAM with zero
+  swap; the prior 512 MiB-throttled docs-only run took 514 seconds and pushed
+  about 2.6 GiB into swap. The repair made this run 6.85 times faster.
   - Curiosity poke: the current worker has already swapped about 2.6 GiB and
     may need to finish or be restarted before it can validate its own repair.
+    Answered: the old run finished before the temporary thresholds changed;
+    the next exact run used 2.91 GiB RAM, zero swap, and completed normally.
 
 ## Restore Thelio `/tmp` to tmpfs (2026-08-21)
 
