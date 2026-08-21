@@ -16,8 +16,12 @@
   - Curiosity poke answered: the test evaluates `path:/etc/nixos` rather than
     grepping source, so another module cannot silently override the setting and
     untracked TDD edits remain visible to Nix.
-- [ ] Build and dry-activate the candidate generation, commit and push it, then
-  reboot to mount tmpfs without hiding live agents' existing `/tmp` files.
+- [x] Build and dry-activate the candidate generation, commit and push it.
+  Completed 2026-08-21 15:58 EDT: candidate
+  `wv6w13a6vryacfvx9bp8nd7b8s0ra8rp` passed the complete build and dry
+  activation; commit `a5800ee` matches `origin/yolo` and passed all six exact
+  Mechatron targets in 213 seconds.
+- [ ] Reboot to mount tmpfs without hiding live agents' existing `/tmp` files.
   After reboot, prove `findmnt -T /tmp` reports tmpfs and rerun the regression.
   - Curiosity poke: keep giant generated AV fixture corpora on
     `/mnt/devcache`; the 20% tmpfs ceiling is 25.6 GB and must not become an
