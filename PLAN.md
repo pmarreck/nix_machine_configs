@@ -15,8 +15,12 @@
   Completed 2026-08-26 10:18 EDT: all eight test files passed; candidate
   `dxbypgxr4cssza5692887wmh7s9sc6kb` contains the exact two-entry MIME file;
   dry activation reports no service restarts.
-- [ ] Commit and push the candidate, verify remote equality, and require exact
+- [x] Commit and push the candidate, verify remote equality, and require exact
   Mechatron success.
+  Completed 2026-08-26 10:44 EDT: commit `46a4e96` matched `origin/yolo` and
+  passed all six exact Mechatron targets in 1,519 seconds. The extended duration
+  came from repopulating the garbage-collected Framework closure; the worker
+  advanced normally through Framework, Tiki WSL, and the three package checks.
 
 ## Stop Mechatron evaluation from churning HDD-backed swap (2026-08-21)
 
