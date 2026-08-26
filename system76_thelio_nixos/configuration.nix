@@ -1169,6 +1169,14 @@ in
   services.displayManager.gdm.autoSuspend = false; # never auto-suspend at the idle login screen (renamed out of services.xserver)
   # hardware.nvidia.powerManagement.enable = true; # should only be used on laptops, maybe?
 
+  # Keep GNOME Files and other XDG-aware launchers on Zed for Markdown. Both
+  # MIME names exist in desktop databases, so declaring only one can leave
+  # another classifier falling back to GNOME Builder.
+  xdg.mime.defaultApplications = {
+    "text/markdown" = "dev.zed.Zed.desktop";
+    "text/x-markdown" = "dev.zed.Zed.desktop";
+  };
+
   # Enable sound with pipewire.
   # sound.enable = true;
   services.pulseaudio.enable = false; # renamed from hardware.pulseaudio in newer nixos

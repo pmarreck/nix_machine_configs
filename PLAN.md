@@ -1,5 +1,23 @@
 # NixOS plan
 
+## Make Zed the declarative Markdown editor (2026-08-26)
+
+- [x] Add an effective-flake regression for both Markdown MIME names, observe
+  GNOME Builder or an empty mapping fail, then declare Zed through NixOS's
+  native `xdg.mime.defaultApplications` option without Home Manager.
+  Completed 2026-08-26 10:15 EDT: the RED run passed evaluation but failed both
+  empty MIME mappings; the GREEN run passed 3/3 with
+  `dev.zed.Zed.desktop` declared for both types.
+  - Curiosity poke: MIME databases use both `text/markdown` and the legacy
+    `text/x-markdown`; declaring only the type observed today leaves another
+    desktop or file classifier able to reopen Builder.
+- [x] Pass the complete suite, build and dry-activate the Thelio candidate.
+  Completed 2026-08-26 10:18 EDT: all eight test files passed; candidate
+  `dxbypgxr4cssza5692887wmh7s9sc6kb` contains the exact two-entry MIME file;
+  dry activation reports no service restarts.
+- [ ] Commit and push the candidate, verify remote equality, and require exact
+  Mechatron success.
+
 ## Stop Mechatron evaluation from churning HDD-backed swap (2026-08-21)
 
 - [x] Add an effective-flake regression for the worker's evaluator memory and
