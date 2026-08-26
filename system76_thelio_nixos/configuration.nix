@@ -6,7 +6,7 @@
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix) — replaces
 # the old <nixos-unstable>/<nixos-master> NIX_PATH channel lookups. `system` is threaded to each
 # scope `import` because pure flake eval has no `builtins.currentSystem`. Migrated to flake 2026-07-05.
-{ options, config, pkgs, lib, inputs, system, codexApp, terminalBrowser, tode, ... }:
+{ options, config, pkgs, lib, inputs, system, codexApp, terminalBrowser, tmog, tode, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -1222,6 +1222,8 @@ in
       # Standalone Chromium rendered through the Kitty terminal graphics
       # protocol. Its self-updater is disabled; /etc/nixos owns the version.
       terminalBrowser
+      # Proprietary free beta, locked from the official AppImage endpoint.
+      tmog
       # erlang # the inspiration for the best language
       # elixir # the best language
       # ruby # my OG love

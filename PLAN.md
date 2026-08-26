@@ -1,5 +1,31 @@
 # NixOS plan
 
+## Package TMog for every x86_64 Nix host (2026-08-26)
+
+- [x] Add a failing contract for a pinned official TMog AppImage package,
+      flake-lock-driven update inputs, a non-GUI smoke check, and installation
+      in Thelio, Framework, and Tiki-WSL's actual package configurations.
+      Completed 2026-08-26 19:33 EDT: the RED run failed all 5 assertions
+      before the package, inputs, check, and per-user host placements existed.
+      - Curiosity poke: the free Linux build has no updater, and the upstream
+        filenames are mutable; lock the raw artifact and version endpoints so
+        `nix flake update` refreshes them while normal builds remain pure.
+- [x] Implement the minimum AppImage wrapper with desktop/icon integration,
+      mark the proprietary beta license accurately, and make the contract pass.
+      Completed 2026-08-26 19:33 EDT: the first package smoke build rejected
+      the AppImage's wrong inner desktop file; copying the canonical top-level
+      desktop entry made the smoke check and complete 9-file suite pass.
+      - Curiosity poke: TMog forbids public redistribution, so do not describe
+        the package as redistributable or publish its binary through public CI.
+- [x] Build the package and all three host closures, then dry-activate Thelio
+      and inspect the activation diff before the planned reboot.
+      Completed 2026-08-26 19:33 EDT: the package check plus Thelio, Framework,
+      and Tiki-WSL closures built. Root-authorized dry activation selected
+      `b1j6lydq6bk2wb0qp8212002i1s00ghx` and reported no activation errors.
+      - Curiosity poke: GUI execution needs a live display; the sandbox check
+        should inspect the packaged executable and metadata rather than pretend
+        that a headless launch proves the application renders correctly.
+
 ## Make Zed the declarative Markdown editor (2026-08-26)
 
 - [x] Add an effective-flake regression for both Markdown MIME names, observe

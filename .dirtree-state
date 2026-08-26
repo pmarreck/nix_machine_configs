@@ -11,6 +11,7 @@ annotate=[
 	flake.nix = Canonical NixOS hosts plus standalone Codex and Terminal Code packages with executable smoke checks
 	packages/codex-app.nix = Official x86_64 OpenAI Codex app package from a hash-pinned Debian payload.
 	packages/terminal-browser.nix = Nix package for the pinned standalone Terminal Browser release and its FHS runtime
+	packages/tmog.nix = Nix AppImage wrapper for proprietary TMog task manager
 	packages/tode.nix = Pinned Terminal Code + code-server FHS package with immutable-store-safe browser launcher and XDG state isolation.
 	system76_thelio_nixos/configuration.nix = Thelio NixOS host module: imports hardware, services, Mechatron, and declares the global system package set
 	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime b83a195 NixOS modules and scripts
@@ -30,5 +31,6 @@ annotate=[
 	tests/thelio_markdown_mime_test.sh = Effective-flake regression requiring both Markdown MIME names to open with Zed.
 	tests/thelio_mechatron_memory_test.sh = Effective-flake regression preventing Mechatron Nix evaluation from thrashing HDD-backed swap.
 	tests/thelio_tmpfs_test.sh = Effective-flake regression contract requiring Thelio /tmp tmpfs, 20% ceiling, and boot cleanup.
+	tests/tmog_package_test.sh = Contract for TMog pinning, smoke check, and per-user host placement
 	tests/tode_package_test.sh = TDD contract for pinned Tode artifacts, immutable runtime resolution, XDG launcher isolation, smoke check, and Peter-only installation.
 ]

@@ -2,7 +2,7 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, inputs, system, ... }:
+{ config, lib, pkgs, inputs, system, tmog, ... }:
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix).
 # This replaces the old <nixos-unstable>/<nixos-stable>/<nixos-hardware> channel
 # lookups while keeping the host-specific package scopes in this module.
@@ -491,6 +491,8 @@ in
     hashedPassword = "$6$xLM1UDNfT/H8lbHK$jKAmqDp39Sj7O.ccOAN4tTBVOL4WoD6RaDcWa/Yg1XFE037sAGsN6WL4psvoKnanybrHYDwSFMWzHcCegp2ht0";
     # TODO: move these to home-manager
     packages = with pkgs; [
+      # Proprietary free beta, locked from the official AppImage endpoint.
+      tmog
       # bottles
       # evolutionWithPlugins # email client
       # gnomeExtensions.screen-lock # was incompatible with gnome version as of 7/22/2022

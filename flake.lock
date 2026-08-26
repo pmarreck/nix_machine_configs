@@ -210,7 +210,9 @@
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-2511": "nixpkgs-2511",
         "nixpkgs-2605": "nixpkgs-2605",
-        "ollama": "ollama"
+        "ollama": "ollama",
+        "tmog-linux": "tmog-linux",
+        "tmog-version": "tmog-version"
       }
     },
     "rust-analyzer-src": {
@@ -228,6 +230,30 @@
         "ref": "nightly",
         "repo": "rust-analyzer",
         "type": "github"
+      }
+    },
+    "tmog-linux": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-E/b0fghU+pPoFRGrGKpVW2tbIpFJmKFA+OaziO4ZPoM=",
+        "type": "file",
+        "url": "https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage"
+      }
+    },
+    "tmog-version": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-F8RUFo0T8CbabZQQAgvNkJMcnJm+piGQVFl/2kQDltA=",
+        "type": "file",
+        "url": "https://tmog.org/version.txt"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://tmog.org/version.txt"
       }
     }
   },

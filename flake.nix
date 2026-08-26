@@ -55,6 +55,19 @@
     # github:pimalaya/himalaya` already produced instead of recompiling. Passes
     # bin/check-flake-portability (github: input, not a path:/file:// one).
     himalaya.url = "github:pimalaya/himalaya";
+
+    # Task Manager TMOG is proprietary and publishes mutable stable filenames,
+    # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
+    # pure while `nix flake update tmog-version tmog-linux` refreshes the exact
+    # version and AppImage content hashes together.
+    tmog-version = {
+      url = "file+https://tmog.org/version.txt";
+      flake = false;
+    };
+    tmog-linux = {
+      url = "file+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, nixpkgs-2605, nixpkgs-2511, nixos-hardware, nixos-wsl, ... }@inputs:
@@ -67,6 +80,12 @@
       codexApp = pkgs.callPackage ./packages/codex-app.nix { };
       terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
+      tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
+        (builtins.readFile inputs.tmog-version);
+      tmog = pkgs.callPackage ./packages/tmog.nix {
+        src = inputs.tmog-linux;
+        version = tmogVersion;
+      };
       codexAppSmoke = pkgs.runCommand "codex-app-smoke-${codexApp.version}" {
         nativeBuildInputs = [ codexApp ];
       } ''
@@ -122,13 +141,24 @@
         fi
         printf '%s\n' "$actual" > "$out/version"
       '';
+      tmogSmoke = pkgs.runCommand "tmog-smoke-${tmog.version}" {
+        nativeBuildInputs = [ pkgs.desktop-file-utils ];
+      } ''
+        desktop_file=${tmog}/share/applications/com.tmog.taskmanager.desktop
+        test -x ${tmog}/bin/tmog-task-manager
+        test -f "$desktop_file"
+        desktop-file-validate "$desktop_file"
+        grep -Fqx 'X-AppImage-Version=${tmog.version}' "$desktop_file"
+        mkdir -p "$out"
+        printf '%s\n' '${tmog.version}' > "$out/version"
+      '';
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system codexApp terminalBrowser tode; };
+        specialArgs = { inherit inputs system codexApp terminalBrowser tmog tode; };
 
         modules = [ module ];
       };
@@ -136,11 +166,12 @@
       packages.${system} = {
         codex-app = codexApp;
         terminal-browser = terminalBrowser;
-        inherit tode;
+        inherit tmog tode;
       };
       checks.${system} = {
         codex-app = codexAppSmoke;
         terminal-browser = terminalBrowserSmoke;
+        tmog = tmogSmoke;
         tode = todeSmoke;
       };
 
@@ -151,7 +182,7 @@
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
         tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs system; };
+          specialArgs = { inherit inputs system tmog; };
           modules = [
             nixos-wsl.nixosModules.default
             ./tiki-wsl-nixos/configuration.nix
