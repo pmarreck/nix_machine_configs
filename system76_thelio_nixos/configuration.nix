@@ -117,11 +117,22 @@ in
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
+      inputs.unix-mail-redux.nixosModules.default   # tailnet-only human/agent mail — Einstein 2026-08-28
       ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
       ./rotational-io.nix   # bfq + deeper queues for the USB-docked spinning rpool; Klipsch name fix — Einstein 2026-07-28
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
+
+  services.unix-mail-redux = {
+    enable = true;
+    owner = "pmarreck";
+    ownerGroup = "users";
+    humanLocalPart = "peter";
+    domain = "agents.home.arpa";
+    tailscaleDomain = "thelio-nixos.tail66c90.ts.net";
+    wakeProjects = [ "*" ];
+  };
 
   # Overlays
   nixpkgs.overlays = [

@@ -56,6 +56,13 @@
     # bin/check-flake-portability (github: input, not a path:/file:// one).
     himalaya.url = "github:pimalaya/himalaya";
 
+    # Tailnet-local IMAPS/SMTPS plus the project-aware `post` CLI. Keep this as
+    # a portable GitHub input so every NixOS host and CI sees the same source.
+    unix-mail-redux = {
+      url = "github:pmarreck/unix_mail_redux/yolo";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Task Manager TMOG is proprietary and publishes mutable stable filenames,
     # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
     # pure while `nix flake update tmog-version tmog-linux` refreshes the exact

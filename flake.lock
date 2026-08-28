@@ -212,7 +212,8 @@
         "nixpkgs-2605": "nixpkgs-2605",
         "ollama": "ollama",
         "tmog-linux": "tmog-linux",
-        "tmog-version": "tmog-version"
+        "tmog-version": "tmog-version",
+        "unix-mail-redux": "unix-mail-redux"
       }
     },
     "rust-analyzer-src": {
@@ -254,6 +255,27 @@
       "original": {
         "type": "file",
         "url": "https://tmog.org/version.txt"
+      }
+    },
+    "unix-mail-redux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787918515,
+        "narHash": "sha256-mLB55QUis9HlQOmlDppQsAf3xHjHFSfkfsz26SsvAu0=",
+        "owner": "pmarreck",
+        "repo": "unix_mail_redux",
+        "rev": "08962037f1986df5a605c2090cd8b83b6a0c1455",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pmarreck",
+        "ref": "yolo",
+        "repo": "unix_mail_redux",
+        "type": "github"
       }
     }
   },

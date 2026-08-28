@@ -1,5 +1,25 @@
 # NixOS plan
 
+## Activate UNIX MAIL REDUX on Thelio (2026-08-28)
+
+- [x] Add a failing effective-configuration contract for Peter's private mail
+      domain, Thelio's MagicDNS certificate name, and conservative fleet wake
+      policy; then wire the pinned public flake module into the Thelio host.
+      Completed 2026-08-28 08:04 EDT: the RED run failed 8/8 assertions before
+      the input/module existed, then the exact same contract passed 8/8.
+      - Curiosity poke: a successful option evaluation does not prove that the
+        certificate can be issued or that Mail.app can authenticate.
+- [x] Run the complete configuration suite, build the exact Thelio closure,
+      inspect a root-authorized dry activation, and give Peter the no-reboot
+      switch command.
+      Completed 2026-08-28 08:11 EDT: all 10 test files passed, candidate
+      `/nix/store/ycdx0kwsy9r3w02c93hag77gp95j9qzj-nixos-system-thelio-nixos-26.11.20260807.f13ff45`
+      built, and dry activation reported only the expected Ops/Polkit/Accounts
+      restarts plus firewall reload. The same candidate also vendors the green
+      Mechatron remoter namespace fix from source commit `9064957`.
+- [ ] After activation, verify credentials, TLS, SMTPS-to-LMTP-to-Maildir
+      delivery, IMAPS retrieval, `post` on PATH, and the wake service.
+
 ## Package TMog for every x86_64 Nix host (2026-08-26)
 
 - [x] Add a failing contract for a pinned official TMog AppImage package,

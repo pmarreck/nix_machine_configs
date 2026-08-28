@@ -66,10 +66,30 @@ function M.new(adapter)
 		return command
 	end
 
+	--- Run Codex through the user systemd instance so the process does not
+	--- inherit this service's ProtectHome=read-only mount namespace. Ops-page
+	--- Start used to spawn the remote-control daemon as a child of
+	--- mechatron-prime-ops.service; jpegz tool subprocesses then saw /home as
+	--- VFS-ro. KillMode=process so the start CLI exiting does not kill the daemon.
+	local function user_systemd_run(argv, needs_home)
+		local command = user_command({
+			"/run/current-system/sw/bin/systemd-run",
+			"--user",
+			"--quiet",
+			"--wait",
+			"--pipe",
+			"--collect",
+			"--property=KillMode=process",
+			"--",
+		}, needs_home)
+		append(command, argv)
+		return command
+	end
+
 	--- Verify the managed daemon through Codex's control socket instead of
 	--- trusting its PID record, which can survive a crash or reboot.
 	function system.codex_remote_control()
-		local output, ok = timed(user_command({codex_binary, "app-server", "daemon", "version"}, true))
+		local output, ok = timed(user_systemd_run({codex_binary, "app-server", "daemon", "version"}, true))
 		if not ok then return "inactive" end
 		local document = trim(output)
 		local status = cjson.decode(document)
@@ -187,7 +207,7 @@ function M.new(adapter)
 		if action.kind == "codex" then
 			local command = {codex_binary}
 			append(command, action.argv)
-			local output, ok = timed(user_command(command, true))
+			local output, ok = timed(user_systemd_run(command, true))
 			if not ok then return false, trim(output) ~= "" and trim(output) or "Codex action failed" end
 			return true, trim(output)
 		end

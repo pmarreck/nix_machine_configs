@@ -4,7 +4,7 @@ set -u
 root="$(cd "$(dirname "$0")" && pwd)"
 vendored="$root/mechatron-prime"
 failures=0
-source_commit=46cab0f
+source_commit=9064957
 
 fail() {
 	printf 'FAIL: %s\n' "$1" >&2
@@ -71,7 +71,7 @@ check_sha256 ops/process.lua 926ec53ab25e7750524b45da6d48f1244dbad2285db86cf65da
 check_sha256 ops/render.lua 636524404c5a93e383ff290ee85aa2e759ff000c519f13681bec3151c08b1077
 check_sha256 ops/router.lua 3fb17a36d6ee24522e39cb73c9c77c6949ebf12082cf144601e9f14b6418f7be
 check_sha256 ops/server.lua d01e97b7c643aa819ec9ad2b229fc60df874290e9bc1626da7abdde9e69d9618
-check_sha256 ops/system.lua bf269369cd82a240a563030b11dac7c45ec8d883230a5a334abacc11e289c161
+check_sha256 ops/system.lua 61a3401b566c7cbeff66a58c0a59ad051198603cebf1d3c4d8a5519c037ccef4
 
 check_wrapper "$root/mechatron-prime-receiver.nix" 'import ./mechatron-prime/nixos/receiver.nix'
 check_wrapper "$root/mechatron-prime-worker.nix" 'import ./mechatron-prime/nixos/worker.nix'
