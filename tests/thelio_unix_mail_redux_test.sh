@@ -42,5 +42,14 @@ assert_json '.tailscaleDomain' 'thelio-nixos.tail66c90.ts.net' 'TLS uses the The
 assert_json '.enableWatcher' 'true' 'idle-agent delivery watcher is enabled'
 assert_json '.wakeProjects | join(",")' '*' 'all project mailboxes are eligible for conservative idle wakeup'
 
+capture nix eval --raw \
+	"path:$ROOT_DIR#nixosConfigurations.thelio-nixos.config.services.dovecot2.package.version"
+
+if [ "$rc" -eq 0 ] && [[ "$out" == 2.4.* ]]; then
+	pass 'mail module selects Dovecot 2.4 for its 2.4 configuration syntax'
+else
+	fail "mail module must select Dovecot 2.4, got [$out] (exit $rc)"
+fi
+
 printf '%d/%d assertions passed\n' "$((total - failures))" "$total"
 exit "$failures"

@@ -1,5 +1,14 @@
 # NixOS plan
 
+## Remove Rust package deprecation warnings (2026-08-28)
+
+- [ ] Reproduce and trace `buildFeatures` and `buildNoDefaultFeatures` warnings
+      to the responsible flake/package, then add a warning-free evaluation
+      regression before replacing them with `withFeatures` and
+      `withNoDefaultFeatures`.
+      - Curiosity poke: the deprecated arguments do not occur in this repo, so
+        the source may be a pinned input whose override must remain updateable.
+
 ## Activate UNIX MAIL REDUX on Thelio (2026-08-28)
 
 - [x] Add a failing effective-configuration contract for Peter's private mail
