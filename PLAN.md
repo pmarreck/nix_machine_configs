@@ -31,11 +31,17 @@
       built, and dry activation reported only the expected Ops/Polkit/Accounts
       restarts plus firewall reload. The same candidate also vendors the green
       Mechatron remoter namespace fix from source commit `9064957`.
-- [ ] After activation, verify credentials, TLS, SMTPS-to-LMTP-to-Maildir
+- [x] After activation, verify credentials, TLS, SMTPS-to-LMTP-to-Maildir
       delivery, IMAPS retrieval, `post` on PATH, and the wake service.
       - Live delivery and retrieval passed at 08:40 EDT. The watcher then found
         a missing absolute tmux path; source commit `a8b9912` contains the
-        RED/GREEN-tested repair and awaits this final candidate activation.
+        RED/GREEN-tested repair.
+      Completed 2026-08-28 09:04 EDT: generation
+      `/nix/store/9p38x7g0rhkz103ignc6174p6q0b8wsm-nixos-system-thelio-nixos-26.11.20260807.f13ff45`
+      is live. An authenticated message traversed SMTPS, Postfix, LMTP,
+      Maildir, and IMAPS; the installed CLI retrieved it; and a second live
+      proof made the watcher identify and notify the mixed-case `~/Code`
+      Einstein pane. All credential/key modes and four services were verified.
 
 ## Package TMog for every x86_64 Nix host (2026-08-26)
 
