@@ -41,21 +41,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Himalaya — CLI email client (pimalaya). Wanted for its 2.0 release, which
-    # nixpkgs does not yet carry (nixpkgs is still 1.2.0 as of 2026-07-29), so
-    # the package MUST come from upstream's flake rather than `pkgs.himalaya`.
-    # Reason for adoption: the built-in Gmail tooling binds a single account;
-    # Himalaya manages both (lumbergh@gmail.com + peter@marreck.com) and gives a
-    # composable CLI mail core.
-    #
-    # Deliberately does NOT `follows = nixpkgs`, unlike ollama above. Himalaya is
-    # a fenix-based Rust build with its own pinned nixpkgs; forcing our nixpkgs
-    # onto a fenix toolchain is how these builds break, and leaving it pinned
-    # means the system build reuses the exact derivation `nix run
-    # github:pimalaya/himalaya` already produced instead of recompiling. Passes
-    # bin/check-flake-portability (github: input, not a path:/file:// one).
-    himalaya.url = "github:pimalaya/himalaya";
-
     # Tailnet-local IMAPS/SMTPS plus the project-aware `post` CLI. Keep this as
     # a portable GitHub input so every NixOS host and CI sees the same source.
     unix-mail-redux = {

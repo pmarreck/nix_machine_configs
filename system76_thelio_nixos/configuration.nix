@@ -1306,7 +1306,7 @@ in
       # hand, bound 127.0.0.1:11434 against the stale ~/.ollama store, and silently
       # locked out the real service until the process was killed.
       inputs.ollama.packages.${system}.default # llms in the terminal (Peter's fork)
-      inputs.himalaya.packages.${system}.default # CLI email client (pimalaya) — v2.0 from upstream flake, since nixpkgs is still 1.2.0; manages both Gmail accounts + composable CLI mail core. Accounts configured per-user in ~/.config/himalaya/, NOT here.
+      himalaya # CLI email client (pimalaya) — v2.0 from nixpkgs; manages both Gmail accounts + composable CLI mail core. Accounts configured per-user in ~/.config/himalaya/, NOT here.
       bluebubbles # iMessage client for Linux (Peter, 2026-07-31). Talks to the BlueBubbles SERVER already installed on his Mac, which relays iMessage — so iMessages reach this Linux dev box. Client only; nothing server-side is configured here.
       darktable # RAW photo processor. Two reasons (Peter, 2026-07-29): (1) a source of real-world RAW/image formats + a reference decoder (rawspeed/libraw) for Mecha Validate's RAW coverage and corruption-detection corpus; (2) scriptable via its built-in Lua API + headless `darktable-cli`, so agents can automate fixture generation / batch conversion. lua-scripts (darktable-org) is a separate optional package if wanted.
       unstable.codex # OpenAI Codex CLI — agentic coding assistant in the terminal (declarative; has a `codex` bash wrapper in dotfiles for yolo mode)

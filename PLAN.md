@@ -2,12 +2,17 @@
 
 ## Remove Rust package deprecation warnings (2026-08-28)
 
-- [ ] Reproduce and trace `buildFeatures` and `buildNoDefaultFeatures` warnings
+- [x] Reproduce and trace `buildFeatures` and `buildNoDefaultFeatures` warnings
       to the responsible flake/package, then add a warning-free evaluation
       regression before replacing them with `withFeatures` and
       `withNoDefaultFeatures`.
       - Curiosity poke: the deprecated arguments do not occur in this repo, so
         the source may be a pinned input whose override must remain updateable.
+      Completed 2026-08-28 08:57 EDT: Nix's warning debugger traced both to
+      the separately pinned upstream Himalaya flake. The host's current
+      Nixpkgs now supplies Himalaya 2.0.0, so the obsolete six-node input was
+      removed in favor of `pkgs.himalaya`. A four-assertion regression and an
+      uncached full-host evaluation prove both warnings are gone.
 
 ## Activate UNIX MAIL REDUX on Thelio (2026-08-28)
 
@@ -28,6 +33,9 @@
       Mechatron remoter namespace fix from source commit `9064957`.
 - [ ] After activation, verify credentials, TLS, SMTPS-to-LMTP-to-Maildir
       delivery, IMAPS retrieval, `post` on PATH, and the wake service.
+      - Live delivery and retrieval passed at 08:40 EDT. The watcher then found
+        a missing absolute tmux path; source commit `a8b9912` contains the
+        RED/GREEN-tested repair and awaits this final candidate activation.
 
 ## Package TMog for every x86_64 Nix host (2026-08-26)
 
