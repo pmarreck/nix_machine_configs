@@ -171,11 +171,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787922115,
-        "narHash": "sha256-cFCADq/lGhxPJ8kQfiftgh6xfanaVVCyrTaSr7wPKBs=",
+        "lastModified": 1787944537,
+        "narHash": "sha256-mGci26kGXLah7qjB8HJJPQDhwdEENycLLWWxQcPvg+0=",
         "owner": "pmarreck",
         "repo": "unix_mail_redux",
-        "rev": "236445117e215c31973e4c72729b21f72457605c",
+        "rev": "5f7bb8927fcc7c0943d6624df69d2ac019f3c8bd",
         "type": "github"
       },
       "original": {
