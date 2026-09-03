@@ -2,12 +2,17 @@
 
 ## Permit detached Codex mail wake on Thelio (2026-09-03)
 
-- [ ] Pin UNIX MAIL REDUX's safe-by-default detached-Codex wake option, enable
+- [x] Pin UNIX MAIL REDUX's safe-by-default detached-Codex wake option, enable
       it only on Thelio under Peter's explicit emailed risk acceptance, prove
       the effective host configuration, and activate without a reboot.
       - Curiosity poke: preserve the attached-client veto. The accepted risk is
         the measured Codex turn interruption after the helper client detaches,
         not permission to type into a session Peter is actively using.
+      Completed 2026-09-03 17:33 EDT. The effective 11-assertion host contract,
+      complete 11-file configuration suite, privileged dry activation, and
+      live switch pass. The watcher is active with the explicit opt-in, and no
+      reboot was required. A new detached email remains the upstream project's
+      final end-to-end test.
 
 ## Temporarily trust Peter-addressed unsigned mail (2026-09-03)
 
