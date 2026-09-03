@@ -131,6 +131,9 @@ in
     humanLocalPart = "peter";
     domain = "agents.home.arpa";
     tailscaleDomain = "thelio-nixos.tail66c90.ts.net";
+    # Temporary final-lap policy explicitly accepted by Peter on 2026-09-03.
+    # The From header is forgeable; signed S/MIME enforcement follows launch.
+    trustUnsignedHumanMail = true;
     wakeProjects = [ "*" ];
   };
 

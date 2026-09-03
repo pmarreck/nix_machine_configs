@@ -1,5 +1,17 @@
 # NixOS plan
 
+## Temporarily trust Peter-addressed unsigned mail (2026-09-03)
+
+- [x] Opt the Thelio into UNIX MAIL REDUX's explicit final-lap authority policy,
+      pin the first implementation that states the exact trusted address in
+      fixed wake messages, and prove the effective value before activation.
+      - Curiosity poke: an ordinary `From` header and Peter's familiar phone
+        signature are both forgeable; the reusable module must remain
+        safe-by-default and the live exception must be easy to remove.
+      Completed 2026-09-03 16:41 EDT. The 10-assertion host contract, complete
+      repository suite, upstream 19-check flake, isolated NixOS mail VM, and
+      root-authorized Thelio dry activation all pass. No reboot is required.
+
 ## Remove Rust package deprecation warnings (2026-08-28)
 
 - [x] Reproduce and trace `buildFeatures` and `buildNoDefaultFeatures` warnings

@@ -40,6 +40,8 @@ assert_json '.humanLocalPart' 'peter' 'human inbox has the stable peter address'
 assert_json '.domain' 'agents.home.arpa' 'mail remains in the private home.arpa namespace'
 assert_json '.tailscaleDomain' 'thelio-nixos.tail66c90.ts.net' 'TLS uses the Thelio MagicDNS name'
 assert_json '.enableWatcher' 'true' 'idle-agent delivery watcher is enabled'
+assert_json '.trustUnsignedHumanMail' 'true' \
+	'final-lap mail explicitly accepts Peter-addressed unsigned instructions'
 assert_json '.wakeProjects | join(",")' '*' 'all project mailboxes are eligible for conservative idle wakeup'
 
 capture nix eval --raw \
