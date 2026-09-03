@@ -1,5 +1,14 @@
 # NixOS plan
 
+## Permit detached Codex mail wake on Thelio (2026-09-03)
+
+- [ ] Pin UNIX MAIL REDUX's safe-by-default detached-Codex wake option, enable
+      it only on Thelio under Peter's explicit emailed risk acceptance, prove
+      the effective host configuration, and activate without a reboot.
+      - Curiosity poke: preserve the attached-client veto. The accepted risk is
+        the measured Codex turn interruption after the helper client detaches,
+        not permission to type into a session Peter is actively using.
+
 ## Temporarily trust Peter-addressed unsigned mail (2026-09-03)
 
 - [x] Opt the Thelio into UNIX MAIL REDUX's explicit final-lap authority policy,
