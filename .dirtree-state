@@ -29,6 +29,7 @@ annotate=[
 	tests/hunk_package_test.sh = Contract for the pinned modem-dev Hunk package, smoke check, and Thelio/Tiki placement
 	tests/mechatron_targets_test.sh = Regression contract for the exact Mechatron target set, target evaluation, and canonical README badge
 	tests/terminal_browser_package_test.sh = Package, flake, upgrade-safety, and Peter-only placement contract for Terminal Browser
+	tests/thelio_herdr_path_test.sh = Effective Nix evaluation test for Herdr agent-launcher PATH
 	tests/thelio_markdown_mime_test.sh = Effective-flake regression requiring both Markdown MIME names to open with Zed.
 	tests/thelio_mechatron_memory_test.sh = Effective-flake regression preventing Mechatron Nix evaluation from thrashing HDD-backed swap.
 	tests/thelio_tmpfs_test.sh = Effective-flake regression contract requiring Thelio /tmp tmpfs, 20% ceiling, and boot cleanup.

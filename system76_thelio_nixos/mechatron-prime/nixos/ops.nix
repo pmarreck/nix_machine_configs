@@ -1,5 +1,5 @@
 # Mechatron Prime — tailnet-only host operations console and local maintenance timers.
-{ pkgs, herdrPackage, ... }:
+{ lib, pkgs, herdrPackage, ... }:
 let
   luaEnv = pkgs.luajit.withPackages (ps: with ps; [ cjson luasocket ]);
   # Keep the complete runtime tree as an explicit derivation input. This makes
@@ -50,6 +50,20 @@ in
     description = "Herdr persistent terminal workspace server";
     wantedBy = [ "default.target" ];
     unitConfig.ConditionUser = "pmarreck";
+    # A user service does not run Peter's interactive shell startup. Include
+    # the two stable launcher directories instead of sourcing shell startup,
+    # whose project discovery and shell mutations do not belong in a daemon.
+    environment.PATH = lib.mkForce (lib.concatStringsSep ":" [
+      "/home/pmarreck/.local/bin"
+      "/home/pmarreck/.grok/bin"
+      (lib.makeBinPath [
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.systemd
+      ])
+    ]);
     serviceConfig = {
       ExecStart = "${herdrPackage}/bin/herdr server";
       Restart = "on-failure";
