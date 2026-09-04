@@ -26,6 +26,7 @@ annotate=[
 	system76_thelio_nixos/test-luajit-system-path = Builds the Thelio system package profile and verifies LuaJIT module plus LuaRocks CLI availability.
 	system76_thelio_nixos/test-mechatron-prime-integration = Checks vendored source hashes and stable module wrapper imports
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
+	tests/fastfetch_fleet_test.sh = Effective package-placement contract for Fastfetch across declared NixOS hosts
 	tests/hunk_package_test.sh = Contract for the pinned modem-dev Hunk package, smoke check, and Thelio/Tiki placement
 	tests/mechatron_targets_test.sh = Regression contract for the exact Mechatron target set, target evaluation, and canonical README badge
 	tests/terminal_browser_package_test.sh = Package, flake, upgrade-safety, and Peter-only placement contract for Terminal Browser

@@ -1,5 +1,17 @@
 # NixOS plan
 
+## Install Fastfetch across declared hosts (2026-09-04)
+
+- [ ] Require Fastfetch in every declared NixOS host's effective active-user
+      package set, preserving the existing Thelio and Framework placements and
+      adding only the missing Tiki package.
+  - Curiosity poke: package presence in source text is weaker than evaluated
+    availability through either the system or active user's profile.
+- [ ] Build, dry-activate, switch, and smoke-test Tiki without changing the
+      Windows host; verify the existing Thelio and Framework installations.
+  - Curiosity poke: Tiki's prior cold Hunk build showed that a small source edit
+    can still expose unexpectedly large activation work.
+
 ## Install Hunk on Tiki-WSL (2026-09-04)
 
 - [x] Add a failing package/placement contract for the exact Hunk derivation

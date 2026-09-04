@@ -20,6 +20,7 @@ in
 
   # GUI application exposed through WSLg without making it system-wide.
   users.users.nixos.packages = [
+    pkgs.fastfetch
     hunkPackage
     tmog
   ];
