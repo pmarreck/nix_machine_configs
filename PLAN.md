@@ -1,5 +1,21 @@
 # NixOS plan
 
+## Stop importing Windows PATH into Tiki WSL (2026-09-04)
+
+- [x] Add a failing effective-configuration contract, disable automatic Windows
+      PATH import, and retain explicit Windows PE execution through WSL interop.
+  - Curiosity poke: `appendWindowsPath = false` must not accidentally disable
+    `wsl.interop.register`, which remains useful for explicit `.exe` invocation.
+- [x] Run the complete configuration suite, build and dry-activate Tiki, then
+      switch without terminating the currently running WSL instance.
+  - Curiosity poke: `/etc/wsl.conf` is consumed only when WSL starts the guest;
+    activation can install it safely but cannot prove the next boot's PATH.
+  - Completed 2026-09-04 EDT. The effective contract passed 2/2, all 16 test
+    files passed, exact closure `gpjwa84h250911lzq4bz1ym81qiap09c` built and
+    activated, `/etc/wsl.conf` now says `appendWindowsPath=false`, and the live
+    WSLInterop PE handler remains enabled. Existing processes retain their old
+    PATH until Peter next stops the WSL instance or reboots Windows.
+
 ## Install Fastfetch across declared hosts (2026-09-04)
 
 - [x] Require Fastfetch in every declared NixOS host's effective active-user

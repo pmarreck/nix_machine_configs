@@ -15,6 +15,7 @@ in
   # Retain ordinary Windows PE execution. The cosmocc package handles its own
   # bundled APE tools without changing this deliberately broad WSL handler.
   wsl.interop.register = true;
+  wsl.wslConf.interop.appendWindowsPath = false;
   wsl.startMenuLaunchers = true;
   wsl.useWindowsDriver = true;
 
