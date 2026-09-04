@@ -1,5 +1,15 @@
 # NixOS plan
 
+## Roll back failed detached Codex mail wake (2026-09-03)
+
+- [ ] Disable Thelio's detached Codex PTY wake after the live proof reproduced
+      a client disconnect without delivering the mail notification. Preserve
+      active terminal wake for Claude/Grok and passive Codex notices, then test,
+      dry-activate, switch, and verify the service environment.
+      - Curiosity poke: Peter accepted the previously measured interruption
+        risk, but the experiment delivered no compensating wake benefit. The
+        terminal path therefore fails its own usefulness criterion.
+
 ## Permit detached Codex mail wake on Thelio (2026-09-03)
 
 - [x] Pin UNIX MAIL REDUX's safe-by-default detached-Codex wake option, enable

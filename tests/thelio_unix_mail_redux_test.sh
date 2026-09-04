@@ -42,8 +42,8 @@ assert_json '.tailscaleDomain' 'thelio-nixos.tail66c90.ts.net' 'TLS uses the The
 assert_json '.enableWatcher' 'true' 'idle-agent delivery watcher is enabled'
 assert_json '.trustUnsignedHumanMail' 'true' \
 	'final-lap mail explicitly accepts Peter-addressed unsigned instructions'
-assert_json '.allowDetachedCodexWake' 'true' \
-	'Peter explicitly accepts the measured detached Codex wake risk'
+assert_json '.allowDetachedCodexWake' 'false' \
+	'failed detached Codex terminal wake remains disabled'
 assert_json '.wakeProjects | join(",")' '*' 'all project mailboxes are eligible for conservative idle wakeup'
 
 capture nix eval --raw \
