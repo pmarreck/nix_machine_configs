@@ -14,17 +14,29 @@
 
 ## Herdr on Thelio (2026-09-04)
 
-- [ ] Reproduce why the live user service discovers Codex but not Peter's
+- [x] Reproduce why the live user service discovers Codex but not Peter's
       Claude or Grok launchers, then add a failing effective-environment test
       and give Herdr the smallest declarative executable path that matches the
       relevant entries produced by `~/dotfiles/.pathconfig`.
   - Curiosity poke: do not source an interactive shell configuration inside a
     systemd daemon; wrappers may depend on shell functions or mutable state,
     and an unrestricted inherited PATH could change behavior after activation.
-- [ ] Change Herdr's command-prefix binding from `Ctrl-B` to `Ctrl-Space`
+  - Completed 2026-09-04 09:04 EDT. Mechatron Prime `76235ec` adds only the
+    stable `~/.local/bin` and `~/.grok/bin` launcher directories and explicitly
+    resolves NixOS's default user-service PATH precedence. The effective Nix
+    regression, complete 14-file host suite, exact Thelio build, dry activation,
+    live switch, and Mechatron CI pass at host commit `9daa738`. The service was
+    restarted and its live process environment contains both directories.
+- [x] Change Herdr's command-prefix binding from `Ctrl-B` to `Ctrl-Space`
       declaratively and verify that Herdr accepts the resulting configuration.
   - Curiosity poke: preserve literal space handling through Nix, TOML, and
     Herdr's key parser rather than guessing at the binding spelling.
+  - Completed 2026-09-04 09:04 EDT. Dotconfig commit `97b0714` tracks the
+    accepted `ctrl+space` spelling and ignores runtime sockets/state. Herdr
+    live-reloaded the config. Its official installers now report Claude v9,
+    Codex v8, and Grok v1 current; a second install was byte-identical. The
+    prior Claude settings are recoverable from
+    `~/.Trash/herdr-integrations-before-20260904-0905`.
 
 - [x] Pin upstream Herdr 0.8.2 through its first-party flake without changing
       the host's own Nixpkgs revision. Completed 2026-09-04 08:18 EDT.
