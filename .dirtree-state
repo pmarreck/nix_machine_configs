@@ -32,6 +32,7 @@ annotate=[
 	tests/thelio_markdown_mime_test.sh = Effective-flake regression requiring both Markdown MIME names to open with Zed.
 	tests/thelio_mechatron_memory_test.sh = Effective-flake regression preventing Mechatron Nix evaluation from thrashing HDD-backed swap.
 	tests/thelio_tmpfs_test.sh = Effective-flake regression contract requiring Thelio /tmp tmpfs, 20% ceiling, and boot cleanup.
+	tests/tiki_preserved_packages_test.sh = Regression preserving Halloy and Sniffnet from Tiki WSL local package commit
 	tests/tmog_package_test.sh = Contract for TMog pinning, smoke check, and per-user host placement
 	tests/tode_package_test.sh = TDD contract for pinned Tode artifacts, immutable runtime resolution, XDG launcher isolation, smoke check, and Peter-only installation.
 ]
