@@ -1,6 +1,30 @@
 # NixOS plan
 
+## Install Hunk on Tiki-WSL (2026-09-04)
+
+- [ ] Add a failing package/placement contract for the exact Hunk derivation
+      already running on Thelio, then replace Thelio's embedded flake lookup
+      with one locked top-level input shared with Tiki.
+  - Curiosity poke: identify the package by upstream, revision, `pname`, and
+    reported version so an unrelated project named Hunk cannot satisfy it.
+- [ ] Expose and build an executable smoke check, build the exact Tiki host
+      closure, inspect activation effects, push, and verify exact-commit CI.
+  - Curiosity poke: install the CLI in Tiki's active `nixos` user profile and
+    avoid changing unrelated host packages or the host Nixpkgs revisions.
+
 ## Herdr on Thelio (2026-09-04)
+
+- [ ] Reproduce why the live user service discovers Codex but not Peter's
+      Claude or Grok launchers, then add a failing effective-environment test
+      and give Herdr the smallest declarative executable path that matches the
+      relevant entries produced by `~/dotfiles/.pathconfig`.
+  - Curiosity poke: do not source an interactive shell configuration inside a
+    systemd daemon; wrappers may depend on shell functions or mutable state,
+    and an unrestricted inherited PATH could change behavior after activation.
+- [ ] Change Herdr's command-prefix binding from `Ctrl-B` to `Ctrl-Space`
+      declaratively and verify that Herdr accepts the resulting configuration.
+  - Curiosity poke: preserve literal space handling through Nix, TOML, and
+    Herdr's key parser rather than guessing at the binding spelling.
 
 - [x] Pin upstream Herdr 0.8.2 through its first-party flake without changing
       the host's own Nixpkgs revision. Completed 2026-09-04 08:18 EDT.
