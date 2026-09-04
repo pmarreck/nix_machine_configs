@@ -2,15 +2,23 @@
 
 ## Install Hunk on Tiki-WSL (2026-09-04)
 
-- [ ] Add a failing package/placement contract for the exact Hunk derivation
+- [x] Add a failing package/placement contract for the exact Hunk derivation
       already running on Thelio, then replace Thelio's embedded flake lookup
       with one locked top-level input shared with Tiki.
   - Curiosity poke: identify the package by upstream, revision, `pname`, and
     reported version so an unrelated project named Hunk cannot satisfy it.
-- [ ] Expose and build an executable smoke check, build the exact Tiki host
+  - Completed 2026-09-04 09:16 EDT. The exact `modem-dev/hunk` 0.16.0 revision
+    is now one locked top-level input shared by Thelio and Tiki. Four failing-
+    first assertions identify its `pname`, version, placement, and smoke check.
+- [x] Expose and build an executable smoke check, build the exact Tiki host
       closure, inspect activation effects, push, and verify exact-commit CI.
   - Curiosity poke: install the CLI in Tiki's active `nixos` user profile and
     avoid changing unrelated host packages or the host Nixpkgs revisions.
+  - Completed 2026-09-04 09:16 EDT at configuration commit `318df16`. The
+    complete suite, local exact-host build, Mechatron CI, remote dry activation,
+    and live switch pass. Tiki now resolves Hunk 0.16.0 from its per-user
+    profile while preserving Halloy and Sniffnet. SSH, Tailscale, and the Nix
+    daemon are active; the Tiki clone is clean and exactly synchronized.
 
 ## Herdr on Thelio (2026-09-04)
 
