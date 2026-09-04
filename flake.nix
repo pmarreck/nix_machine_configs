@@ -180,6 +180,7 @@
     in {
       packages.${system} = {
         codex-app = codexApp;
+        herdr = herdrPackage;
         terminal-browser = terminalBrowser;
         hunk = hunkPackage;
         inherit tmog tode;
@@ -199,7 +200,7 @@
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
         tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs system tmog hunkPackage; };
+          specialArgs = { inherit inputs system tmog herdrPackage hunkPackage; };
           modules = [
             nixos-wsl.nixosModules.default
             ./tiki-wsl-nixos/configuration.nix

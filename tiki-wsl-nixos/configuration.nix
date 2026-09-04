@@ -1,4 +1,4 @@
-{ pkgs, tmog, hunkPackage, ... }:
+{ pkgs, tmog, herdrPackage, hunkPackage, ... }:
 
 let
   # Existing pinned/obfuscated package for the licensed Berkeley Mono files.
@@ -21,6 +21,9 @@ in
   # GUI application exposed through WSLg without making it system-wide.
   users.users.nixos.packages = [
     pkgs.fastfetch
+    # Client-only on Tiki: attach directly to the persistent Thelio server with
+    # `herdr --remote pmarreck@thelio-nixos` instead of first opening SSH/mosh.
+    herdrPackage
     hunkPackage
     tmog
   ];
