@@ -1,4 +1,4 @@
-{ pkgs, tmog, ... }:
+{ pkgs, tmog, hunkPackage, ... }:
 
 let
   # Existing pinned/obfuscated package for the licensed Berkeley Mono files.
@@ -19,7 +19,10 @@ in
   wsl.useWindowsDriver = true;
 
   # GUI application exposed through WSLg without making it system-wide.
-  users.users.nixos.packages = [ tmog ];
+  users.users.nixos.packages = [
+    hunkPackage
+    tmog
+  ];
 
   # WSL instances are routinely stopped rather than shut down conventionally.
   boot.tmp.cleanOnBoot = true;

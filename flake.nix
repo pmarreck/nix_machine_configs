@@ -53,6 +53,10 @@
     # than overriding the Rust/libghostty stack with this host's nixpkgs.
     herdr.url = "github:herdrdev/herdr";
 
+    # Terminal-first diff viewer, pinned to the exact package already proven
+    # on Thelio. Retain upstream's Bun/bun2nix dependency graph.
+    hunk.url = "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe";
+
     # Task Manager TMOG is proprietary and publishes mutable stable filenames,
     # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
     # pure while `nix flake update tmog-version tmog-linux` refreshes the exact
@@ -78,6 +82,7 @@
       terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
       herdrPackage = inputs.herdr.packages.${system}.herdr;
+      hunkPackage = inputs.hunk.packages.${system}.default;
       tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
         (builtins.readFile inputs.tmog-version);
       tmog = pkgs.callPackage ./packages/tmog.nix {
@@ -150,13 +155,25 @@
         mkdir -p "$out"
         printf '%s\n' '${tmog.version}' > "$out/version"
       '';
+      hunkSmoke = pkgs.runCommand "hunk-smoke-${hunkPackage.version}" {
+        nativeBuildInputs = [ hunkPackage ];
+      } ''
+        actual="$(hunk --version)"
+        if [ "$actual" != "${hunkPackage.version}" ]; then
+          printf 'expected Hunk %s, got %s\n' \
+            '${hunkPackage.version}' "$actual" >&2
+          exit 1
+        fi
+        mkdir -p "$out"
+        printf '%s\n' "$actual" > "$out/version"
+      '';
       mkHost = pkgsInput: module: pkgsInput.lib.nixosSystem {
         inherit system;
 
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system codexApp terminalBrowser tmog tode herdrPackage; };
+        specialArgs = { inherit inputs system codexApp terminalBrowser tmog tode herdrPackage hunkPackage; };
 
         modules = [ module ];
       };
@@ -164,11 +181,13 @@
       packages.${system} = {
         codex-app = codexApp;
         terminal-browser = terminalBrowser;
+        hunk = hunkPackage;
         inherit tmog tode;
       };
       checks.${system} = {
         codex-app = codexAppSmoke;
         terminal-browser = terminalBrowserSmoke;
+        hunk = hunkSmoke;
         tmog = tmogSmoke;
         tode = todeSmoke;
       };
@@ -180,7 +199,7 @@
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
         tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs system tmog; };
+          specialArgs = { inherit inputs system tmog hunkPackage; };
           modules = [
             nixos-wsl.nixosModules.default
             ./tiki-wsl-nixos/configuration.nix

@@ -6,7 +6,7 @@
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix) — replaces
 # the old <nixos-unstable>/<nixos-master> NIX_PATH channel lookups. `system` is threaded to each
 # scope `import` because pure flake eval has no `builtins.currentSystem`. Migrated to flake 2026-07-05.
-{ options, config, pkgs, lib, inputs, system, codexApp, terminalBrowser, tmog, tode, ... }:
+{ options, config, pkgs, lib, inputs, system, codexApp, terminalBrowser, tmog, tode, hunkPackage, ... }:
 # add unstable channel definition for select packages, with unfree permitted
 # Note that prior to this working you need to run:
 # sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
@@ -1543,18 +1543,8 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
-      # hunk (github.com/modem-dev/hunk) — terminal-first diff viewer. It's a
-      # Bun/bun2nix FLAKE, not in nixpkgs. This machine is CHANNEL-based (no flake
-      # inputs), so we pull it declaratively via a REV-PINNED builtins.getFlake
-      # (the pin keeps `nixos-rebuild` eval pure/reproducible; flakes are enabled
-      # system-wide in /etc/nix/nix.conf). TO UPDATE: bump the rev below to a newer
-      # modem-dev/hunk commit, then `ixnay reify`. (When thelio finally migrates to
-      # a flake-based config, replace this with a proper `inputs.hunk` + follows.)
-      # NB: evaluating this external flake instantiates nixpkgs across all default
-      # systems, so it (and ONLY it) emits the harmless "26.05 last to support
-      # x86_64-darwin" eval warning. Confirmed 2026-06-24 by toggling it off.
-      # Accepted — hunk stays. Don't go re-hunting that warning's source.
-      (builtins.getFlake "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe").packages.x86_64-linux.default
+      # Terminal-first diff viewer from the exact, shared flake input.
+      hunkPackage
 
       # ── app-parity batch (from ~/tower-app-parity.txt, 2026-06-13) ──────────────
       # Present on BOTH the framework laptop AND the Mac but missing here after
