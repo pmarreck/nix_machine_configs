@@ -10,12 +10,16 @@
 - [x] Evaluate and build the exact Thelio closure; verify Herdr's package,
       foreground server command, and `default.target` wiring. Completed
       2026-09-04 08:19 EDT.
-- [ ] Activate the candidate, then prove the user daemon, Unix-socket CLI,
+- [x] Activate the candidate, then prove the user daemon, Unix-socket CLI,
       tailnet ops status, and all three mutation controls without touching the
       existing tmux fleet.
   - Curiosity poke: Herdr's user service must remain in `user.slice` with
     read-write access to Peter's home, even when controlled by the hardened
     root-owned operations service.
+  - Completed 2026-09-04 08:24 EDT. The live generation is
+    `/nix/store/fxzg3jlmslj0j6cs76cymj5cplkbqph9-nixos-system-thelio-nixos-26.11.20260807.f13ff45`;
+    Herdr runs in `user.slice`, its server/socket protocol check passes, and
+    all three tailnet operations-page mutations were proven against systemd.
 
 ## Roll back failed detached Codex mail wake (2026-09-03)
 
