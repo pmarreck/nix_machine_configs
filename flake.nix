@@ -48,6 +48,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Herdr supplies its own tested Nix package for the persistent terminal
+    # workspace server and clients. Keep its upstream lock graph intact rather
+    # than overriding the Rust/libghostty stack with this host's nixpkgs.
+    herdr.url = "github:herdrdev/herdr";
+
     # Task Manager TMOG is proprietary and publishes mutable stable filenames,
     # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
     # pure while `nix flake update tmog-version tmog-linux` refreshes the exact
@@ -72,6 +77,7 @@
       codexApp = pkgs.callPackage ./packages/codex-app.nix { };
       terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
+      herdrPackage = inputs.herdr.packages.${system}.herdr;
       tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
         (builtins.readFile inputs.tmog-version);
       tmog = pkgs.callPackage ./packages/tmog.nix {
@@ -150,7 +156,7 @@
         # `inputs` + `system` reach configuration.nix via specialArgs. Host modules
         # build their own extra nixpkgs scopes from these flake inputs so host-specific
         # nixpkgs config stays in the host module rather than being duplicated here.
-        specialArgs = { inherit inputs system codexApp terminalBrowser tmog tode; };
+        specialArgs = { inherit inputs system codexApp terminalBrowser tmog tode herdrPackage; };
 
         modules = [ module ];
       };

@@ -9,6 +9,9 @@ local by_path = {
 	["/ops/actions/mechatron-worker/halt"] = {id = "mechatron-worker-halt", kind = "mechatron", argv = {"halt"}},
 	["/ops/actions/mechatron-worker/resume"] = {id = "mechatron-worker-resume", kind = "mechatron", argv = {"resume"}},
 	["/ops/actions/fsearch/run"] = {id = "fsearch-run", scope = "user", unit = "fsearch-update.service", verb = "start"},
+	["/ops/actions/herdr/start"] = {id = "herdr-start", scope = "user", unit = "herdr.service", verb = "start"},
+	["/ops/actions/herdr/stop"] = {id = "herdr-stop", scope = "user", unit = "herdr.service", verb = "stop"},
+	["/ops/actions/herdr/restart"] = {id = "herdr-restart", scope = "user", unit = "herdr.service", verb = "restart"},
 	-- The chime controls change only the timer's RUN state, never its schedule,
 	-- which stays owned by NixOS. `mask` is a durable override that outlives a
 	-- reboot and a NixOS activation; a plain `stop` lasts only until the next

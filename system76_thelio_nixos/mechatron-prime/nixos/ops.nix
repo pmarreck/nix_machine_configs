@@ -1,5 +1,5 @@
 # Mechatron Prime — tailnet-only host operations console and local maintenance timers.
-{ pkgs, ... }:
+{ pkgs, herdrPackage, ... }:
 let
   luaEnv = pkgs.luajit.withPackages (ps: with ps; [ cjson luasocket ]);
   # Keep the complete runtime tree as an explicit derivation input. This makes
@@ -39,6 +39,24 @@ let
   };
 in
 {
+  # Herdr's first-party `server` subcommand is a foreground, headless session
+  # server intended for supervision. Keep it in Peter's user manager so its
+  # terminals, socket, state, and child agents never run as root or inherit the
+  # operations service's read-only /home mount namespace.
+  users.users.pmarreck.linger = true;
+  users.users.pmarreck.packages = [ herdrPackage ];
+
+  systemd.user.services.herdr = {
+    description = "Herdr persistent terminal workspace server";
+    wantedBy = [ "default.target" ];
+    unitConfig.ConditionUser = "pmarreck";
+    serviceConfig = {
+      ExecStart = "${herdrPackage}/bin/herdr server";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+  };
+
   systemd.services.mechatron-prime-ops = {
     description = "Mechatron Prime tailnet-only operations console";
     wantedBy = [ "multi-user.target" ];

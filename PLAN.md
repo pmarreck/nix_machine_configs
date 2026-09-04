@@ -1,5 +1,22 @@
 # NixOS plan
 
+## Herdr on Thelio (2026-09-04)
+
+- [x] Pin upstream Herdr 0.8.2 through its first-party flake without changing
+      the host's own Nixpkgs revision. Completed 2026-09-04 08:18 EDT.
+- [x] Vendor green Mechatron Prime commit `a61097e`, which declares Peter's
+      lingering `herdr.service` and exact status/start/stop/restart operations
+      controls. Completed 2026-09-04 08:18 EDT.
+- [x] Evaluate and build the exact Thelio closure; verify Herdr's package,
+      foreground server command, and `default.target` wiring. Completed
+      2026-09-04 08:19 EDT.
+- [ ] Activate the candidate, then prove the user daemon, Unix-socket CLI,
+      tailnet ops status, and all three mutation controls without touching the
+      existing tmux fleet.
+  - Curiosity poke: Herdr's user service must remain in `user.slice` with
+    read-write access to Peter's home, even when controlled by the hardened
+    root-owned operations service.
+
 ## Roll back failed detached Codex mail wake (2026-09-03)
 
 - [x] Disable Thelio's detached Codex PTY wake after the live proof reproduced
