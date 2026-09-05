@@ -112,6 +112,7 @@ in
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./zfs.nix
+      ./everamp-ups.nix # USB monitoring and tested 0/5/10-minute outage policy
       ./ollama.nix   # local inference backend for codescan (Ollama-CUDA, 2× NVIDIA) — Einstein 2026-07-07
       ./mechatron-prime-attic.nix   # tailnet-local binary cache for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
