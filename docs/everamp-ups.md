@@ -53,6 +53,11 @@ server listens only on 127.0.0.1:3493; no remote UPS command account is installe
 
 JSON is the default. TOML uses nested tables and omits null-valued fields;
 `errors` explains unavailable sources. `key=` is not legal TOML.
+Keys and table names are bare wherever possible, such as `[nut.driver.version]`
+and `_value = "2.8.4"`. Periods represent namespace boundaries in this source,
+so valid dotted names are emitted unquoted. Names containing spaces, Unicode,
+or other special characters remain quoted, as do empty names and names with
+empty dotted components that cannot form a valid bare namespace.
 `--toml --null-value ':null'` (equivalently `--null-value=':null'`) retains nulls
 as a quoted string sentinel: `key = ":null"`. This applies recursively, including
 array members; TOML has no native null type. Existing strings equal to the sentinel

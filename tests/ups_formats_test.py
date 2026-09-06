@@ -58,6 +58,29 @@ for sentinel in [':null', '', '"quoted"\\value\n雪', 'false', '0']:
 assert tomllib.loads(render('toml', {'a': None, 'b': {'c': None}})) == {'b': {}}
 print('TOML null omission and explicit string sentinels round-trip at every nesting level')
 
+# Periods deliberately denote namespaces; ordinary keys need no quotes.
+bare_fixture = {'bare_key-123': 'value', '1234': 42,
+                'nut': {'driver': {'version': {'_value': '2.8.4'}}},
+                'items': [{'simple': True}], 'source.namespace': 'reading',
+                'space key': 'quoted', '': 'empty', '雪': 'unicode'}
+bare_toml = render('toml', bare_fixture)
+assert 'bare_key-123 = "value"' in bare_toml
+assert '1234 = 42' in bare_toml
+assert '[nut.driver.version]' in bare_toml
+assert '_value = "2.8.4"' in bare_toml
+assert '{ simple = true }' in bare_toml
+assert 'source.namespace = "reading"' in bare_toml
+assert '"space key" = "quoted"' in bare_toml
+expected = dict(bare_fixture)
+del expected['source.namespace']
+expected['source'] = {'namespace': 'reading'}
+assert tomllib.loads(bare_toml) == expected
+assert tomllib.loads(render('toml', {'source.namespace': {'leaf': 1}})) == {'source': {'namespace': {'leaf': 1}}}
+# Empty components cannot form valid unquoted dotted keys.
+for key in ['.', '.leading', 'trailing.', 'double..dot', 'line\nbreak', 'trailing\n']:
+    assert tomllib.loads(render('toml', {key: 1})) == {key: 1}
+print('TOML bare keys, dotted namespaces, inline tables and necessary quoting checks passed')
+
 payload = "$(printf injected) `printf injected` ' \" ; exit 99 #\nsecond line"
 value = {'nut': {'model': payload, 'status': 'OL'}, 'monitor': {'shutdown_enabled': False}, 'errors': []}
 env = {k: v for k,v in os.environ.items() if not k.startswith('UPS_STATUS_')}

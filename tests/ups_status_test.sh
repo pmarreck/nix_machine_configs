@@ -62,10 +62,10 @@ for syntax in equal separate; do
  if [ "$syntax" = equal ]; then args=(--null-value=:null); else args=(--null-value :null); fi
  if output=$(cli --toml "${args[@]}"); then rc=0; else rc=$?; fi
  [ "$rc" -eq 1 ]
- [[ "$output" == *'"nut" = ":null"'* ]]
- [[ "$output" == *'"monitor" = ":null"'* ]]
+ [[ "$output" == *'nut = ":null"'* ]]
+ [[ "$output" == *'monitor = ":null"'* ]]
 done
 if output=$(cli --toml --null-value=); then rc=0; else rc=$?; fi
 [ "$rc" -eq 1 ]
-[[ "$output" == *'"nut" = ""'* ]]
+[[ "$output" == *'nut = ""'* ]]
 printf 'UPS CLI format modifiers, strict option ordering, null sentinel syntax and invalid-combination checks passed\n'

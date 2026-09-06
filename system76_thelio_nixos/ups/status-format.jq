@@ -1,11 +1,15 @@
 # Presentation only: all formats consume the same losslessly nested document.
 def toml_string: @json | gsub("\u007f"; "\\u007f");
+# This source uses periods as namespace separators, not literal key characters.
+# Quote only names that cannot be a bare key or a valid dotted namespace.
+def toml_key:
+  if test("^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*\\z") then . else toml_string end;
 # An explicit string sentinel is a caller convention, not a TOML null type.
 def has_null_sentinel: $ARGS.named.null_value_set // false;
 def toml_value:
   if type == "object" then
     "{ " + ([to_entries[] | select(.value != null or has_null_sentinel) |
-      (.key | toml_string) + " = " + (.value | toml_value)] | join(", ")) + " }"
+      (.key | toml_key) + " = " + (.value | toml_value)] | join(", ")) + " }"
   elif type == "array" then "[" + (map(toml_value) | join(", ")) + "]"
   elif type == "null" then
     if has_null_sentinel then $ARGS.named.null_value | toml_string
@@ -13,10 +17,10 @@ def toml_value:
   elif type == "string" then toml_string else tojson end;
 def toml_tables($path):
   (to_entries | sort_by(.key) | .[] | select((.value != null or has_null_sentinel) and (.value | type) != "object") |
-    (.key | toml_string) + " = " + (.value | toml_value)),
+    (.key | toml_key) + " = " + (.value | toml_value)),
   (to_entries | sort_by(.key) | .[] | select((.value | type) == "object") |
     ($path + [.key]) as $next |
-    "\n[" + ($next | map(toml_string) | join(".")) + "]",
+    "\n[" + ($next | map(toml_key) | join(".")) + "]",
     (.value | toml_tables($next)));
 def xml_text:
   tostring | if test("[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]") then
