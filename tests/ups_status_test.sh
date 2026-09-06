@@ -29,3 +29,23 @@ if output=$(bash "$root/system76_thelio_nixos/ups/status.sh" \
 fi
 jq -e '.nut == null and .monitor == null and (.errors | length) == 2' <<<"$output" >/dev/null
 printf 'UPS CLI failed-source JSON and exit-status check passed\n'
+cli() {
+ bash "$root/system76_thelio_nixos/ups/status.sh" "$(type -P false)" "$(type -P jq)" \
+   "$(type -P timeout)" "$filter" "$root/system76_thelio_nixos/ups/status-format.jq" \
+   /nonexistent/ups-status.json "$@"
+}
+for order in forward reverse; do
+ if [ "$order" = forward ]; then args=(--bash --export); else args=(--export --bash); fi
+ if output=$(cli "${args[@]}"); then rc=0; else rc=$?; fi
+ [ "$rc" -eq 1 ] # unavailable source, NOT a usage error
+ [ "${output#export UPS_STATUS_}" != "$output" ]
+done
+if output=$(cli --bash); then rc=0; else rc=$?; fi
+[ "$rc" -eq 1 ]
+[ "${output#UPS_STATUS_}" != "$output" ]
+for format in --json --toml --xml; do
+ if output=$(cli "$format" --export 2>&1); then rc=0; else rc=$?; fi
+ [ "$rc" -eq 2 ]
+ [ "$output" = 'ups-status: --export requires --bash' ]
+done
+printf 'UPS CLI opt-in export, option order and invalid-combination checks passed\n'

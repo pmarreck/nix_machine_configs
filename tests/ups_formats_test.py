@@ -9,8 +9,9 @@ import xml.etree.ElementTree as ET
 data = {"nut": {"driver": {"version": {"_value": "2.8.4", "data": 'A&B <HID> "quoted"\n雪'}}},
         "monitor": {"shutdown_enabled": False, "elapsed": 42.5}, "errors": []}
 
-def render(kind, value):
-    return subprocess.check_output(["jq", "-rS", "--arg", "format", kind, "-f", sys.argv[1]],
+def render(kind, value, export=False):
+    return subprocess.check_output(["jq", "-rS", "--arg", "format", kind,
+                                   "--argjson", "export_vars", json.dumps(export), "-f", sys.argv[1]],
                                    input=json.dumps(value), text=True)
 
 def xml_value(element):
@@ -36,16 +37,27 @@ print('9 independent JSON/TOML/XML round-trip checks passed')
 
 payload = "$(printf injected) `printf injected` ' \" ; exit 99 #\nsecond line"
 value = {'nut': {'model': payload, 'status': 'OL'}, 'monitor': {'shutdown_enabled': False}, 'errors': []}
-script = render('bash', value)
-env = dict(os.environ, UPS_STATUS_STALE='must disappear', KEEP_ME='untouched')
-result = subprocess.check_output(['bash', '-c', script + '\nenv -0'], env=env)
-fields = dict(item.split(b'=', 1) for item in result.split(b'\0') if item)
-assert fields[b'UPS_STATUS_NUT_MODEL'].decode() == payload
-assert fields[b'UPS_STATUS_MONITOR_SHUTDOWN_ENABLED'] == b'false'
-assert fields[b'UPS_STATUS_ERRORS_LENGTH'] == b'0'
-assert b'UPS_STATUS_STALE' not in fields and fields[b'KEEP_ME'] == b'untouched'
+env = {k: v for k,v in os.environ.items() if not k.startswith('UPS_STATUS_')}
+env.update(UPS_STATUS_STALE='preserve caller state', KEEP_ME='untouched')
+for export in [False, True]:
+    script = render('bash', value, export)
+    lines = script.splitlines()
+    assert len(lines) == 4, 'one physical assignment line per value, no preamble'
+    assert all(line.startswith('export UPS_STATUS_' if export else 'UPS_STATUS_') for line in lines)
+    tail = '\nprintf "%s\\0%s\\0%s\\0" "$UPS_STATUS_NUT_MODEL" "$UPS_STATUS_MONITOR_SHUTDOWN_ENABLED" "$UPS_STATUS_ERRORS_LENGTH"; env -0'
+    result = subprocess.check_output(['bash', '-c', script + tail], env=env)
+    model, boolean, length, remainder = result.split(b'\0', 3)
+    assert model.decode() == payload and boolean == b'false' and length == b'0'
+    fields = dict(item.split(b'=', 1) for item in remainder.split(b'\0') if item)
+    assert (b'UPS_STATUS_NUT_MODEL' in fields) == export
+    assert fields[b'UPS_STATUS_STALE'] == b'preserve caller state' and fields[b'KEEP_ME'] == b'untouched'
+# All non-NUL ASCII controls, quotes, backslashes, and Unicode survive shell evaluation.
+controls = ''.join(map(chr, range(1, 32))) + "\\'\"雪\x7f"
+script = render('bash', {'x': controls})
+assert len(script.splitlines()) == 1
+assert subprocess.check_output(['bash', '-c', script + '\nprintf %s "$UPS_STATUS_X"']).decode() == controls
 for invalid in [{'a-b': 1, 'a_b': 2}, {'x': 'contains\0NUL'}]:
     result = subprocess.run(['jq', '-r', '--arg', 'format', 'bash', '-f', sys.argv[1]],
                             input=json.dumps(invalid), text=True, capture_output=True)
     assert result.returncode != 0 and result.stdout == ''
-print('Bash quoting, false values, array length, stale clearing, collisions and NUL checks passed')
+print('Bash assignment-only output, opt-in export, literal quoting, caller-state preservation and rejection checks passed')

@@ -31,7 +31,13 @@ def xml($key; $indent):
   elif $kind == "array" then
     $open + "\n" + ([.[] | xml("item"; $indent + "  ")] | join("\n")) + "\n" + $indent + $close
   else $open + (if $kind == "null" then "" else xml_text end) + $close end;
-def bash_exports:
+# ANSI-C quotes keep control characters on one physical assignment line.
+def bash_quote:
+  if test("[\u0001-\u001f\u007f]") then
+    "$'" + (tojson | .[1:-1] | gsub("\\\\\""; "\"") | gsub("'"; "\\'")
+      | gsub("\u007f"; "\\x7f")) + "'"
+  else @sh end;
+def bash_assignments:
   . as $root |
   [paths as $path | $root | getpath($path) as $v |
     select($v != null and ($v | type) != "object") |
@@ -41,11 +47,10 @@ def bash_exports:
   | if (group_by(.name) | any(.[]; length > 1)) then error("Bash variable name collision") else . end
   | if any(.[]; .value | contains("\u0000")) then error("Bash environment cannot contain NUL") else . end
   | sort_by(.name)
-  | ["# Reserved namespace: replace the previous UPS_STATUS_ snapshot.",
-     "for UPS_STATUS__KEY in \"${!UPS_STATUS_@}\"; do unset \"$UPS_STATUS__KEY\"; done; unset UPS_STATUS__KEY;",
-     (.[] | "export " + .name + "=" + (.value | @sh))] | join("\n");
+  | [ .[] | (if ($ARGS.named.export_vars // false) then "export " else "" end)
+      + .name + "=" + (.value | bash_quote) ] | join("\n");
 if $format == "json" then .
 elif $format == "toml" then toml_tables([])
 elif $format == "xml" then "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + xml("ups-status"; "")
-elif $format == "bash" then bash_exports
+elif $format == "bash" then bash_assignments
 else error("unknown output format") end

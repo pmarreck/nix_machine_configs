@@ -29,6 +29,7 @@ ups-status --json
 ups-status --toml
 ups-status --xml
 ups-status --bash
+ups-status --bash --export
 systemctl status upsd upsdrv everamp-monitor.timer
 journalctl -u upsdrv -u everamp-monitor --since today
 journalctl --unit='everamp-notice@*' --since today
@@ -52,14 +53,23 @@ JSON is the default. TOML uses nested tables and omits null-valued fields;
 `errors` explains unavailable sources. `key=` is not legal TOML. XML includes
 type attributes to distinguish text, numbers, Booleans, arrays, and nulls.
 
-For Bash, the command emits shell-quoted exports using a reserved
+For Bash, the command emits only shell-quoted `NAME=value` assignments using a
 `UPS_STATUS_` namespace; e.g. `.nut.ups.status` becomes
 `UPS_STATUS_NUT_UPS_STATUS`. Array members use numeric path components and
 arrays include a `_LENGTH` variable, such as `UPS_STATUS_ERRORS_LENGTH`.
 Names are capitalized and punctuation becomes underscores. Ambiguous normalized
 names or NUL-containing values are rejected rather than silently corrupted.
-Evaluating the output first clears existing `UPS_STATUS_` variables, so old
-readings cannot survive a successful replacement snapshot.
+There is no preamble, cleanup loop, or implicit export. `--bash --export` adds
+`export ` to each assignment when child processes should inherit the values.
+As usual in Bash, assigning an already-exported variable retains its export
+attribute. Flags may appear in either order; `--export` requires Bash output.
+
+Each assignment occupies one physical line; control characters use Bash ANSI-C
+quoting. Values must be shell-decoded, not treated as raw `env` output, since
+spaces, quotes and command substitutions must remain literal data when evaluated.
+Nulls produce no assignment. Evaluating the output leaves all unmentioned
+variables untouched, including readings from an earlier snapshot. Use a fresh
+shell/subshell or explicitly manage that namespace when stale values matter.
 
 ```bash
 if ups_env=$(ups-status --bash); then
