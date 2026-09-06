@@ -139,10 +139,9 @@ in {
     };
   };
   environment.systemPackages = [ (pkgs.writeShellScriptBin "ups-status" ''
-    ${nut}/bin/upsc everamp@127.0.0.1
-    if test -r /run/everamp-monitor/status.json; then
-      ${pkgs.jq}/bin/jq . /run/everamp-monitor/status.json
-    fi
+    exec ${pkgs.bash}/bin/bash ${./ups/status.sh} \
+      ${nut}/bin/upsc ${pkgs.jq}/bin/jq ${pkgs.coreutils}/bin/timeout \
+      ${./ups/status.jq} ${./ups/status-format.jq} /run/everamp-monitor/status.json "$@"
   '') ];
   };
 }

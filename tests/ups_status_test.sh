@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+filter="$root/system76_thelio_nixos/ups/status.jq"
+render() { jq -nS --arg nut "$1" --arg monitor "$2" --argjson nut_ok "${3:-true}" -f "$filter"; }
+fixture=$'battery.charge: 100\ndriver.version: 2.8.4\ndriver.version.data: HID: revision 4\nups.serial: 00123\nups.status: OL'
+output=$(render "$fixture" '{"shutdown_enabled":false,"outage_elapsed_seconds":42}')
+jq -e '.nut.battery.charge == "100" and .nut.driver.version._value == "2.8.4" and
+ .nut.driver.version.data == "HID: revision 4" and .nut.ups.serial == "00123" and
+ .monitor.shutdown_enabled == false and .monitor.outage_elapsed_seconds == 42 and
+ .errors == []' <<<"$output" >/dev/null
+# Prefix collisions must preserve both values, regardless of input order.
+render $'a.b.c: leaf\na.b: parent\na: root' '{}' |
+ jq -e '.nut.a._value == "root" and .nut.a.b._value == "parent" and .nut.a.b.c == "leaf"' >/dev/null
+for bad in 'not a record' $'x: first\nx: second' 'x..y: bad' 'x._value: reserved'; do
+ render "$bad" '{}' | jq -e '.nut == null and (.errors | length) == 1' >/dev/null
+done
+render 'ups.status: OB' '{}' false | jq -e '.nut == null and (.errors | length) == 1' >/dev/null
+for bad in '' 'not json' '[]' 'null'; do
+ render 'ups.status: OL' "$bad" | jq -e '.nut.ups.status == "OL" and .monitor == null and (.errors | length) == 1' >/dev/null
+done
+render $'device.model: "UPS" \\ backup\r\nempty.value: \r\n' '{}' |
+ jq -e '.nut.device.model == "\"UPS\" \\ backup" and .nut.empty.value == ""' >/dev/null
+render '' '{}' | jq -e '.nut == null and (.errors | length) == 1' >/dev/null
+printf '13 UPS JSON formatting/error scenarios passed\n'
+if output=$(bash "$root/system76_thelio_nixos/ups/status.sh" \
+  "$(type -P false)" "$(type -P jq)" "$(type -P timeout)" "$filter" "$root/system76_thelio_nixos/ups/status-format.jq" /nonexistent/ups-status.json); then
+  printf 'failed sources must produce a nonzero exit status\n' >&2; exit 1
+fi
+jq -e '.nut == null and .monitor == null and (.errors | length) == 2' <<<"$output" >/dev/null
+printf 'UPS CLI failed-source JSON and exit-status check passed\n'

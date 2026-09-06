@@ -25,14 +25,56 @@ service and POWERDOWNFLAG are disabled; the UPS shutdown order is -1.
 
 ```sh
 ups-status
+ups-status --json
+ups-status --toml
+ups-status --xml
+ups-status --bash
 systemctl status upsd upsdrv everamp-monitor.timer
 journalctl -u upsdrv -u everamp-monitor --since today
 journalctl --unit='everamp-notice@*' --since today
 ```
 
-`ups-status` prints live NUT readings and the policy's last observation, including
-`shutdown_enabled`. Local unprivileged status queries need no sudo. The NUT
+`ups-status` prints one sorted, pretty-printed JSON document with `nut` and
+`monitor` namespaces and an `errors` array. NUT dotted keys become nested objects:
+`battery.charge` becomes `.nut.battery.charge`. NUT values remain strings to
+preserve identifiers, leading zeroes, and decimal precision; monitor JSON retains
+its native types, including `.monitor.shutdown_enabled` as a Boolean. When a
+key has both a scalar and children (e.g. `driver.version`), `_value` holds the
+scalar alongside the children. `_value` is reserved by this representation.
+
+Unavailable or malformed sources produce `null` in their namespace, structured
+errors, and a nonzero command exit status, while preserving the other source.
+Live NUT reads and the monitor's timestamped last observation are not an atomic
+snapshot. Local unprivileged status queries need no sudo. The NUT
 server listens only on 127.0.0.1:3493; no remote UPS command account is installed.
+
+JSON is the default. TOML uses nested tables and omits null-valued fields;
+`errors` explains unavailable sources. `key=` is not legal TOML. XML includes
+type attributes to distinguish text, numbers, Booleans, arrays, and nulls.
+
+For Bash, the command emits shell-quoted exports using a reserved
+`UPS_STATUS_` namespace; e.g. `.nut.ups.status` becomes
+`UPS_STATUS_NUT_UPS_STATUS`. Array members use numeric path components and
+arrays include a `_LENGTH` variable, such as `UPS_STATUS_ERRORS_LENGTH`.
+Names are capitalized and punctuation becomes underscores. Ambiguous normalized
+names or NUL-containing values are rejected rather than silently corrupted.
+Evaluating the output first clears existing `UPS_STATUS_` variables, so old
+readings cannot survive a successful replacement snapshot.
+
+```bash
+if ups_env=$(ups-status --bash); then
+  eval "$ups_env"
+  printf 'UPS state: %s\n' "$UPS_STATUS_NUT_UPS_STATUS"
+else
+  printf 'UPS status unavailable; do not use earlier readings\n' >&2
+fi
+```
+
+Do not rely on `eval "$(ups-status --bash)"` to propagate query failures:
+`eval`'s success can mask the command substitution's failure. Capture and check
+the command as above before consuming the snapshot. Quoting tests evaluate
+metacharacters as literal values, never commands. Bash output requires Bash,
+not a generic POSIX shell.
 
 USB matching uses VID/PID 06da:ffff and manufacturer/product strings
 `-BMS-` / `Smart-Battery`, never a USB bus/port. There is currently one matching
