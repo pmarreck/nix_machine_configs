@@ -1,14 +1,18 @@
 # Presentation only: all formats consume the same losslessly nested document.
 def toml_string: @json | gsub("\u007f"; "\\u007f");
+# An explicit string sentinel is a caller convention, not a TOML null type.
+def has_null_sentinel: $ARGS.named.null_value_set // false;
 def toml_value:
   if type == "object" then
-    "{ " + ([to_entries[] | select(.value != null) |
+    "{ " + ([to_entries[] | select(.value != null or has_null_sentinel) |
       (.key | toml_string) + " = " + (.value | toml_value)] | join(", ")) + " }"
   elif type == "array" then "[" + (map(toml_value) | join(", ")) + "]"
-  elif type == "null" then error("TOML cannot represent null array members")
+  elif type == "null" then
+    if has_null_sentinel then $ARGS.named.null_value | toml_string
+    else error("TOML cannot represent null array members without --null-value") end
   elif type == "string" then toml_string else tojson end;
 def toml_tables($path):
-  (to_entries | sort_by(.key) | .[] | select(.value != null and (.value | type) != "object") |
+  (to_entries | sort_by(.key) | .[] | select((.value != null or has_null_sentinel) and (.value | type) != "object") |
     (.key | toml_string) + " = " + (.value | toml_value)),
   (to_entries | sort_by(.key) | .[] | select((.value | type) == "object") |
     ($path + [.key]) as $next |
@@ -51,6 +55,8 @@ def bash_assignments:
       + .name + "=" + (.value | bash_quote) ] | join("\n");
 if $format == "json" then .
 elif $format == "toml" then toml_tables([])
-elif $format == "xml" then "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + xml("ups-status"; "")
+elif $format == "xml" then
+  (if ($ARGS.named.declaration // false) then "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" else "" end)
+  + xml("ups-status"; "")
 elif $format == "bash" then bash_assignments
 else error("unknown output format") end

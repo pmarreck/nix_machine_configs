@@ -34,11 +34,13 @@ cli() {
    "$(type -P timeout)" "$filter" "$root/system76_thelio_nixos/ups/status-format.jq" \
    /nonexistent/ups-status.json "$@"
 }
-for order in forward reverse; do
- if [ "$order" = forward ]; then args=(--bash --export); else args=(--export --bash); fi
- if output=$(cli "${args[@]}"); then rc=0; else rc=$?; fi
+for modifier in export declaration; do
+ if [ "$modifier" = export ]; then format=--bash; prefix='export UPS_STATUS_'; else format=--xml; prefix='<?xml '; fi
+ if output=$(cli "$format" "--$modifier"); then rc=0; else rc=$?; fi
  [ "$rc" -eq 1 ] # unavailable source, NOT a usage error
- [ "${output#export UPS_STATUS_}" != "$output" ]
+ [[ "$output" == "$prefix"* ]]
+ if output=$(cli "--$modifier" "$format" 2>&1); then rc=0; else rc=$?; fi
+ [ "$rc" -eq 2 ]
 done
 if output=$(cli --bash); then rc=0; else rc=$?; fi
 [ "$rc" -eq 1 ]
@@ -46,6 +48,24 @@ if output=$(cli --bash); then rc=0; else rc=$?; fi
 for format in --json --toml --xml; do
  if output=$(cli "$format" --export 2>&1); then rc=0; else rc=$?; fi
  [ "$rc" -eq 2 ]
- [ "$output" = 'ups-status: --export requires --bash' ]
+ [ "$output" = 'ups-status: --export requires preceding --bash' ]
 done
-printf 'UPS CLI opt-in export, option order and invalid-combination checks passed\n'
+if output=$(cli --xml); then rc=0; else rc=$?; fi
+[ "$rc" -eq 1 ]
+[[ "$output" == '<ups-status '* ]]
+for args in '--json --declaration' '--xml --declaration --json' '--bash --export --xml' '--null-value=:null --toml' '--toml --null-value' '--toml --null-value=:null --json'; do
+ read -ra argv <<<"$args"
+ if output=$(cli "${argv[@]}" 2>&1); then rc=0; else rc=$?; fi
+ [ "$rc" -eq 2 ]
+done
+for syntax in equal separate; do
+ if [ "$syntax" = equal ]; then args=(--null-value=:null); else args=(--null-value :null); fi
+ if output=$(cli --toml "${args[@]}"); then rc=0; else rc=$?; fi
+ [ "$rc" -eq 1 ]
+ [[ "$output" == *'"nut" = ":null"'* ]]
+ [[ "$output" == *'"monitor" = ":null"'* ]]
+done
+if output=$(cli --toml --null-value=); then rc=0; else rc=$?; fi
+[ "$rc" -eq 1 ]
+[[ "$output" == *'"nut" = ""'* ]]
+printf 'UPS CLI format modifiers, strict option ordering, null sentinel syntax and invalid-combination checks passed\n'

@@ -9,8 +9,11 @@ import xml.etree.ElementTree as ET
 data = {"nut": {"driver": {"version": {"_value": "2.8.4", "data": 'A&B <HID> "quoted"\n雪'}}},
         "monitor": {"shutdown_enabled": False, "elapsed": 42.5}, "errors": []}
 
-def render(kind, value, export=False):
+def render(kind, value, export=False, declaration=False, null_value=None):
     return subprocess.check_output(["jq", "-rS", "--arg", "format", kind,
+                                   "--argjson", "declaration", json.dumps(declaration),
+                                   "--argjson", "null_value_set", json.dumps(null_value is not None),
+                                   "--argjson", "null_value", json.dumps(null_value),
                                    "--argjson", "export_vars", json.dumps(export), "-f", sys.argv[1]],
                                    input=json.dumps(value), text=True)
 
@@ -31,9 +34,29 @@ def xml_value(element):
 for value in [data, {'nut': None, 'monitor': {'status': 'OL'}, 'errors': [{'source': 'nut', 'message': 'unavailable'}]},
               {'spaces & quotes "': {'empty': '', 'array': [1, False, 'a\tb\rc'], 'unicode': '雪'}}]:
     assert json.loads(render('json', value)) == value
-    assert xml_value(ET.fromstring(render('xml', value))) == value
+    plain_xml = render('xml', value)
+    declared_xml = render('xml', value, declaration=True)
+    assert plain_xml.startswith('<ups-status ')
+    assert declared_xml == '<?xml version="1.0" encoding="UTF-8"?>\n' + plain_xml
+    assert xml_value(ET.fromstring(plain_xml)) == value
+    assert xml_value(ET.fromstring(declared_xml)) == value
     assert tomllib.loads(render('toml', value)) == {k: v for k, v in value.items() if v is not None}
-print('9 independent JSON/TOML/XML round-trip checks passed')
+print('12 independent JSON/TOML/XML round-trip checks passed, including optional XML declaration')
+
+null_fixture = {'missing': None, 'nested': {'missing': None},
+                'items': [None, {'missing': None}], 'literal': ':null'}
+def replace_nulls(value, sentinel):
+    if value is None:
+        return sentinel
+    if isinstance(value, dict):
+        return {k: replace_nulls(v, sentinel) for k, v in value.items()}
+    if isinstance(value, list):
+        return [replace_nulls(v, sentinel) for v in value]
+    return value
+for sentinel in [':null', '', '"quoted"\\value\n雪', 'false', '0']:
+    assert tomllib.loads(render('toml', null_fixture, null_value=sentinel)) == replace_nulls(null_fixture, sentinel)
+assert tomllib.loads(render('toml', {'a': None, 'b': {'c': None}})) == {'b': {}}
+print('TOML null omission and explicit string sentinels round-trip at every nesting level')
 
 payload = "$(printf injected) `printf injected` ' \" ; exit 99 #\nsecond line"
 value = {'nut': {'model': payload, 'status': 'OL'}, 'monitor': {'shutdown_enabled': False}, 'errors': []}

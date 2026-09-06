@@ -27,7 +27,9 @@ service and POWERDOWNFLAG are disabled; the UPS shutdown order is -1.
 ups-status
 ups-status --json
 ups-status --toml
+ups-status --toml --null-value ':null'
 ups-status --xml
+ups-status --xml --declaration
 ups-status --bash
 ups-status --bash --export
 systemctl status upsd upsdrv everamp-monitor.timer
@@ -50,8 +52,18 @@ snapshot. Local unprivileged status queries need no sudo. The NUT
 server listens only on 127.0.0.1:3493; no remote UPS command account is installed.
 
 JSON is the default. TOML uses nested tables and omits null-valued fields;
-`errors` explains unavailable sources. `key=` is not legal TOML. XML includes
-type attributes to distinguish text, numbers, Booleans, arrays, and nulls.
+`errors` explains unavailable sources. `key=` is not legal TOML.
+`--toml --null-value ':null'` (equivalently `--null-value=':null'`) retains nulls
+as a quoted string sentinel: `key = ":null"`. This applies recursively, including
+array members; TOML has no native null type. Existing strings equal to the sentinel
+are indistinguishable from substituted nulls, so choose a value appropriate for
+your consumer. An empty sentinel (`--null-value=`) is allowed. Without a sentinel,
+null-valued fields are omitted and null array members are rejected rather than
+silently changing array positions.
+
+XML includes type attributes to distinguish text, numbers, Booleans, arrays, and
+nulls. The optional XML declaration is omitted by default; `--xml --declaration`
+adds `<?xml version="1.0" encoding="UTF-8"?>`. Output is UTF-8 either way.
 
 For Bash, the command emits only shell-quoted `NAME=value` assignments using a
 `UPS_STATUS_` namespace; e.g. `.nut.ups.status` becomes
@@ -62,7 +74,9 @@ names or NUL-containing values are rejected rather than silently corrupted.
 There is no preamble, cleanup loop, or implicit export. `--bash --export` adds
 `export ` to each assignment when child processes should inherit the values.
 As usual in Bash, assigning an already-exported variable retains its export
-attribute. Flags may appear in either order; `--export` requires Bash output.
+attribute. Format-specific modifiers must follow their format selector:
+`--bash --export`, `--xml --declaration`, or `--toml --null-value VALUE`.
+Switching afterward to an incompatible format is rejected.
 
 Each assignment occupies one physical line; control characters use Bash ANSI-C
 quoting. Values must be shell-decoded, not treated as raw `env` output, since
