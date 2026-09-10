@@ -135,10 +135,14 @@ in
     # Temporary final-lap policy explicitly accepted by Peter on 2026-09-03.
     # The From header is forgeable; signed S/MIME enforcement follows launch.
     trustUnsignedHumanMail = true;
-    # A live 2026-09-03 proof showed the temporary PTY client could disconnect
-    # Codex without delivering the wake. Keep Codex passive until a native
-    # app-server wake exists; Claude and Grok retain their terminal wake path.
-    allowDetachedCodexWake = false;
+    # Herdr-era mail notices go through application inbox monitors/hooks,
+    # never through a human-shared terminal input buffer (2026-09-10).
+    herdrCommand = "${inputs.herdr.packages.${system}.herdr}/bin/herdr";
+    herdrSocket = "/home/pmarreck/.config/herdr/herdr.sock";
+    mailboxRoutes = {
+      einstein = "/home/pmarreck";
+      code = "/home/pmarreck";
+    };
     wakeProjects = [ "*" ];
   };
 

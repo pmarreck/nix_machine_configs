@@ -45,6 +45,11 @@ assert_json '.trustUnsignedHumanMail' 'true' \
 assert_json '.allowDetachedCodexWake' 'false' \
 	'failed detached Codex terminal wake remains disabled'
 assert_json '.wakeProjects | join(",")' '*' 'all project mailboxes are eligible for conservative idle wakeup'
+assert_json '.herdrSocket' '/home/pmarreck/.config/herdr/herdr.sock' 'mail watcher uses the intended Herdr socket'
+assert_json '.mailboxRoutes.einstein' '/home/pmarreck' 'Einstein mailbox reaches the home agent inbox'
+assert_json '.mailboxRoutes.code' '/home/pmarreck' 'legacy code mailbox reaches the same home agent inbox'
+assert_json '.herdrCommand | startswith("/nix/store/") and endswith("/bin/herdr")' 'true' \
+	'watcher uses the Nix-pinned Herdr executable'
 
 capture nix eval --raw \
 	"path:$ROOT_DIR#nixosConfigurations.thelio-nixos.config.services.dovecot2.package.version"
