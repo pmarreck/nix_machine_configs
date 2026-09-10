@@ -45,6 +45,9 @@ assert_json '.trustUnsignedHumanMail' 'true' \
 assert_json '.allowDetachedCodexWake' 'false' \
 	'failed detached Codex terminal wake remains disabled'
 assert_json '.wakeProjects | join(",")' '*' 'all project mailboxes are eligible for conservative idle wakeup'
+assert_json '.terminalWakeProjects | join(",")' '*' 'automatic ANSI-aware Herdr wakes explicitly authorized'
+assert_json '.herdrWakeCommand | startswith("/nix/store/") and endswith("/bin/llmsend-notify-session")' 'true' \
+	'guarded wake helper is Nix-pinned'
 assert_json '.herdrSocket' '/home/pmarreck/.config/herdr/herdr.sock' 'mail watcher uses the intended Herdr socket'
 assert_json '.mailboxRoutes.einstein' '/home/pmarreck' 'Einstein mailbox reaches the home agent inbox'
 assert_json '.mailboxRoutes.code' '/home/pmarreck' 'legacy code mailbox reaches the same home agent inbox'

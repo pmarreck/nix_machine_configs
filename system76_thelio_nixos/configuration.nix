@@ -135,8 +135,8 @@ in
     # Temporary final-lap policy explicitly accepted by Peter on 2026-09-03.
     # The From header is forgeable; signed S/MIME enforcement follows launch.
     trustUnsignedHumanMail = true;
-    # Herdr-era mail notices go through application inbox monitors/hooks,
-    # never through a human-shared terminal input buffer (2026-09-10).
+    # Durable notices first; Peter also authorized ANSI-aware empty-prompt
+    # wakes on 2026-09-10. This is advisory draft protection, not an atomic lock.
     herdrCommand = "${inputs.herdr.packages.${system}.herdr}/bin/herdr";
     herdrSocket = "/home/pmarreck/.config/herdr/herdr.sock";
     mailboxRoutes = {
@@ -144,6 +144,7 @@ in
       code = "/home/pmarreck";
     };
     wakeProjects = [ "*" ];
+    terminalWakeProjects = [ "*" ];
   };
 
   # Overlays

@@ -113,6 +113,28 @@
         "type": "github"
       }
     },
+    "llmsend": {
+      "inputs": {
+        "nixpkgs": [
+          "unix-mail-redux",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789076594,
+        "narHash": "sha256-ltPwUNdquLuyiqOlzTkqmCvO+QbRah7ohB7xnsLf4e4=",
+        "owner": "pmarreck",
+        "repo": "llmsend",
+        "rev": "e983780e5c2a1876935a5e848398e2b9bfa06266",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pmarreck",
+        "ref": "yolo",
+        "repo": "llmsend",
+        "type": "github"
+      }
+    },
     "nixos-hardware": {
       "inputs": {
         "nixpkgs": [
@@ -370,16 +392,17 @@
     },
     "unix-mail-redux": {
       "inputs": {
+        "llmsend": "llmsend",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1789070662,
-        "narHash": "sha256-xZErFRbl4JYkdNk/8iw5rkA1AHYIq/dk8FHRR1DQ/3A=",
+        "lastModified": 1789076844,
+        "narHash": "sha256-Ls58vOD14qKifq9/I2lTL86wAaFCR5QhbXutM91gNp8=",
         "owner": "pmarreck",
         "repo": "unix_mail_redux",
-        "rev": "4e7626455e0f66fee046cf05776fba1ea2d72e66",
+        "rev": "39702a7166709c86d630b2252d3d5772d7a446ee",
         "type": "github"
       },
       "original": {
