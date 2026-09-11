@@ -121,11 +121,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789076594,
-        "narHash": "sha256-ltPwUNdquLuyiqOlzTkqmCvO+QbRah7ohB7xnsLf4e4=",
+        "lastModified": 1789101289,
+        "narHash": "sha256-HJZ/aj6+MJSyyp0fRjug1ssKXa+XU/gooXMLG7CHaco=",
         "owner": "pmarreck",
         "repo": "llmsend",
-        "rev": "e983780e5c2a1876935a5e848398e2b9bfa06266",
+        "rev": "f9e92aaece5874ecad993f2915c752ed9988857e",
         "type": "github"
       },
       "original": {
@@ -398,11 +398,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789076844,
-        "narHash": "sha256-Ls58vOD14qKifq9/I2lTL86wAaFCR5QhbXutM91gNp8=",
+        "lastModified": 1789101332,
+        "narHash": "sha256-7riBtQmu5cAkWv04f9W2Cjf6s3WPVW9iH7RyfYmPbt4=",
         "owner": "pmarreck",
         "repo": "unix_mail_redux",
-        "rev": "39702a7166709c86d630b2252d3d5772d7a446ee",
+        "rev": "8c305ea6debc9be7d600972ef6a40cf5e51c60a8",
         "type": "github"
       },
       "original": {
