@@ -157,6 +157,8 @@ in
     # Firefox Nightly
     (import ./firefox-overlay.nix)
     (import ./packages)
+    # Ephemeral: wezterm PR 7487 key-repeat fix, self-expiring (see file header).
+    (import ./wezterm-pr7487-overlay.nix)
   ];
 
   # Any temporarily-allowed insecure packages.

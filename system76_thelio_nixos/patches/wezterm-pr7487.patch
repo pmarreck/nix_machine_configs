@@ -1,0 +1,38 @@
+From 6fb5bca18f50a2fe04f0c12066bb2eecdcb96fc2 Mon Sep 17 00:00:00 2001
+From: Simonas Kazlauskas <git@kazlauskas.me>
+Date: Fri, 9 Jan 2026 15:46:15 +0200
+Subject: [PATCH] wayland: terminate key repetition after window is closed
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+I went the easiest route – code in many other places check for window
+having been closed by looking at the inner window being Some/None. But
+from what I can tell there's still an effective leak with windows, the
+hashmap of windows is added to but never is removed from. Probably not a
+huge deal even for relatively long sessions, but one of the reasons why
+key repetition issue ended up surfacing.
+
+Fixes #7230
+---
+ window/src/os/wayland/window.rs | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/window/src/os/wayland/window.rs b/window/src/os/wayland/window.rs
+index b76a7691f..c94f90fc6 100644
+--- a/window/src/os/wayland/window.rs
++++ b/window/src/os/wayland/window.rs
+@@ -125,6 +125,10 @@ impl KeyRepeatState {
+                     };
+ 
+                     let mut inner = handle.borrow_mut();
++                    if inner.window.is_none() {
++                        log::warn!("key repetition cancelled because window has been closed");
++                        return;
++                    }
+ 
+                     if inner.key_repeat.as_ref().map(|(_, k)| Arc::as_ptr(k))
+                         != Some(Arc::as_ptr(&state))
+-- 
+2.55.0
+
