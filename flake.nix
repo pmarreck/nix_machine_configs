@@ -57,16 +57,11 @@
     # on Thelio. Retain upstream's Bun/bun2nix dependency graph.
     hunk.url = "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe";
 
-    # Task Manager TMOG is proprietary and publishes mutable stable filenames,
-    # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
-    # pure while `nix flake update tmog-version tmog-linux` refreshes the exact
-    # version and AppImage content hashes together.
+    # TMOG's generic version.txt and legacy Linux URL diverged. Lock the official
+    # Linux manifest; it binds the versioned AppImage to its published checksum.
+    # `nix flake update tmog-version` advances this platform release atomically.
     tmog-version = {
-      url = "file+https://tmog.org/version.txt";
-      flake = false;
-    };
-    tmog-linux = {
-      url = "file+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage";
+      url = "file+https://tmog.org/downloads/release-linux.json";
       flake = false;
     };
   };
@@ -83,11 +78,12 @@
       tode = pkgs.callPackage ./packages/tode.nix { };
       herdrPackage = inputs.herdr.packages.${system}.herdr;
       hunkPackage = inputs.hunk.packages.${system}.default;
-      tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
-        (builtins.readFile inputs.tmog-version);
+      tmogRelease = import ./packages/tmog-release.nix {
+        manifest = builtins.fromJSON (builtins.readFile inputs.tmog-version);
+      };
       tmog = pkgs.callPackage ./packages/tmog.nix {
-        src = inputs.tmog-linux;
-        version = tmogVersion;
+        src = pkgs.fetchurl { inherit (tmogRelease) url sha256; };
+        inherit (tmogRelease) version;
       };
       codexAppSmoke = pkgs.runCommand "codex-app-smoke-${codexApp.version}" {
         nativeBuildInputs = [ codexApp ];

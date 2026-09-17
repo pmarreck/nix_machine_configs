@@ -22,12 +22,40 @@ else
 	fail 'package must wrap the AppImage and must not claim redistribution rights'
 fi
 
-if rg -Fq 'file+https://tmog.org/version.txt' "$ROOT_DIR/flake.nix" &&
-	rg -Fq 'file+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage' "$ROOT_DIR/flake.nix" &&
+if rg -Fq 'file+https://tmog.org/downloads/release-linux.json' "$ROOT_DIR/flake.nix" &&
+	rg -Fq 'inherit (tmogRelease) url sha256;' "$ROOT_DIR/flake.nix" &&
 	! rg -Fq 'builtins.fetchurl' "$PACKAGE"; then
-	pass 'official mutable endpoints are locked as explicit flake inputs'
+	pass 'Linux version, versioned artifact and checksum come from one locked manifest'
 else
-	fail 'TMOG version and AppImage must update through flake.lock, not impure evaluation'
+	fail 'TMOG must use the Linux manifest, not the cross-platform version or stale legacy AppImage'
+fi
+
+# The parser is a local test fixture, not a flake input for this pure-data check.
+release_contract="$(nix eval --impure --json --expr '
+  let
+    parse = import '"$ROOT_DIR"'/packages/tmog-release.nix;
+    good = { schemaVersion = 1; platform = "Linux"; architecture = "x86_64";
+      version = "0.1.4"; artifact = "/downloads/TaskManagerOG-0.1.4-x86_64.AppImage";
+      sha256 = "a9873347ee2b1a4895cf2c8f39660d8cf4b86ab89b24c08d541f237e365b4346"; };
+    rejects = change: !(builtins.tryEval
+      (builtins.deepSeq (parse { manifest = good // change; }) true)).success;
+  in {
+    valid = (parse { manifest = good; }).url ==
+      "https://tmog.org/downloads/TaskManagerOG-0.1.4-x86_64.AppImage";
+    wrongPlatform = rejects { platform = "Windows"; };
+    wrongArch = rejects { architecture = "aarch64"; };
+    wrongSchema = rejects { schemaVersion = 2; };
+    mismatchedVersion = rejects { version = "0.1.5"; };
+    externalURL = rejects { artifact = "https://example.com/evil.AppImage"; };
+    missingHash = rejects { sha256 = ""; };
+  }
+' 2>/dev/null)"
+release_status=$?
+if [ "$release_status" -eq 0 ] &&
+  printf '%s' "$release_contract" | jq -e 'length == 7 and all(.[]; . == true)' >/dev/null; then
+  pass 'release manifest accepts Linux x86_64 and rejects wrong identity/version/URL/hash'
+else
+  fail 'release manifest validation must reject cross-platform or inconsistent metadata'
 fi
 
 package_version="$(nix eval --raw "$ROOT_DIR#packages.x86_64-linux.tmog.version" 2>/dev/null)"
