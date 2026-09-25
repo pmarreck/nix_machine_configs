@@ -10,6 +10,9 @@ in
   # executable is unavailable. This replaces GNOME's power/logout shortcut,
   # not the kernel/systemd handling of Ctrl-Alt-Delete on a virtual console.
   programs.dconf.profiles.user.databases = [{
+    # The live gsettings command is an override until the next system switch.
+    # Thereafter use the current declarative store path, not that older override.
+    locks = [ "${shortcutPath}command" ];
     settings = {
       "org/gnome/settings-daemon/plugins/media-keys" = {
         logout = lib.gvariant.mkEmptyArray lib.gvariant.type.string;
