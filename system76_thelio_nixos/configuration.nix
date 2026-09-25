@@ -111,6 +111,7 @@ in
       # <nixos-hardware/system76>
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./task-manager-shortcut.nix # Ctrl-Alt-Delete: TMOG, with GNOME fallback
       ./zfs.nix
       ./everamp-ups.nix # USB monitoring and tested 0/5/10-minute outage policy
       ./ollama.nix   # local inference backend for codescan (Ollama-CUDA, 2× NVIDIA) — Einstein 2026-07-07
