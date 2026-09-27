@@ -121,6 +121,7 @@ in
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       ./mechatron-prime-darwin-builder.nix   # aarch64-darwin remote builder on m4max — 2026-09-24
       ./dune-firewall.nix   # Dune player ports UDP 7777 and TCP 31982 — 2026-09-25
+      ./dune-world.nix   # user units: world at boot, heal, backup, update check — 2026-09-26
       inputs.unix-mail-redux.nixosModules.default   # tailnet-only human/agent mail — Einstein 2026-08-28
       ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
       ./rotational-io.nix   # bfq + deeper queues for the USB-docked spinning rpool; Klipsch name fix — Einstein 2026-07-28

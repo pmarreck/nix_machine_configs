@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# The Dune world units in the Thelio flake must match the renderer spec:
+# commands, schedules, and KillMode=process. This does not activate NixOS.
+set -u
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+nixf=$root/dune-world.nix
+cfg=$root/configuration.nix
+fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
+ok() { printf 'ok - %s\n' "$1"; }
+[ -f "$nixf" ] || fail "dune-world.nix is missing"
+grep -q 'dune-world.nix' "$cfg" || fail "configuration.nix does not import dune-world.nix"
+grep -q 'ConditionUser = "pmarreck"' "$nixf" || fail "units are not limited to pmarreck"
+grep -q 'linger = true' "$nixf" || fail "linger is not declared"
+grep -q 'stop --force' "$nixf" || fail "world unit does not stop with --force"
+grep -q 'KillMode = "process"' "$nixf" || fail "heal unit would kill the components it starts"
+grep -q 'is-active --quiet dune-world.service' "$nixf" || fail "heal unit is not conditioned on the world being up"
+grep -q 'OnBootSec = "10min"' "$nixf" || fail "heal timer does not wait 10 minutes after boot"
+grep -q 'OnUnitActiveSec = "5min"' "$nixf" || fail "heal timer is not every 5 minutes"
+grep -F -q 'OnCalendar = "*-*-* 04:30:00"' "$nixf" || fail "backup is not daily at 04:30"
+grep -F -q 'OnCalendar = "Sun *-*-* 05:15:00"' "$nixf" || fail "restore drill is not Sunday 05:15"
+grep -F -q 'OnCalendar = "*-*-* 06:00:00"' "$nixf" || fail "update check is not daily at 06:00"
+grep -F -q 'SuccessExitStatus = [ "1" ]' "$nixf" || fail "update-available exit 1 is treated as a failure"
+grep -q 'backup create --label scheduled' "$nixf" || fail "backup unit does not create a scheduled backup"
+grep -q 'backup prune' "$nixf" || fail "backup unit does not prune"
+grep -q 'backup verify latest' "$nixf" || fail "restore drill does not verify the latest backup"
+grep -q 'update check --json' "$nixf" || fail "update check is not the json command"
+ok "dune world units match the renderer spec"
