@@ -117,6 +117,7 @@ in
       ./ollama.nix   # local inference backend for codescan (Ollama-CUDA, 2× NVIDIA) — Einstein 2026-07-07
       ./mechatron-prime-attic.nix   # tailnet-local binary cache for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-public.nix   # Funnel, tailnet port 80, JPEG XL type, Collie service-worker retirement — 2026-09-26
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       ./mechatron-prime-darwin-builder.nix   # aarch64-darwin remote builder on m4max — 2026-09-24

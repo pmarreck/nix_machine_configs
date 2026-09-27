@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# The public CI surface has to be in the Thelio flake: routes, JPEG XL type,
+# and the service worker that drops Collie's old origin claim. This does not
+# activate NixOS.
+set -u
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+nixf=$root/mechatron-prime-public.nix
+cfg=$root/configuration.nix
+mime=$root/mechatron-public-mimetypes
+sw=$root/mechatron-unregister-service-worker.js
+fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
+[ -f "$nixf" ] || fail "mechatron-prime-public.nix is missing"
+grep -q 'mechatron-prime-public.nix' "$cfg" || fail "configuration.nix does not import the public CI module"
+grep -q -- '--http=80' "$nixf" || fail "tailnet port 80 is not declared"
+for path in /badges /hooks/github /mechatron-prime /sw.js; do
+	grep -q -- "--set-path=${path}" "$nixf" || fail "route ${path} is not declared"
+done
+grep -q 'funnel' "$nixf" || fail "public Funnel routes are not declared"
+grep -q -- '--mimetypes' "$nixf" || fail "badge server MIME map is not declared"
+grep -F -q 'image/jxl jxl' "$mime" || fail "JPEG XL MIME type is missing"
+grep -q 'registration.unregister' "$sw" || fail "unregister worker is missing"
+if grep -q 'addEventListener("fetch"' "$sw"; then
+	fail "unregister worker intercepts fetches"
+fi
+grep -q 'mechatron-badge-mimetype' "$nixf" || fail "activation does not retire the imperative badge bridge"
+printf '%s\n' 'ok - public CI surface is declared in the Thelio flake'
