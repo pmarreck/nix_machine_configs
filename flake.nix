@@ -53,6 +53,11 @@
     # than overriding the Rust/libghostty stack with this host's nixpkgs.
     herdr.url = "github:herdrdev/herdr";
 
+    printable-binary = {
+      url = "github:pmarreck/printable_binary/yolo";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Terminal-first diff viewer, pinned to the exact package already proven
     # on Thelio. Retain upstream's Bun/bun2nix dependency graph.
     hunk.url = "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe";
@@ -83,6 +88,7 @@
       tode = pkgs.callPackage ./packages/tode.nix { };
       herdrPackage = inputs.herdr.packages.${system}.herdr;
       hunkPackage = inputs.hunk.packages.${system}.default;
+      printableBinary = inputs.printable-binary.packages.${system}.printableBinaryZig;
       tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
         (builtins.readFile inputs.tmog-version);
       tmog = pkgs.callPackage ./packages/tmog.nix {
@@ -200,7 +206,7 @@
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
         tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs system tmog herdrPackage hunkPackage; };
+          specialArgs = { inherit inputs system tmog herdrPackage hunkPackage printableBinary; };
           modules = [
             nixos-wsl.nixosModules.default
             ./tiki-wsl-nixos/configuration.nix
