@@ -1,4 +1,4 @@
-{ pkgs, tmog, herdrPackage, hunkPackage, ... }:
+{ pkgs, tmog, herdrPackage, hunkPackage, printableBinary, ... }:
 
 let
   # Existing pinned/obfuscated package for the licensed Berkeley Mono files.
@@ -117,12 +117,14 @@ in
     cosmocc
     coreutils-full
     es
+    expect
     gawk
     gcc
     halloy
     ghostty
     gnumake
     jq
+    libarchive # bsdtar, required by getfile archive tests and runtime
     ldc
     # Shared dotfile scripts require these modules even when their caller
     # scrubs LUA_PATH/LUA_CPATH, so bake them into LuaJIT's own search path.
@@ -154,7 +156,9 @@ in
     ninja
     nushell
     openssh
+    openssl # CLI plus libcrypto for compare-dirs' LuaJIT FFI backend
     pkg-config
+    printableBinary
     zed-editor
     zellij
     sniffnet
