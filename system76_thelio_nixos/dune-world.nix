@@ -9,13 +9,22 @@ let
   duneRoot = "/home/pmarreck/Code/dune_awakening_server";
   world = "${duneRoot}/bin/dune-awakening";
   systemctl = "${pkgs.systemd}/bin/systemctl";
-  path = lib.concatStringsSep ":" (lib.unique [
+  # NixOS already sets a user-service PATH. mkForce replaces it, so the
+  # default tools stay and nix/luajit are added for dune-awakening.
+  path = lib.mkForce (lib.concatStringsSep ":" (lib.unique [
     "${pkgs.luajit}/bin"
     "${pkgs.nix}/bin"
+    (lib.makeBinPath [
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.systemd
+    ])
     "/run/current-system/sw/bin"
     "/usr/bin"
     "/bin"
-  ]);
+  ]));
   onlyPeter = {
     ConditionUser = "pmarreck";
   };

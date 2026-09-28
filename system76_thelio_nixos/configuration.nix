@@ -535,7 +535,7 @@ in
       # The original reason is obsolete: jbd2 is the EXT4 journaling daemon, and
       # this host has a ZFS root (rpool/nixos/var/log is its own dataset), so the
       # high-disk-utilization failure mode it worked around cannot occur here.
-      # Flush cost is now bounded by SystemMaxUse=1G in journald.extraConfig.
+      # Flush cost is now bounded by SystemMaxUse=1G in journald.settings.Journal.
       # If boot time regresses noticeably, lower that bound rather than
       # re-masking and going blind again.
       systemd-journal-flush.enable = true;
@@ -831,12 +831,13 @@ in
     # disk. Mitigated by bounding the journal hard (was 300M x 50 = 15G ceiling)
     # so each flush stays small. If boot regresses noticeably, lower SystemMaxUse
     # further rather than returning to "auto" and going blind again.
-    journald.extraConfig = ''
-      Storage=persistent
-      SystemMaxUse=1G
-      SystemMaxFileSize=64M
-      SystemMaxFiles=16
-    '';
+    # extraConfig was removed. The same keys live under settings.Journal.
+    journald.settings.Journal = {
+      Storage = "persistent";
+      SystemMaxUse = "1G";
+      SystemMaxFileSize = "64M";
+      SystemMaxFiles = "16";
+    };
 
     # screensaver config
     # seems to only work when home manager is present. commenting out here, try again later
@@ -1803,7 +1804,7 @@ in
       libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
       dconf-editor # for editing gnome settings
       zenity # for zenity, a GUI dialog box tool
-      nitrogen # wallpaper/desktop image manager
+      # nitrogen was removed from nixpkgs (gtk2/gtkmm2). GNOME sets the wallpaper.
       dconf2nix # for converting dconf settings to nix
       home-manager # for managing user settings in Nix
       xbacklight # for controlling screen brightness (renamed from xorg.xbacklight)
