@@ -2,7 +2,7 @@
 
 let
   pname = "tmog-task-manager";
-  contents = appimageTools.extractType2 {
+  contents = appimageTools.extract {
     inherit pname src version;
   };
 in

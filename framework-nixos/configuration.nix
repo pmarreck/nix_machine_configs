@@ -570,7 +570,7 @@ in
       # gamehub # marked broken on nixos-25.11
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
-      unstable.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
+      unstable.antigravity-cli # gemini-cli is marked for removal; the command is agy
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
@@ -968,7 +968,7 @@ in
       kmon # kernel module monitor
       stable.firefox # stable binary cache; the rolling beta closure would build locally
       ldc # d-lang LLVM compiler
-      libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
+      libreoffice # needed for gnome sushi to preview Office files, otherwise *big hang*. The fresh and still names now warn and both mean this package.
       lsof # for listing open files and ports
       luajit # High-performance JIT compiler for Lua 5.1
       lz4 # Extremely fast compression algorithm

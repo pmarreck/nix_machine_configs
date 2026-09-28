@@ -1575,7 +1575,7 @@ in
       pnpm
       nim
       nixd
-      gemini-cli
+      antigravity-cli # gemini-cli is marked for removal; the command is agy
       aspell
       bashInteractive
       bat
@@ -1801,7 +1801,7 @@ in
       # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
       # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
       sushi # file previewer (just hit spacebar in Gnome Files)
-      libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
+      libreoffice # needed for gnome sushi to preview Office files, otherwise *big hang*. The fresh and still names now warn and both mean this package.
       dconf-editor # for editing gnome settings
       zenity # for zenity, a GUI dialog box tool
       # nitrogen was removed from nixpkgs (gtk2/gtkmm2). GNOME sets the wallpaper.
