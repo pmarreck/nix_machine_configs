@@ -18,7 +18,8 @@ appimageTools.wrapType2 {
     cp -r ${contents}/usr/share/pixmaps $out/share/
   '';
 
-  passthru.updateCommand = "nix flake update tmog-version tmog-linux";
+  # Update the versioned URL and tmogVersion in flake.nix before refreshing.
+  passthru.updateCommand = "nix flake update tmog-linux";
 
   meta = {
     description = "Native system monitor and task manager";

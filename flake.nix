@@ -57,16 +57,12 @@
     # on Thelio. Retain upstream's Bun/bun2nix dependency graph.
     hunk.url = "github:modem-dev/hunk/0a3cc064931a9d576882baee6daac7cfab3d0bbe";
 
-    # Task Manager TMOG is proprietary and publishes mutable stable filenames,
-    # not source or GitHub releases. Raw-file inputs keep ordinary evaluation
-    # pure while `nix flake update tmog-version tmog-linux` refreshes the exact
-    # version and AppImage content hashes together.
-    tmog-version = {
-      url = "file+https://tmog.org/version.txt";
-      flake = false;
-    };
+    # TMOG retired its unversioned Linux download URL at the 1.0 RTM release.
+    # Pin the versioned artifact: a mutable version.txt can change independently
+    # and break otherwise locked rebuilds. For upgrades, change this URL and
+    # tmogVersion together, then run `nix flake update tmog-linux` and the TMOG check.
     tmog-linux = {
-      url = "file+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage";
+      url = "file+https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage";
       flake = false;
     };
   };
@@ -82,9 +78,12 @@
       terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
       herdrPackage = inputs.herdr.packages.${system}.herdr;
+      herdrHookRuntime = import ./packages/herdr-hook-runtime.nix {
+        inherit pkgs;
+        herdrSource = inputs.herdr;
+      };
       hunkPackage = inputs.hunk.packages.${system}.default;
-      tmogVersion = builtins.replaceStrings [ "\n" "\r" ] [ "" "" ]
-        (builtins.readFile inputs.tmog-version);
+      tmogVersion = "1.0.0";
       tmog = pkgs.callPackage ./packages/tmog.nix {
         src = inputs.tmog-linux;
         version = tmogVersion;
@@ -181,11 +180,13 @@
       packages.${system} = {
         codex-app = codexApp;
         herdr = herdrPackage;
+        herdr-hook-runtime = herdrHookRuntime.package;
         terminal-browser = terminalBrowser;
         hunk = hunkPackage;
         inherit tmog tode;
       };
       checks.${system} = {
+        herdr-hook-runtime = herdrHookRuntime.check;
         codex-app = codexAppSmoke;
         terminal-browser = terminalBrowserSmoke;
         hunk = hunkSmoke;

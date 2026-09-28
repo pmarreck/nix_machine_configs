@@ -22,20 +22,30 @@ else
 	fail 'package must wrap the AppImage and must not claim redistribution rights'
 fi
 
-if rg -Fq 'file+https://tmog.org/version.txt' "$ROOT_DIR/flake.nix" &&
-	rg -Fq 'file+https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage' "$ROOT_DIR/flake.nix" &&
+if ! rg -Fq 'file+https://tmog.org/version.txt' "$ROOT_DIR/flake.nix" &&
+	rg -q 'file\+https://tmog\.org/rtm/downloads/TaskManagerOG-[0-9]+\.[0-9]+\.[0-9]+-x86_64\.AppImage' "$ROOT_DIR/flake.nix" &&
 	! rg -Fq 'builtins.fetchurl' "$PACKAGE"; then
-	pass 'official mutable endpoints are locked as explicit flake inputs'
+	pass 'versioned official AppImage is locked without mutable version metadata'
 else
-	fail 'TMOG version and AppImage must update through flake.lock, not impure evaluation'
+	fail 'TMOG must use a versioned locked artifact, not mutable version.txt or impure evaluation'
 fi
 
 package_version="$(nix eval --raw "$ROOT_DIR#packages.x86_64-linux.tmog.version" 2>/dev/null)"
 package_status=$?
 if [ "$package_status" -eq 0 ] && [[ "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-	pass 'flake exposes a semantic version from the locked official endpoint'
+	pass 'flake exposes an explicit semantic version'
 else
 	fail 'flake must expose packages.x86_64-linux.tmog at its locked semantic version'
+fi
+
+locked_url="$(jq -r '.nodes["tmog-linux"].locked.url' "$ROOT_DIR/flake.lock")"
+locked_hash="$(jq -r '.nodes["tmog-linux"].locked.narHash' "$ROOT_DIR/flake.lock")"
+if [ "$locked_url" = "https://tmog.org/rtm/downloads/TaskManagerOG-${package_version}-x86_64.AppImage" ] &&
+	[[ "$locked_hash" == sha256-* ]] &&
+	jq -e '.nodes | has("tmog-version") | not' "$ROOT_DIR/flake.lock" >/dev/null; then
+	pass 'locked artifact version agrees with package version; obsolete metadata input removed'
+else
+	fail 'TMOG artifact, package version, and lock must remain consistent'
 fi
 
 check_name="$(nix eval --raw "$ROOT_DIR#checks.x86_64-linux.tmog.name" 2>/dev/null)"

@@ -65,11 +65,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1788476735,
-        "narHash": "sha256-tMOvyjh+JAD6lnkghaGE78URt26bQuSAkkiSaLBiQdY=",
+        "lastModified": 1790541536,
+        "narHash": "sha256-axuLsBw+vKzGbS9tn3zCVYE3HlEe3jTWOCNMQk4Flko=",
         "owner": "herdrdev",
         "repo": "herdr",
-        "rev": "3150bd92d6162ba248bc28fd4d40bd0d6238e1af",
+        "rev": "0d5d6f1f317e238c8297076bc6ab5c3a0cd56283",
         "type": "github"
       },
       "original": {
@@ -121,11 +121,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789101289,
-        "narHash": "sha256-HJZ/aj6+MJSyyp0fRjug1ssKXa+XU/gooXMLG7CHaco=",
+        "lastModified": 1789752336,
+        "narHash": "sha256-b7krbXKYIlj0u/PEOF7/38a/vy7SAWI68WUS/15jTNI=",
         "owner": "pmarreck",
         "repo": "llmsend",
-        "rev": "f9e92aaece5874ecad993f2915c752ed9988857e",
+        "rev": "0c2b371af8eac981d6e1e67de47d3744d25b824c",
         "type": "github"
       },
       "original": {
@@ -142,11 +142,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785232496,
-        "narHash": "sha256-65EQYIRRpTdpH8lUiB6Mvo5uBkG60aBIzAJuALfx+O0=",
+        "lastModified": 1790321948,
+        "narHash": "sha256-mZGHLGi217oLIwzDM4PNRZeCNa6g2WBXURyXbNMFs7Y=",
         "owner": "NixOS",
         "repo": "nixos-hardware",
-        "rev": "2e790b0a6be8ec2b76174ac0931b8ff11919ec98",
+        "rev": "30d48a0ec6035f8140d0125af274f0de95f1e9b5",
         "type": "github"
       },
       "original": {
@@ -163,11 +163,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784058838,
-        "narHash": "sha256-499ZAnS4nWV2Wtgoi3WdbIVuZbNoN7KptltceQhZc38=",
+        "lastModified": 1789157919,
+        "narHash": "sha256-3+r8UDwPkTlB9hhHoN4rjGtZow3+wEFOganBKurhJhY=",
         "owner": "nix-community",
         "repo": "NixOS-WSL",
-        "rev": "787a4c128292010ad182eed66f879fa688592e4c",
+        "rev": "b98199a76ab180be55f7a6a97bd4984a87c99964",
         "type": "github"
       },
       "original": {
@@ -211,11 +211,11 @@
     },
     "nixpkgs-2605": {
       "locked": {
-        "lastModified": 1786381520,
-        "narHash": "sha256-FiEINgZLM9784xKDUETvg15QzhbrNvYGM8jEpQgPEpI=",
+        "lastModified": 1790553639,
+        "narHash": "sha256-Uz6VlHm0kEM04kWByGmdcvKVshOTj870As9twJ851No=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f76518bbedbcbda1c84c4a1abe01f8dbf78eea88",
+        "rev": "d47b7b2754c8ee6e048e513b6f45c906e683c253",
         "type": "github"
       },
       "original": {
@@ -258,11 +258,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1786106723,
-        "narHash": "sha256-zDSUbpoeo/9ZmD2+wXnzxoo1+uhL8vxc0b8yuYMKYq0=",
+        "lastModified": 1790463110,
+        "narHash": "sha256-hKlVl12B1dF0Q5vd9dY3lIJM5mFGWYSlXwSLAqHZ1+s=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "f13ff45afd1bb73e640eaa08a7066dbed07e3238",
+        "rev": "e158d9ed9b51c98974c5e66e1ba1c9e0255fecaa",
         "type": "github"
       },
       "original": {
@@ -279,11 +279,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786737499,
-        "narHash": "sha256-8wA14GDefu6N4ykNfaEBFkCq6VE1yAL4AuuhkClhF/M=",
+        "lastModified": 1790284940,
+        "narHash": "sha256-3VSuqdC4xok+8ZcMQkhikm5CbS2826QxRMNE8hKlgXU=",
         "owner": "pmarreck",
         "repo": "ollama",
-        "rev": "72b647621462a080e26a2f85761e8a88cd56940d",
+        "rev": "b4c893835ba27af0ab7519dcb6491de370df3582",
         "type": "github"
       },
       "original": {
@@ -304,7 +304,6 @@
         "nixpkgs-2605": "nixpkgs-2605",
         "ollama": "ollama",
         "tmog-linux": "tmog-linux",
-        "tmog-version": "tmog-version",
         "unix-mail-redux": "unix-mail-redux"
       }
     },
@@ -347,25 +346,13 @@
     "tmog-linux": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-E/b0fghU+pPoFRGrGKpVW2tbIpFJmKFA+OaziO4ZPoM=",
+        "narHash": "sha256-8zeM48X+Rto1CwnE77EJwXuoNihyiekhfL9VXu/ueQU=",
         "type": "file",
-        "url": "https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage"
+        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage"
       },
       "original": {
         "type": "file",
-        "url": "https://tmog.org/downloads/TMOG-Task-Manager-Linux-x86_64.AppImage"
-      }
-    },
-    "tmog-version": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-F8RUFo0T8CbabZQQAgvNkJMcnJm+piGQVFl/2kQDltA=",
-        "type": "file",
-        "url": "https://tmog.org/version.txt"
-      },
-      "original": {
-        "type": "file",
-        "url": "https://tmog.org/version.txt"
+        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage"
       }
     },
     "treefmt-nix": {
@@ -398,11 +385,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789101332,
-        "narHash": "sha256-7riBtQmu5cAkWv04f9W2Cjf6s3WPVW9iH7RyfYmPbt4=",
+        "lastModified": 1789752419,
+        "narHash": "sha256-Z9koCKcEcdDmqXSVSWAndLfg+YtGYnBU85F9hBW91c0=",
         "owner": "pmarreck",
         "repo": "unix_mail_redux",
-        "rev": "8c305ea6debc9be7d600972ef6a40cf5e51c60a8",
+        "rev": "872f23634f77ea0c6f2aa07918aed399929ff0a7",
         "type": "github"
       },
       "original": {
