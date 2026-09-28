@@ -1536,7 +1536,6 @@ in
     ];
     # Gnome package exclusions
     gnome.excludePackages = (with pkgs; [
-      gnome-photos
       gnome-tour
     ]) ++ (with pkgs; [
       cheese # webcam tool
