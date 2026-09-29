@@ -1180,7 +1180,6 @@ in
       "/var/spool"
       "/nix/var/log/nix"
       "/home/pmarreck/.local/share/Steam"
-      "/home/pmarreck/.local/share/docker"
     ];
   };
 
@@ -1959,23 +1958,6 @@ in
   # Quickemu/QEMU guest conveniences. This installs the SPICE USB helper so
   # unprivileged sessions can redirect selected USB devices into VMs.
   virtualisation.spiceUSBRedirection.enable = true;
-
-  # Docker and other VM options
-  virtualisation.docker = {
-    # enable = true;
-    enableOnBoot = true;
-    rootless = {
-      enable = true;
-      setSocketVariable = true;
-      daemon.settings = { }; # https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
-    };
-    autoPrune = {
-      enable = true;
-      dates = "weekly";
-    };
-    enableNvidia = true; # enabling may let you use ML stuff that can then use the GPU via CUDA etc.
-    # storageDriver = null; # by default, lets docker pick
-  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
