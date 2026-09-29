@@ -14,6 +14,7 @@ annotate=[
 	packages/tmog.nix = Nix AppImage wrapper for proprietary TMog task manager
 	packages/tode.nix = Pinned Terminal Code + code-server FHS package with immutable-store-safe browser launcher and XDG state isolation.
 	system76_thelio_nixos/configuration.nix = Thelio NixOS host module: imports hardware, services, Mechatron, and declares the global system package set
+	system76_thelio_nixos/fleet-status.nix = Declarative Thelio user service and timer for repository maintenance
 	system76_thelio_nixos/mechatron-prime = Vendored, provenance-pinned Mechatron Prime b83a195 NixOS modules and scripts
 	system76_thelio_nixos/mechatron-prime-ops.nix = Stable wrapper importing the vendored operations module
 	system76_thelio_nixos/mechatron-prime/assets/mechatron-prime = Audited public Mechatron Prime explainer assets vendored for NixOS activation.
