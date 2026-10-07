@@ -132,6 +132,9 @@ in
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
 
+  # A child OOM kill must not stop the terminal server and unrelated sessions.
+  systemd.user.services.herdr.serviceConfig.OOMPolicy = "continue";
+
   services.unix-mail-redux = {
     enable = true;
     owner = "pmarreck";
