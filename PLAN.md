@@ -608,3 +608,12 @@ checkpoint tonight; avoid starting a host rebuild after 22:00.
 - [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.
+
+## WSL audio CLI (2026-10-09)
+
+- [x] Add the locked Nixpkgs package that provides `paplay` to the WSL host's
+  declarative system packages, rebuild, and verify the command is available.
+  Completed 2026-10-09 19:24 EDT: PulseAudio 17.0 is active in the WSL
+  system profile, `paplay --version` succeeds, and all 17 test files pass.
+  - Curiosity poke: test the provider's actual `bin/paplay` executable as well
+    as its placement in the evaluated WSL configuration.

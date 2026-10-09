@@ -163,6 +163,7 @@ in
     openssl # CLI plus libcrypto for compare-dirs' LuaJIT FFI backend
     pkg-config
     printableBinary
+    pulseaudio # paplay CLI for WSLg audio playback
     zed-editor
     zellij
     sniffnet
