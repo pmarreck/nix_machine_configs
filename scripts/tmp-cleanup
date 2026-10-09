@@ -10,7 +10,7 @@ tmp_cleanup_eligible() {
 
 tmp_cleanup_run() (
 	set +f
-	shopt -s nullglob
+	shopt -s nullglob dotglob
 	local root="$1" proc_root="$2" workspace="$3" now="$4" mode="$5"
 	# The service pins store paths. Direct runs use the system Coreutils links,
 	# never a PATH lookup that could resolve to a recoverable deletion wrapper.
@@ -106,9 +106,12 @@ tmp_cleanup_run() (
 	umask 077
 	mkdir -p -- "$workspace" || return 1
 	candidates=$(mktemp "$workspace/.candidates.XXXXXX") || return 1
-	# This owned, bounded metadata file preserves find's status and NUL paths.
+	# Enumerate names without asking a FUSE mount for metadata. Root cannot
+	# stat every user-mounted AppImage; mountinfo already protects that subtree.
+	# Preserve NUL paths, including hidden entries and whitespace.
 	trap '"$unlink_bin" -- "$candidates"' EXIT
-	if ! find "$root" -xdev -mindepth 1 -maxdepth 1 -print0 > "$candidates"; then
+	local -a inventory=("$root"/*)
+	if (( ${#inventory[@]} > 0 )) && ! printf '%s\0' "${inventory[@]}" > "$candidates"; then
 		printf 'cleanup: inventory failed; pass skipped\n' >&2; return 1
 	fi
 	while IFS= read -r -d '' path; do

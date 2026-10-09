@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# Pure conversion of a kernel OOM decision into a small private JSON record.
+build_oom_record() {
+	local message="$1" now="$2" peak="$3" limit="$4"
+	jq -nec --arg message "$message" --arg now "$now" --arg peak "$peak" --arg limit "$limit" '
+		($message | capture("oom-kill:constraint=(?<constraint>[^,]+),.*task_memcg=(?<cgroup>[^,]+),task=(?<command>[^,]+),pid=(?<pid>[0-9]+),uid=(?<uid>[0-9]+)")) as $m |
+		($m.cgroup | split("/") | last) as $unit |
+		{schema:"build-oom/v1",datetime:$now,
+		 classification:(if $m.constraint == "CONSTRAINT_MEMCG" then "job-limit" elif $m.constraint == "CONSTRAINT_NONE" then "host-oom" else "other-oom" end),
+		 constraint:$m.constraint,unit:$unit,
+		 project:((try ($unit | capture("^build-(?<project>[a-zA-Z0-9][a-zA-Z0-9_-]{0,63})-(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]+)\\.scope$").project) catch null) // null),
+		 command:$m.command,pid:($m.pid|tonumber),uid:($m.uid|tonumber),
+		 cgroup:$m.cgroup,
+		 limit_cgroup:(if $m.constraint == "CONSTRAINT_MEMCG" then ((try ($message | capture("(?:^|,)oom_memcg=(?<path>[^,]+)").path) catch null) // null) else null end),
+		 peak_bytes:(try ($peak|tonumber) catch null),limit_bytes:(try ($limit|tonumber) catch null)}'
+}
+
+build_oom_watch_main() (
+	set -o pipefail
+	local state="${XDG_STATE_HOME:-$HOME/.local/state}/build-budget" message cgroup peak limit record
+	case "${1-}" in
+		-h|--help) printf 'Usage: build-oom-watch\nPersist attributed kernel OOM decisions and issue desktop notifications.\n'; return 0 ;;
+		--about) printf 'build-oom-watch 1.0: Linux attributed OOM incident monitor\n'; return 0 ;;
+		'') ;;
+		*) return 2 ;;
+	esac
+	umask 077
+	mkdir -p -- "$state" || return 1
+	[[ -O "$state" && ! -L "$state" ]] || return 1
+	# A pipe preserves the journal's exact message string; jq never executes it.
+	journalctl -k --follow --lines=0 --output=json |
+		jq --unbuffered -r 'select(.MESSAGE | startswith("oom-kill:constraint=")) | .MESSAGE' |
+		while IFS= read -r message; do
+			record=$(build_oom_record "$message" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '' '') || continue
+			cgroup=$(jq -r '.limit_cgroup // empty' <<< "$record") || continue
+			peak='' limit=''
+			if [[ "$cgroup" == /* && "$cgroup" != *..* ]]; then
+				[[ ! -r "/sys/fs/cgroup$cgroup/memory.peak" ]] || read -r peak < "/sys/fs/cgroup$cgroup/memory.peak"
+				[[ ! -r "/sys/fs/cgroup$cgroup/memory.max" ]] || read -r limit < "/sys/fs/cgroup$cgroup/memory.max"
+			fi
+			record=$(build_oom_record "$message" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$peak" "$limit") || continue
+			if ! (flock 9 && printf '%s\n' "$record" >&9) 9>>"$state/oom.ndjson"; then
+				printf 'build-oom-watch: cannot persist incident\n' >&2; return 1
+			fi
+			printf '%s\n' "$record"
+			notify-send --urgency=critical 'Memory incident: attributed' \
+				"$(jq -r '\(.classification): \(.project // .unit), process \(.command) (PID \(.pid)). Peak \(.peak_bytes // "unknown") bytes; cap \(.limit_bytes // "unknown") bytes.' <<< "$record")" || :
+		done
+)
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then build_oom_watch_main "$@"; fi

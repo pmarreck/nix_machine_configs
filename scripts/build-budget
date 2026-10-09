@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+build_budget_valid_project() { [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$ ]]; }
+
+# Pure argument construction, also exercised without a live user manager.
+build_budget_args() {
+	local -n result="$1"
+	local project="$2" identity="$3" cwd="$4"
+	shift 4
+	result=(--user --scope --quiet --slice=agentbuilds.slice
+		"--unit=build-$project-$identity.scope" "--working-directory=$cwd"
+		--property=MemoryHigh=12G --property=MemoryMax=16G
+		--property=MemorySwapMax=0 --property=OOMPolicy=stop -- "$@")
+}
+
+build_budget_main() (
+	set +e
+	set -u
+	local project='' runtime state identity unit slot_fd scratch='' rc base
+	local -a args=()
+	case "${1-}" in
+		-h|--help)
+			printf 'Usage: build-budget [--project NAME] -- COMMAND [ARG...]\nTwo shared build slots; each job has 12 GiB high/16 GiB maximum and no swap.\nRuns outside the agent cgroup. Successful task-owned scratch is removed; failed scratch is retained.\nBypassed or pre-existing jobs are not covered. Nix daemon builders retain their separate budget.\n'; exit 0 ;;
+		--about) printf 'build-budget 1.0: Linux systemd build-memory containment\n'; exit 0 ;;
+		--project) project="${2-}"; [[ $# -ge 2 ]] || exit 2; shift 2 ;;
+	esac
+	[[ -n "$project" ]] || project="${PWD##*/}"
+	if ! build_budget_valid_project "$project" || [[ "${1-}" != -- || $# -lt 2 ]]; then
+		printf 'build-budget: valid project and -- COMMAND required\n' >&2; exit 2
+	fi
+	shift
+	local envelope
+	envelope=$(systemctl --user show agentbuilds.slice -p MemoryMax --value 2>/dev/null)
+	if [[ "$envelope" != 34359738368 ]]; then
+		printf 'build-budget: required 32 GiB aggregate slice is not installed; refusing an unbounded run\n' >&2; exit 1
+	fi
+	runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/build-budget"
+	state="${XDG_STATE_HOME:-$HOME/.local/state}/build-budget"
+	umask 077
+	if ! mkdir -p -- "$runtime" "$state"; then exit 1; fi
+	if [[ ! -O "$runtime" || -L "$runtime" || ! -O "$state" || -L "$state" ]]; then
+		printf 'build-budget: state/runtime must be owned real directories\n' >&2; exit 1
+	fi
+	chmod 700 -- "$runtime" "$state" || exit 1
+	exec {slot_fd}>"$runtime/slot-1.lock" || exit 1
+	if ! flock -n "$slot_fd"; then
+		exec {slot_fd}>&-
+		exec {slot_fd}>"$runtime/slot-2.lock" || exit 1
+		if ! flock -n "$slot_fd"; then
+			printf 'build-budget: both build slots occupied; waiting\n' >&2
+			flock "$slot_fd" || exit 1
+		fi
+	fi
+	identity=$(cat /proc/sys/kernel/random/uuid) || exit 1
+	unit="build-$project-$identity.scope"
+	base="${TMPDIR:-/tmp}"
+	scratch=$(mktemp -d "$base/build-$project.XXXXXXXX") || exit 1
+	build_budget_finish() {
+		local status="$1" properties peak result record
+		properties=$(systemctl --user show "$unit" -p MemoryPeak -p Result --value 2>/dev/null)
+		peak=$(awk '/^[0-9]+$/ {print; exit}' <<< "$properties")
+		result=$(awk '!/^[0-9]+$/ && NF {print; exit}' <<< "$properties")
+		record=$(jq -nc --arg project "$project" --arg unit "$unit" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+			--arg scratch "$scratch" --arg peak "$peak" --arg result "$result" --argjson status "$status" \
+			'{schema:"build-budget/v1",project:$project,unit:$unit,datetime:$now,exit_code:$status,result:$result,peak_bytes:(try ($peak|tonumber) catch null),scratch:$scratch}')
+		# Serialize one complete JSON record; failed receipts must remain visible.
+		if ! (flock 9 && printf '%s\n' "$record" >&9) 9>>"$state/runs.ndjson"; then
+			printf 'build-budget: could not persist completion receipt\n' >&2
+		fi
+		if [[ "$status" -eq 0 && -d "$scratch" && ! -L "$scratch" && "$scratch" == "$base/build-$project."* ]]; then
+			if systemctl --user is-active --quiet "$unit"; then
+				printf 'build-budget: job still has live processes; scratch retained at %s\n' "$scratch" >&2
+			else
+				rm -r --one-file-system --preserve-root=all -- "$scratch" || printf 'build-budget: scratch cleanup failed: %s\n' "$scratch" >&2
+			fi
+		else
+			printf 'build-budget: exit=%s; scratch retained at %s\n' "$status" "$scratch" >&2
+		fi
+	}
+	trap 'build_budget_finish "$?"' EXIT
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+	build_budget_args args "$project" "$identity" "$PWD" env "TMPDIR=$scratch" "$@"
+	printf 'build-budget: %s, maximum 16 GiB\n' "$unit" >&2
+	systemd-run "${args[@]}"
+	rc=$?
+	exit "$rc"
+)
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then build_budget_main "$@"; fi

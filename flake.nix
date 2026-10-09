@@ -187,6 +187,7 @@
         codex-app = codexApp;
         herdr = herdrPackage;
         herdr-hook-runtime = herdrHookRuntime.package;
+        build-resources = pkgs.callPackage ./packages/build-resources.nix { };
         terminal-browser = terminalBrowser;
         hunk = hunkPackage;
         inherit tmog tode;
