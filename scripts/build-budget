@@ -13,6 +13,29 @@ build_budget_args() {
 		--property=MemorySwapMax=0 --property=OOMPolicy=stop -- "$@")
 }
 
+# Keep one reservation FD in the caller. A bounded kernel wait on slot2
+# periodically rechecks slot1, without a busy loop or competing lease helpers.
+# The nameref is an output written into the caller's scope.
+# shellcheck disable=SC2034
+build_budget_acquire_slot() {
+	local -n selected_fd="$1"
+	local runtime="$2" fd status warned=0
+	while :; do
+		exec {fd}>"$runtime/slot-1.lock" || return 1
+		if flock -n -E 75 "$fd"; then selected_fd=$fd; return 0; else status=$?; fi
+		exec {fd}>&-
+		[[ "$status" -eq 75 ]] || return "$status"
+		exec {fd}>"$runtime/slot-2.lock" || return 1
+		if [[ "$warned" -eq 0 ]]; then
+			printf 'build-budget: waiting for an available build slot\n' >&2
+			warned=1
+		fi
+		if flock -w 1 -E 75 "$fd"; then selected_fd=$fd; return 0; else status=$?; fi
+		exec {fd}>&-
+		[[ "$status" -eq 75 ]] || return "$status"
+	done
+}
+
 build_budget_main() (
 	set +e
 	set -u
@@ -42,15 +65,9 @@ build_budget_main() (
 		printf 'build-budget: state/runtime must be owned real directories\n' >&2; exit 1
 	fi
 	chmod 700 -- "$runtime" "$state" || exit 1
-	exec {slot_fd}>"$runtime/slot-1.lock" || exit 1
-	if ! flock -n "$slot_fd"; then
-		exec {slot_fd}>&-
-		exec {slot_fd}>"$runtime/slot-2.lock" || exit 1
-		if ! flock -n "$slot_fd"; then
-			printf 'build-budget: both build slots occupied; waiting\n' >&2
-			flock "$slot_fd" || exit 1
-		fi
-	fi
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+	build_budget_acquire_slot slot_fd "$runtime" || exit $?
 	identity=$(cat /proc/sys/kernel/random/uuid) || exit 1
 	unit="build-$project-$identity.scope"
 	base="${TMPDIR:-/tmp}"
@@ -78,11 +95,10 @@ build_budget_main() (
 		fi
 	}
 	trap 'build_budget_finish "$?"' EXIT
-	trap 'exit 130' INT
-	trap 'exit 143' TERM
 	build_budget_args args "$project" "$identity" "$PWD" env "TMPDIR=$scratch" "$@"
 	printf 'build-budget: %s, maximum 16 GiB\n' "$unit" >&2
-	systemd-run "${args[@]}"
+	# Only the wrapper owns the lease; descendants must not retain its FD.
+	systemd-run "${args[@]}" {slot_fd}>&-
 	rc=$?
 	exit "$rc"
 )

@@ -102,6 +102,14 @@ systemctl() {
 systemd-run() {
 	local argument
 	printf '%s\0' "$@" > "$fixture/requested-arguments"
+	if [[ "${adapter_check_slot_fd:-0}" -eq 1 ]]; then
+		if [[ -e "/proc/$BASHPID/fd/$slot_fd" ]]; then return 76; fi
+		# An actual child must inherit no reservation, including a descriptor
+		# Bash might save temporarily while applying a command redirection.
+		bash -c 'for fd in /proc/$$/fd/*; do case "$(readlink "$fd")" in */slot-1.lock|*/slot-2.lock) exit 76 ;; esac; done' || return 76
+		if command flock -n "$XDG_RUNTIME_DIR/build-budget/slot-1.lock" true; then return 77; fi
+		printf 'child-slot-fds=none parent-reservation=held\n' > "$fixture/slot-custody"
+	fi
 	for argument in "$@"; do
 		if [[ "$argument" == TMPDIR=* ]]; then printf '%s\n' "${argument#TMPDIR=}" > "$fixture/scratch-path"; fi
 	done
@@ -130,6 +138,76 @@ assert test "$rc" -eq 0
 scratch=$(< "$fixture/scratch-path")
 assert test ! -e "$scratch"
 assert test "$(jq -s 'length' "$fixture/state/build-budget/runs.ndjson")" = 2
+
+# Admission is a state-transition classifier, not a timed race. The recording
+# lock adapter releases slot1 on the bounded slot2 wait's timeout. Retrying1
+# must admit the job; permanent lock errors and cancellation must not spin.
+flock() {
+	local path slot
+	path=$(readlink "/proc/$BASHPID/fd/${!#}")
+	case "$path" in
+		*/slot-1.lock|*/slot-2.lock) ;;
+		*) command flock "$@"; return $? ;;
+	esac
+	slot=${path##*/}
+	slot_calls=$((slot_calls + 1))
+	printf '%s %s\n' "$*" "$slot" >> "$fixture/slot-effects"
+	if [[ $slot_calls -gt 9 ]]; then return 76; fi
+	case "$slot_case:$slot_calls" in
+		free-one:1) return 0 ;;
+		free-two:1|release-two:1) return 75 ;;
+		free-two:2|release-two:2) return 0 ;;
+		release-one:1|release-one:2) return 75 ;;
+		release-one:3) [[ "$slot" == slot-1.lock ]] && return 0; return 75 ;;
+		three-intervals:1|three-intervals:2|three-intervals:3|three-intervals:4|three-intervals:5|three-intervals:6) return 75 ;;
+		three-intervals:7) return 0 ;;
+		wait-error:1|wait-cancel:1|wait-interrupt:1) return 75 ;;
+		wait-error:2|nonblock-error:1) return 74 ;;
+		wait-cancel:2) kill -TERM "$BASHPID"; return 76 ;;
+		wait-interrupt:2) kill -INT "$BASHPID"; return 76 ;;
+		*) return 76 ;;
+	esac
+}
+for slot_case in free-one free-two release-one release-two three-intervals wait-error wait-cancel wait-interrupt nonblock-error; do
+	slot_calls=0
+	# A unique adapter side-effect path proves whether a job was admitted.
+	fixture_previous="$fixture"
+	fixture="$fixture_previous/$slot_case"
+	mkdir -p "$fixture"
+	: > "$fixture/slot-effects"
+	capture build_budget_main --project validate -- true
+	case "$slot_case" in
+		wait-error|nonblock-error) expected_status=74 ;;
+		wait-cancel) expected_status=143 ;;
+		wait-interrupt) expected_status=130 ;;
+		*) expected_status=0 ;;
+	esac
+	assert test "$rc" -eq "$expected_status"
+	if [[ "$expected_status" -eq 0 ]]; then
+		assert test -f "$fixture/requested-arguments"
+		case "$slot_case" in free-two|release-two) expected_slot='slot-2.lock' ;; *) expected_slot='slot-1.lock' ;; esac
+		assert test "$(tail -n 1 "$fixture/slot-effects" | awk '{print $NF}')" = "$expected_slot"
+	else
+		assert test ! -e "$fixture/requested-arguments"
+	fi
+	if [[ "$slot_case" == release-one ]]; then
+		assert test "$(wc -l < "$fixture/slot-effects")" -eq 3
+		assert test "$(sed -n '2p' "$fixture/slot-effects" | cut -d' ' -f1-4)" = '-w 1 -E 75'
+	fi
+	fixture="$fixture_previous"
+done
+unset -f flock
+
+# Real private-FD integration: close the reservation only in the command's
+# environment. The wrapper must retain it through the call, while a launched
+# descendant must not keep it alive after the wrapper completes.
+adapter_check_slot_fd=1
+capture build_budget_main --project validate -- true
+assert test "$rc" -eq 0
+adapter_check_slot_fd=0
+assert test "$(cat "$fixture/slot-custody")" = 'child-slot-fds=none parent-reservation=held'
+assert flock -n "$XDG_RUNTIME_DIR/build-budget/slot-1.lock" true
+assert flock -n "$XDG_RUNTIME_DIR/build-budget/slot-2.lock" true
 unset -f systemctl systemd-run
 printf 'build resources: %d checks, %d failure(s)\n' "$checks" "$failures"
 exit "$failures"
