@@ -18,6 +18,7 @@ local service_specs = {
 		{label = "Restart", path = "/ops/actions/mechatron-webhook/restart"},
 	}},
 	{scope = "system", unit = "mechatron-prime-badges.service", id = "mechatron-badges", label = "Mechatron badges", expected = "active", severity = "warning", detail = "read-only Shields status documents"},
+	{scope = "system", unit = "mechatron-prime-provision.service", id = "mechatron-provision", label = "Mechatron webhook provisioner", expected = "active", severity = "warning", detail = "sudo-free owner-repository onboarding through a local socket", provisioning = true},
 	{scope = "system", unit = "mechatron-prime-worker.path", id = "mechatron-worker-path", label = "Mechatron queue watcher", expected = "active", severity = "critical", detail = "starts the sequential worker when work arrives"},
 	{scope = "user", unit = "pipewire.service", id = "pipewire", label = "PipeWire", expected = "active", severity = "critical", detail = "audio graph"},
 	{scope = "user", unit = "wireplumber.service", id = "wireplumber", label = "WirePlumber", expected = "active", severity = "critical", detail = "audio session policy"},
@@ -171,6 +172,15 @@ function M.collect(source)
 			state = spec.probe and source[spec.probe]() or source.service(spec.scope, spec.unit)
 		end
 		local service = {id = spec.id, label = spec.label, state = state, state_label = state_label, detail = spec.detail, actions = spec.actions}
+		if spec.provisioning then
+			local status = cjson.decode(source.read("/run/mechatron-prime-provision/status.json") or "")
+			local last = type(status) == "table" and status.last
+			if type(last) == "table" and type(last.repository) == "string" and type(last.result) == "string" then
+				service.detail = spec.detail .. " · Last: " .. last.repository .. " · " .. last.result .. " · " .. tostring(last.finished_at or last.started_at or "unknown")
+			else
+				service.detail = spec.detail .. " · No request recorded since service start"
+			end
+		end
 		if spec.model_inventory then
 			local models = probes.parse_ollama_models(source.run("ollama_tags") or "")
 			local loaded_models = probes.parse_ollama_loaded_models(source.run("ollama_ps") or "")

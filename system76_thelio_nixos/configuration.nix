@@ -119,6 +119,7 @@ in
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-public.nix   # Funnel, tailnet port 80, JPEG XL type, Collie service-worker retirement — 2026-09-26
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-provision.nix # credential-isolated, sudo-free CI webhook onboarding
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       ./mechatron-prime-darwin-builder.nix   # aarch64-darwin remote builder on m4max — 2026-09-24
       ./dune-firewall.nix   # Dune player ports UDP 7777 and TCP 31982 — 2026-09-25
