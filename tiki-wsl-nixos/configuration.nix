@@ -102,6 +102,9 @@ in
   hardware.graphics.enable = true;
   fonts.packages = with pkgs; [
     atkinson-hyperlegible
+    # Fallback for Unicode 16 legacy-computing octants (e.g. U+1CDAA), which
+    # WezTerm otherwise reports as unrenderable.
+    cascadia-code
     fira-code
     key-rebel-moon
     nerd-fonts.jetbrains-mono
