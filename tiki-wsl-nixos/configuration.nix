@@ -22,6 +22,7 @@ in
   # GUI application exposed through WSLg without making it system-wide.
   users.users.nixos.packages = [
     pkgs.fastfetch
+    pkgs.b3sum # ~/dotfiles bin/repo-maintenance keys its state with BLAKE3 digests
     # Client-only on Tiki: attach directly to the persistent Thelio server with
     # `herdr --remote pmarreck@thelio-nixos` instead of first opening SSH/mosh.
     herdrPackage

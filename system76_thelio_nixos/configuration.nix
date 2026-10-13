@@ -1753,6 +1753,7 @@ in
       lsof # for listing open files and ports
       # for showing off nixos:
       fastfetch # system info (neofetch was removed from nixpkgs; fastfetch is the maintained replacement)
+      b3sum # BLAKE3 hashing; ~/dotfiles bin/repo-maintenance keys its state with it
       nix-tree # show nixpkgs tree
       hydra-check # show hydra status
       ripgrep # rg, the best grep

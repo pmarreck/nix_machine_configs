@@ -980,6 +980,7 @@ in
       murex # awesome looking shell, see murex.rocks
       ncdu # "ncurses du (disk usage)"
       fastfetch # system info (neofetch was removed from nixpkgs)
+      b3sum # BLAKE3 hashing; ~/dotfiles bin/repo-maintenance keys its state with it
       nethogs # network bandwidth monitor
       nitrogen # wallpaper/desktop image manager
       nix-bash-completions # bash completions for nix
