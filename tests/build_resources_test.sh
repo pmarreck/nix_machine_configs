@@ -96,7 +96,7 @@ unset -f find
 systemctl() {
 	case "$*" in
 		*'show agentbuilds.slice -p MemoryMax'*) printf '%s\n' "$adapter_envelope" ;;
-		*'is-active'*) return 3 ;;
+		*'is-active'*) return "${adapter_active_status:-3}" ;;
 		*) printf 'success\n1234\n' ;;
 	esac
 }
@@ -209,6 +209,69 @@ adapter_check_slot_fd=0
 assert test "$(cat "$fixture/slot-custody")" = 'child-slot-fds=none parent-reservation=held'
 assert flock -n "$XDG_RUNTIME_DIR/build-budget/slot-1.lock" true
 assert flock -n "$XDG_RUNTIME_DIR/build-budget/slot-2.lock" true
+
+# Raw-source callers can inherit a guarded rm on PATH. Test the real removal
+# effect, separately from the recording adapter used for the boundary set.
+mkdir "$fixture/guard-bin"
+printf '#!%s\n' "$(command -v bash)" > "$fixture/guard-bin/rm"
+printf '%s\n' 'printf called >> "$GUARD_CALLS"' 'exit 64' >> "$fixture/guard-bin/rm"
+chmod +x "$fixture/guard-bin/rm"
+export GUARD_CALLS="$fixture/guard-calls"
+export PATH="$fixture/guard-bin:$PATH"
+capture build_budget_main --project validate -- true
+assert test "$rc" -eq 0
+scratch=$(< "$fixture/scratch-path")
+assert test ! -e "$scratch"
+assert test ! -e "$GUARD_CALLS"
+
+# Classify the whole scratch-boundary set through recorded deletion requests.
+printf '#!%s\n' "$(command -v bash)" > "$fixture/delete-adapter"
+printf '%s\n' 'printf "%s\0" "$@" >> "$DELETE_RECORD"' 'exit "${DELETE_STATUS:-0}"' >> "$fixture/delete-adapter"
+chmod +x "$fixture/delete-adapter"
+export BUILD_BUDGET_RM="$fixture/delete-adapter" DELETE_RECORD="$fixture/deletions"
+export TMPDIR="$fixture/tmp with spaces"
+mkdir -p "$TMPDIR" "$fixture/outside"
+mktemp() { printf '%s\n' "$controlled_scratch"; }
+for boundary in valid wrong-project wrong-base symlink file missing failed active adapter-error; do
+	controlled_scratch="$TMPDIR/build-validate.$boundary"
+	adapter_status=0; adapter_active_status=3; DELETE_STATUS=0
+	case "$boundary" in
+		wrong-project) controlled_scratch="$TMPDIR/build-other.example"; mkdir "$controlled_scratch" ;;
+		wrong-base) controlled_scratch="$fixture/outside/build-validate.example"; mkdir "$controlled_scratch" ;;
+		symlink) ln -s "$fixture/outside" "$controlled_scratch" ;;
+		file) touch "$controlled_scratch" ;;
+		missing) : ;;
+		failed) mkdir "$controlled_scratch"; adapter_status=7 ;;
+		active) mkdir "$controlled_scratch"; adapter_active_status=0 ;;
+		adapter-error) mkdir "$controlled_scratch"; DELETE_STATUS=71 ;;
+		*) mkdir "$controlled_scratch" ;;
+	esac
+	export DELETE_STATUS
+	: > "$DELETE_RECORD"
+	capture build_budget_main --project validate -- true
+	assert test "$rc" -eq "$adapter_status"
+	if [[ "$boundary" == valid || "$boundary" == adapter-error ]]; then
+		mapfile -d '' -t requested_delete < "$DELETE_RECORD"
+		assert test "${#requested_delete[@]}" -eq 5
+		assert test "${requested_delete[0]-}" = '-r'
+		assert test "${requested_delete[1]-}" = '--one-file-system'
+		assert test "${requested_delete[2]-}" = '--preserve-root=all'
+		assert test "${requested_delete[3]-}" = '--'
+		assert test "${requested_delete[4]-}" = "$controlled_scratch"
+	else
+		assert test ! -s "$DELETE_RECORD"
+	fi
+	if [[ "$boundary" == adapter-error ]]; then
+		assert test -d "$controlled_scratch"
+		assert test "${err#*scratch cleanup failed}" != "$err"
+	fi
+done
+unset -f mktemp
+adapter_status=0; adapter_active_status=3
+: > "$fixture/requested-arguments"
+BUILD_BUDGET_RM=rm capture build_budget_main --project validate -- true
+assert test "$rc" -eq 1
+assert test ! -s "$fixture/requested-arguments"
 unset -f systemctl systemd-run
 printf 'build resources: %d checks, %d failure(s)\n' "$checks" "$failures"
 exit "$failures"

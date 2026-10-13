@@ -40,6 +40,7 @@ build_budget_main() (
 	set +e
 	set -u
 	local project='' runtime state identity unit slot_fd scratch='' rc base
+	local rm_bin="${BUILD_BUDGET_RM:-/run/current-system/sw/bin/rm}"
 	local -a args=()
 	case "${1-}" in
 		-h|--help)
@@ -52,6 +53,9 @@ build_budget_main() (
 		printf 'build-budget: valid project and -- COMMAND required\n' >&2; exit 2
 	fi
 	shift
+	if [[ "$rm_bin" != /* || ! -x "$rm_bin" ]]; then
+		printf 'build-budget: cleanup requires an absolute executable GNU rm adapter\n' >&2; exit 1
+	fi
 	local envelope
 	envelope=$(systemctl --user show agentbuilds.slice -p MemoryMax --value 2>/dev/null)
 	if [[ "$envelope" != 34359738368 ]]; then
@@ -88,7 +92,7 @@ build_budget_main() (
 			if systemctl --user is-active --quiet "$unit"; then
 				printf 'build-budget: job still has live processes; scratch retained at %s\n' "$scratch" >&2
 			else
-				rm -r --one-file-system --preserve-root=all -- "$scratch" || printf 'build-budget: scratch cleanup failed: %s\n' "$scratch" >&2
+				"$rm_bin" -r --one-file-system --preserve-root=all -- "$scratch" || printf 'build-budget: scratch cleanup failed: %s\n' "$scratch" >&2
 			fi
 		else
 			printf 'build-budget: exit=%s; scratch retained at %s\n' "$status" "$scratch" >&2

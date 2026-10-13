@@ -30,6 +30,15 @@ before its peak can be read, in which case the receipt records `null` rather
 than guessing. The command exit code and systemd's scope result are separate:
 a normally exited command can return nonzero while its scope result is success.
 
+Successful scratch cleanup invokes an explicit GNU `rm` executable, never the
+caller's guarded `rm` on PATH. Packages pin its Coreutils store path; raw NixOS
+source runs default to `/run/current-system/sw/bin/rm`. `BUILD_BUDGET_RM` can
+select an absolute executable adapter for direct-source runs. Cleanup retains
+the same checks: successful command, inactive scope, existing nonsymlink
+directory, and the exact task-owned scratch prefix. Failed cleanup reports a
+warning and preserves the command's original status; it does not try another
+deletion command.
+
 `build-oom-watch.service` watches new kernel OOM decisions, appends private
 `oom.ndjson` records in the same directory and requests critical desktop
 notifications. Records identify process name, PID, unit, project when available,

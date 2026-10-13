@@ -37,6 +37,7 @@ annotate=[
 	tests/build_resources_module_test.sh = Evaluated aggregate memory and monitor unit contracts
 	tests/build_resources_test.sh = Pure control and cleanup regression plus recorded runtime adapter tests
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
+	tests/dotfiles_host_deps_test.sh = Evaluated BLAKE3 dependency placement across all declared NixOS hosts
 	tests/fastfetch_fleet_test.sh = Effective package-placement contract for Fastfetch across declared NixOS hosts
 	tests/hunk_package_test.sh = Contract for the pinned modem-dev Hunk package, smoke check, and Thelio/Tiki placement
 	tests/mechatron_provision_test.sh = Evaluated webhook broker service and operator socket isolation contract
