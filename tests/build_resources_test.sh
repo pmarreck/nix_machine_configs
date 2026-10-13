@@ -12,7 +12,8 @@ if [[ ! -f "$root/scripts/build-budget" || ! -f "$root/scripts/build-oom-watch" 
 	printf 'not ok - build resource implementation missing\n' >&2
 	exit 1
 fi
-source "$root/scripts/build-budget"
+# The same controls can verify the immutable executable before/after handover.
+source "${BUILD_BUDGET_IMPLEMENTATION:-$root/scripts/build-budget}"
 source "$root/scripts/build-oom-watch"
 
 # Project labels form a classifier over accepted and rejected input sets.
