@@ -126,6 +126,7 @@ in
       ./dune-world.nix   # user units: world at boot, heal, backup, update check — 2026-09-26
       ./fleet-status.nix # nightly Git fetch and fleet report — 2026-09-29
       ./tmp-cleanup.nix # hourly deletion of inactive ephemeral temporary files
+      ./llmsend-inbox-reminders.nix # private, explicit-recipient hourly reminders
       ./build-resources.nix # isolated native jobs, aggregate memory budget and OOM attribution
       inputs.unix-mail-redux.nixosModules.default   # tailnet-only human/agent mail — Einstein 2026-08-28
       ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28

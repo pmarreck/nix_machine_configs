@@ -48,6 +48,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Independent reminder runtime; retain its validated dependency lock.
+    llmsend_reminders.url = "github:pmarreck/llmsend/68c22e73ad5ffec7efa0e23ed4a32bfee84f2a01";
+
     # Herdr supplies its own tested Nix package for the persistent terminal
     # workspace server and clients. Keep its upstream lock graph intact rather
     # than overriding the Rust/libghostty stack with this host's nixpkgs.
@@ -186,6 +189,7 @@
       packages.${system} = {
         codex-app = codexApp;
         herdr = herdrPackage;
+        llmsend-inbox-remind = inputs.llmsend_reminders.packages.${system}.inboxRemind;
         herdr-hook-runtime = herdrHookRuntime.package;
         build-resources = pkgs.callPackage ./packages/build-resources.nix { };
         terminal-browser = terminalBrowser;
