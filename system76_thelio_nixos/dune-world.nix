@@ -131,11 +131,11 @@ in
   };
 
   systemd.user.timers.dune-update-check = {
-    description = "Daily Dune server update check";
+    description = "Dune server update check every 3 hours";
     wantedBy = [ "timers.target" ];
     unitConfig = onlyPeter;
     timerConfig = {
-      OnCalendar = "*-*-* 06:00:00";
+      OnCalendar = "*-*-* 00/3:00:00";
       Persistent = true;
       Unit = "dune-update-check.service";
     };
