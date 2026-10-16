@@ -132,6 +132,9 @@ in
     # This keeps system upgrades from compiling large desktop applications locally.
     "always-allow-substitutes" = true;
     trusted-users = [ "root" "pmarreck" ];
+    # Declared here so root (sudo nix ..., ixnay reify) has flakes too; previously only
+    # ~/.config/nix/nix.conf enabled them, which sudo does not read.
+    experimental-features = [ "nix-command" "flakes" ];
   };
 
   # Avoid building fragile package HTML docs as part of the system profile.
@@ -536,7 +539,7 @@ in
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       unstable.circumflex # Hacker News TUI (command: "clx")
-      # claude-code and codex removed (installed via pipx/pnpm/volta instead)
+      # claude-code and codex removed (installed via npm under mise-managed Node instead)
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -570,7 +573,7 @@ in
       # gamehub # marked broken on nixos-25.11
       gawkInteractive # GNU awk with readline support and better error messages
       gcc # compiler for C
-      unstable.gemini-cli # Google's AI agent that brings the power of Gemini directly into your terminal
+      unstable.antigravity-cli # gemini-cli is marked for removal; the command is agy
       ghidra # Software reverse engineering (SRE) suite of tools from the NSA
       ghostscript # Ghostscript is an interpreter for the PostScript language and PDF files
       glow # markdown viewer TUI
@@ -617,7 +620,7 @@ in
       nmap # Network exploration tool and security scanner
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       nnn # Terminal file manager
-      # nodejs_20 # javascript runtime # moved to managing via Volta
+      mise # runtime manager; manages ONLY Node (global LTS from ~/.config/mise/config.toml, exposed via shims in dotfiles .pathconfig). Replaces Volta.
       ocl-icd # for opencl
       ocrmypdf # Adds an OCR text layer to scanned PDF files, allowing them to be searched
       odin # A programming language for creating multi-platform apps
@@ -759,7 +762,7 @@ in
       ## ])
 
       # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
-      unstable.antigravity # Agentic development platform, evolving the IDE into the agent-first era
+      unstable.antigravity-ide # Agentic development platform, evolving the IDE into the agent-first era
       cfunge # Fast Befunge interpreter
       unstable.gh # GitHub CLI tool
       opencode # AI coding agent built for the terminal
@@ -884,7 +887,9 @@ in
       cargo # rust package manager
       cheese # gnome webcam tool
       chez # Chez Scheme (useful for idris)
-      chromium # like chrome but without the google
+      # Chromium omitted (2026-09-17): Peter uses Firefox; an uncached Chromium
+      # source build delayed the travel update and consumed scarce disk space.
+      # Revisit only if needed, preferably when a binary substitute is available.
       # clipgrab # disabled on nixos-25.11 (qtwebengine-5.15.x is marked insecure)
       comma # for trying out software, see "let" section above
       conky # system monitor

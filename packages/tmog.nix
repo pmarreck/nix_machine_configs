@@ -2,7 +2,7 @@
 
 let
   pname = "tmog-task-manager";
-  contents = appimageTools.extractType2 {
+  contents = appimageTools.extract {
     inherit pname src version;
   };
 in
@@ -18,7 +18,8 @@ appimageTools.wrapType2 {
     cp -r ${contents}/usr/share/pixmaps $out/share/
   '';
 
-  passthru.updateCommand = "nix flake update tmog-version";
+  # Update the versioned URL and tmogVersion in flake.nix before refreshing.
+  passthru.updateCommand = "nix flake update tmog-linux";
 
   meta = {
     description = "Native system monitor and task manager";
