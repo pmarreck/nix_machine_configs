@@ -48,10 +48,18 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Independent reminder runtime; retain its validated dependency lock.
+    llmsend_reminders.url = "github:pmarreck/llmsend/68c22e73ad5ffec7efa0e23ed4a32bfee84f2a01";
+
     # Herdr supplies its own tested Nix package for the persistent terminal
     # workspace server and clients. Keep its upstream lock graph intact rather
     # than overriding the Rust/libghostty stack with this host's nixpkgs.
     herdr.url = "github:herdrdev/herdr";
+
+    printable-binary = {
+      url = "github:pmarreck/printable_binary/yolo";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Terminal-first diff viewer, pinned to the exact package already proven
     # on Thelio. Retain upstream's Bun/bun2nix dependency graph.
@@ -78,7 +86,12 @@
       terminalBrowser = pkgs.callPackage ./packages/terminal-browser.nix { };
       tode = pkgs.callPackage ./packages/tode.nix { };
       herdrPackage = inputs.herdr.packages.${system}.herdr;
+      herdrHookRuntime = import ./packages/herdr-hook-runtime.nix {
+        inherit pkgs;
+        herdrSource = inputs.herdr;
+      };
       hunkPackage = inputs.hunk.packages.${system}.default;
+      printableBinary = inputs.printable-binary.packages.${system}.printableBinaryZig;
       tmogVersion = "1.0.0";
       tmog = pkgs.callPackage ./packages/tmog.nix {
         src = inputs.tmog-linux;
@@ -176,11 +189,15 @@
       packages.${system} = {
         codex-app = codexApp;
         herdr = herdrPackage;
+        llmsend-inbox-remind = inputs.llmsend_reminders.packages.${system}.inboxRemind;
+        herdr-hook-runtime = herdrHookRuntime.package;
+        build-resources = pkgs.callPackage ./packages/build-resources.nix { };
         terminal-browser = terminalBrowser;
         hunk = hunkPackage;
         inherit tmog tode;
       };
       checks.${system} = {
+        herdr-hook-runtime = herdrHookRuntime.check;
         codex-app = codexAppSmoke;
         terminal-browser = terminalBrowserSmoke;
         hunk = hunkSmoke;
@@ -195,7 +212,7 @@
         framework-nixos = mkHost nixpkgs-2605 ./framework-nixos/configuration.nix;
         tiki-wsl-nixos = nixpkgs-2605.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs system tmog herdrPackage hunkPackage; };
+          specialArgs = { inherit inputs system tmog herdrPackage hunkPackage printableBinary; };
           modules = [
             nixos-wsl.nixosModules.default
             ./tiki-wsl-nixos/configuration.nix

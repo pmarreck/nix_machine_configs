@@ -1,4 +1,4 @@
-{ pkgs, tmog, herdrPackage, hunkPackage, ... }:
+{ pkgs, tmog, herdrPackage, hunkPackage, printableBinary, ... }:
 
 let
   # Existing pinned/obfuscated package for the licensed Berkeley Mono files.
@@ -22,6 +22,7 @@ in
   # GUI application exposed through WSLg without making it system-wide.
   users.users.nixos.packages = [
     pkgs.fastfetch
+    pkgs.b3sum # ~/dotfiles bin/repo-maintenance keys its state with BLAKE3 digests
     # Client-only on Tiki: attach directly to the persistent Thelio server with
     # `herdr --remote pmarreck@thelio-nixos` instead of first opening SSH/mosh.
     herdrPackage
@@ -102,6 +103,9 @@ in
   hardware.graphics.enable = true;
   fonts.packages = with pkgs; [
     atkinson-hyperlegible
+    # Fallback for Unicode 16 legacy-computing octants (e.g. U+1CDAA), which
+    # WezTerm otherwise reports as unrenderable.
+    cascadia-code
     fira-code
     key-rebel-moon
     nerd-fonts.jetbrains-mono
@@ -117,12 +121,14 @@ in
     cosmocc
     coreutils-full
     es
+    expect
     gawk
     gcc
     halloy
     ghostty
     gnumake
     jq
+    libarchive # bsdtar, required by getfile archive tests and runtime
     ldc
     # Shared dotfile scripts require these modules even when their caller
     # scrubs LUA_PATH/LUA_CPATH, so bake them into LuaJIT's own search path.
@@ -154,7 +160,9 @@ in
     ninja
     nushell
     openssh
+    openssl # CLI plus libcrypto for compare-dirs' LuaJIT FFI backend
     pkg-config
+    printableBinary
     zed-editor
     zellij
     sniffnet

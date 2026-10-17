@@ -1,0 +1,372 @@
+#!/usr/bin/env bash
+set -u
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! declare -F github_failure_is_retryable >/dev/null; then
+	# Packaged deployments concatenate policy.bash ahead of this file.
+	# shellcheck disable=SC1090
+	source "${MECHATRON_POLICY_LIB:-$script_dir/policy.bash}"
+fi
+
+usage() {
+	printf '%s\n' 'usage: provision-mechatron-webhooks (--allowlist PATH | --all-owner-repos) --owner OWNER --endpoint HTTPS_URL [--dry-run]' >&2
+}
+
+trim() {
+	local value=$1
+	value="${value#"${value%%[![:space:]]*}"}"
+	value="${value%"${value##*[![:space:]]}"}"
+	printf '%s' "$value"
+}
+
+allowlist=
+owner=
+endpoint=
+dry_run=false
+all_owner_repos=false
+
+while (( $# > 0 )); do
+	case $1 in
+		--allowlist)
+			if (( $# < 2 )); then usage; exit 2; fi
+			allowlist=$2
+			shift 2
+			;;
+		--owner)
+			if (( $# < 2 )); then usage; exit 2; fi
+			owner=$2
+			shift 2
+			;;
+		--all-owner-repos)
+			all_owner_repos=true
+			shift
+			;;
+		--endpoint)
+			if (( $# < 2 )); then usage; exit 2; fi
+			endpoint=$2
+			shift 2
+			;;
+		--dry-run)
+			dry_run=true
+			shift
+			;;
+		-h|--help)
+			usage
+			exit 0
+			;;
+		*)
+			usage
+			exit 2
+			;;
+	esac
+done
+
+if [[ -z $owner || -z $endpoint ]] ||
+	{ [[ -z $allowlist && $all_owner_repos == false ]] || [[ -n $allowlist && $all_owner_repos == true ]]; }
+then
+	usage
+	exit 2
+fi
+if [[ ! $owner =~ ^[A-Za-z0-9_.-]+$ ]]; then
+	printf '%s\n' 'invalid GitHub owner' >&2
+	exit 2
+fi
+if [[ ! $endpoint =~ ^https://[^[:space:]]+$ ]]; then
+	printf '%s\n' 'endpoint must be an exact HTTPS URL without whitespace' >&2
+	exit 2
+fi
+if [[ -n $allowlist && ! -r $allowlist ]]; then
+	printf '%s\n' 'allowlist is not readable' >&2
+	exit 2
+fi
+
+gh_bin=${GH_BIN:-gh}
+jq_bin=${JQ_BIN:-jq}
+
+# Run a GitHub GET with exponential backoff on fast transients. Success leaves
+# the response in github_retry_stdout. Exhausted transients set
+# github_retry_timed_out so the caller can name the timeout class; permanent
+# errors stay a generic API failure. POST/PATCH must not use this helper.
+with_github_retry() {
+	local max_attempts attempt err_file rc
+	max_attempts=${MECHATRON_GITHUB_RETRY_ATTEMPTS:-4}
+	err_file=$(mktemp "${TMPDIR:-/tmp}/mechatron-gh.XXXXXX")
+	attempt=1
+	github_retry_stdout=
+	github_retry_stderr=
+	github_retry_timed_out=false
+	github_retry_attempts=0
+	while (( attempt <= max_attempts )); do
+		github_retry_attempts=$attempt
+		github_retry_stdout=$("$@" 2>"$err_file")
+		rc=$?
+		github_retry_stderr=$(cat "$err_file")
+		if (( rc == 0 )); then
+			rm -f "$err_file"
+			return 0
+		fi
+		if ! github_failure_is_retryable "$rc" "$github_retry_stderr" || (( attempt == max_attempts )); then
+			if github_failure_is_retryable "$rc" "$github_retry_stderr"; then
+				github_retry_timed_out=true
+			fi
+			rm -f "$err_file"
+			return 1
+		fi
+		mechatron_sleep "$(github_retry_backoff_seconds "$attempt")"
+		attempt=$((attempt + 1))
+	done
+	rm -f "$err_file"
+	return 1
+}
+
+declare -a repos=()
+declare -a actions=()
+declare -a hook_ids=()
+declare -A seen=()
+line_number=0
+repo_set_invalid=false
+add_repo() {
+	local raw_line=$1 origin=$2 line line_owner repo
+	line_number=$((line_number + 1))
+	line=$(trim "$raw_line")
+	if [[ -z $line || $line == \#* ]]; then
+		return 0
+	fi
+	if [[ ! $line =~ ^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)$ ]]; then
+		printf 'invalid full repository name from %s line %d\n' "$origin" "$line_number" >&2
+		repo_set_invalid=true
+		return 0
+	fi
+	line_owner=${BASH_REMATCH[1]}
+	repo=${BASH_REMATCH[2]}
+	if [[ $line_owner != "$owner" ]]; then
+		printf 'repository owner mismatch from %s line %d\n' "$origin" "$line_number" >&2
+		repo_set_invalid=true
+		return 0
+	fi
+	if [[ -n ${seen[$repo]+present} ]]; then
+		printf 'duplicate repository from %s line %d\n' "$origin" "$line_number" >&2
+		repo_set_invalid=true
+		return 0
+	fi
+	seen[$repo]=1
+	repos+=("$repo")
+}
+
+if [[ $all_owner_repos == true ]]; then
+	if ! with_github_retry "$gh_bin" repo list "$owner" --limit 1000 --json nameWithOwner --jq '.[].nameWithOwner'; then
+		if [[ $github_retry_timed_out == true ]]; then
+			printf 'GitHub repository-list timed out for %s after %d attempts\n' "$owner" "$github_retry_attempts" >&2
+		else
+			printf 'GitHub repository-list API failed for %s\n' "$owner" >&2
+		fi
+		if [[ -n $github_retry_stderr ]]; then
+			printf '%s\n' "$github_retry_stderr" >&2
+		fi
+		exit 1
+	fi
+	discovered_repos=$github_retry_stdout
+	while IFS= read -r raw_line || [[ -n $raw_line ]]; do
+		add_repo "$raw_line" 'GitHub owner discovery'
+	done <<< "$discovered_repos"
+else
+	while IFS= read -r raw_line || [[ -n $raw_line ]]; do
+		add_repo "$raw_line" allowlist
+	done < "$allowlist"
+fi
+
+if [[ $repo_set_invalid == true ]]; then
+	exit 2
+fi
+if (( ${#repos[@]} == 0 )); then
+	printf '%s\n' 'allowlist contains no repositories' >&2
+	exit 2
+fi
+
+# Return only exact endpoint matches. GitHub pagination is slurped into an array
+# of pages so the classifier covers the entire hook set, not merely page one.
+fetch_matches() {
+	local repo=$1 hooks matches rc
+	if ! with_github_retry "$gh_bin" api --method GET "repos/$owner/$repo/hooks" --paginate --slurp; then
+		if [[ $github_retry_timed_out == true ]]; then
+			printf 'GitHub hook-list timed out for %s/%s after %d attempts\n' "$owner" "$repo" "$github_retry_attempts" >&2
+		else
+			printf 'GitHub hook-list API failed for %s/%s\n' "$owner" "$repo" >&2
+		fi
+		if [[ -n $github_retry_stderr ]]; then
+			printf '%s\n' "$github_retry_stderr" >&2
+		fi
+		return 1
+	fi
+	hooks=$github_retry_stdout
+	# $url below is a jq variable, not a shell variable.
+	# shellcheck disable=SC2016
+	matches=$(printf '%s\n' "$hooks" | "$jq_bin" -c --arg url "$endpoint" \
+		'if type != "array" then error("pages must be an array") else [ .[] | if type != "array" then error("page must be an array") else .[] end | select((.config.url // "") == $url) ] end' \
+		2>/dev/null)
+	rc=$?
+	if (( rc != 0 )); then
+		printf 'GitHub returned malformed hook data for %s/%s\n' "$owner" "$repo" >&2
+		return 1
+	fi
+	printf '%s' "$matches"
+}
+
+# The complete set is classified before mutation. This makes all detectable
+# conflicts and API errors fleet-wide write barriers.
+preflight_failed=false
+for index in "${!repos[@]}"; do
+	repo=${repos[$index]}
+	matches=$(fetch_matches "$repo")
+	rc=$?
+	if (( rc != 0 )); then
+		actions[index]=error
+		hook_ids[index]=
+		preflight_failed=true
+		continue
+	fi
+	count=$(printf '%s\n' "$matches" | "$jq_bin" -r 'length' 2>/dev/null)
+	rc=$?
+	if (( rc != 0 )); then
+		printf 'could not classify hooks for %s/%s\n' "$owner" "$repo" >&2
+		actions[index]=error
+		hook_ids[index]=
+		preflight_failed=true
+		continue
+	fi
+	case $count in
+		0)
+			actions[index]=create
+			hook_ids[index]=
+			;;
+		1)
+			hook_id=$(printf '%s\n' "$matches" | "$jq_bin" -r '.[0].id // empty' 2>/dev/null)
+			config_ok=$(printf '%s\n' "$matches" | "$jq_bin" -r '.[0] | (.config.content_type == "json" and ((.config.insecure_ssl | tostring) == "0"))' 2>/dev/null)
+			current_ok=$(printf '%s\n' "$matches" | "$jq_bin" -r '.[0] | (.active == true and .events == ["push"])' 2>/dev/null)
+			if [[ -z $hook_id || $config_ok != true ]]; then
+				printf 'existing exact hook has unsafe or incompatible config for %s/%s\n' "$owner" "$repo" >&2
+				actions[index]=error
+				hook_ids[index]=
+				preflight_failed=true
+			elif [[ $current_ok == true ]]; then
+				actions[index]=ok
+				hook_ids[index]=$hook_id
+			else
+				actions[index]=update
+				hook_ids[index]=$hook_id
+			fi
+			;;
+		*)
+			printf 'multiple exact hooks found for %s/%s; refusing all mutations\n' "$owner" "$repo" >&2
+			actions[index]=error
+			hook_ids[index]=
+			preflight_failed=true
+			;;
+	esac
+done
+
+# Print the plan even when a member failed. Mutations still require a clean
+# preflight; hiding OK/CREATE/UPDATE is how a single GitHub blip used to look
+# like the whole fleet was unclassifiable.
+for index in "${!repos[@]}"; do
+	printf '%s %s/%s\n' "${actions[$index]^^}" "$owner" "${repos[$index]}"
+done
+
+if [[ $preflight_failed == true ]]; then
+	exit 1
+fi
+
+if [[ $dry_run == true ]]; then
+	exit 0
+fi
+
+needs_secret=false
+for action in "${actions[@]}"; do
+	if [[ $action == create ]]; then needs_secret=true; fi
+done
+
+secret=${MECHATRON_WEBHOOK_SECRET-}
+# Prevent the caller-provided secret environment variable from leaking to gh or
+# any unrelated child process. It is scoped back onto jq only while JSON-escaped.
+unset MECHATRON_WEBHOOK_SECRET
+if [[ $needs_secret == true && -z $secret ]]; then
+	IFS= read -r secret
+	rc=$?
+	if (( rc != 0 )) && [[ -z $secret ]]; then
+		printf '%s\n' 'webhook secret is required via MECHATRON_WEBHOOK_SECRET or stdin' >&2
+		exit 2
+	fi
+fi
+if [[ $needs_secret == true && -z $secret ]]; then
+	printf '%s\n' 'webhook secret must not be empty' >&2
+	exit 2
+fi
+
+mutation_failed=false
+for index in "${!repos[@]}"; do
+	repo=${repos[$index]}
+	action=${actions[$index]}
+	case $action in
+		create)
+			# $url below is a jq variable, not a shell variable.
+			# shellcheck disable=SC2016
+			body=$(MECHATRON_WEBHOOK_SECRET="$secret" "$jq_bin" -cn --arg url "$endpoint" \
+				'{name:"web", active:true, events:["push"], config:{url:$url, content_type:"json", insecure_ssl:"0", secret:env.MECHATRON_WEBHOOK_SECRET}}' \
+				2>/dev/null)
+			rc=$?
+			if (( rc != 0 )); then
+				printf 'could not encode create request for %s/%s\n' "$owner" "$repo" >&2
+				mutation_failed=true
+				continue
+			fi
+			printf '%s\n' "$body" | "$gh_bin" api --method POST "repos/$owner/$repo/hooks" --input - >/dev/null 2>/dev/null
+			rc=$?
+			body=
+			if (( rc != 0 )); then
+				printf 'GitHub hook-create API failed for %s/%s\n' "$owner" "$repo" >&2
+				mutation_failed=true
+			fi
+			;;
+		update)
+			body='{"active":true,"events":["push"]}'
+			printf '%s\n' "$body" | "$gh_bin" api --method PATCH "repos/$owner/$repo/hooks/${hook_ids[$index]}" --input - >/dev/null 2>/dev/null
+			rc=$?
+			body=
+			if (( rc != 0 )); then
+				printf 'GitHub hook-update API failed for %s/%s\n' "$owner" "$repo" >&2
+				mutation_failed=true
+			fi
+			;;
+		ok)
+			;;
+	esac
+done
+secret=
+unset secret
+
+# Never trust mutation responses. Re-read each repository and assert the exact
+# endpoint is singular, active, push-only, JSON, and SSL verification is enabled.
+verification_failed=false
+for repo in "${repos[@]}"; do
+	matches=$(fetch_matches "$repo")
+	rc=$?
+	if (( rc != 0 )); then
+		verification_failed=true
+		continue
+	fi
+	final_ok=$(printf '%s\n' "$matches" | "$jq_bin" -r \
+		'length == 1 and .[0].active == true and .[0].events == ["push"] and .[0].config.content_type == "json" and ((.[0].config.insecure_ssl | tostring) == "0")' \
+		2>/dev/null)
+	rc=$?
+	if (( rc != 0 )) || [[ $final_ok != true ]]; then
+		printf 'final hook-state verification failed for %s/%s\n' "$owner" "$repo" >&2
+		verification_failed=true
+	else
+		printf 'VERIFIED %s/%s\n' "$owner" "$repo"
+	fi
+done
+
+if [[ $mutation_failed == true || $verification_failed == true ]]; then
+	exit 1
+fi
+exit 0

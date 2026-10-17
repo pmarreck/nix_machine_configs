@@ -1,5 +1,89 @@
 # NixOS plan
 
+## Mail attachments and consolidated inbox (2026-09-18)
+
+- [x] Update only unix-mail-redux and its llmsend lock nodes to 872f236 and
+      0c2b371. Package-level verification is separate from host activation.
+      These add repeatable --attachment and accept the owned HOME/inbox symlink.
+- [x] Run the tested repair live via a mail-watcher-only runtime drop-in:
+      /run/systemd/system/unix-mail-redux-watch.service.d/90-local-symlink-repair.conf.
+      No whole-host activation or reboot. Live delivery, MIME binary hashes and
+      Codex tool-hook awareness pass; a fresh idle wake still needs verification.
+- [ ] After the pending full configuration is safely activated, remove only
+      that runtime drop-in and daemon-reload/restart unix-mail-redux-watch.
+      The override disappears on reboot: apply these pins before rebooting.
+      Package GC roots and a copy of the override are in the operator's
+      .local/state/unix-mail-redux-*-20260918 paths. Existing Herdr/TMOG work is
+      preserved; this is not authorization to activate all pending changes.
+
+## Scoped Herdr hook / Collie runtime (2026-09-08)
+
+- [x] Reproduce missing Python without installing it globally; provide a pinned
+      hook-only/Collie-only runtime and real Unix-socket checks for all 3 harnesses.
+- [x] Apply locally, preserve rollback copies, recover the 20 missing live
+      identities, and verify all 21 supported agent panes, Grok integration,
+      private HTTPS and the update preflight. No agent/Herdr restart required.
+- [x] Run the full host-repository suite: 21 test files, 3 failed assertions.
+      Scoped runtime/socket checks pass. TMOG's mutable version.txt now differs
+      from its locked narHash, failing its two package checks and aggregate
+      Mechatron target evaluation. No flake lock update or host activation done.
+- [ ] Resolve the independent TMOG input mismatch, then obtain a fully green
+      suite before committing. Scoped repair files remain staged/uncommitted;
+      pre-existing PLAN changes are preserved unstaged.
+      Details and reapplication instructions: `docs/herdr-scoped-runtime.md`.
+      Collie remains 1.5.1; the scoped update check offers 1.6.0.
+
+## UPS output formats and attended commissioning (2026-09-06)
+
+- [x] Replace mixed ups-status output with nested JSON, TOML, XML and safely
+      eval-able Bash exports. Preserve prefix-key collisions through `_value`.
+      Activated and live-smoked 2026-09-06 09:23 EDT; automatic shutdown remains off.
+- [ ] With Peter present, test a brief loss of UPS input power and restoration;
+      confirm real telemetry transitions and notifications before arming shutdown.
+
+## Mail TLS renewal ordering deadlock (observed 2026-09-06 09:19 EDT)
+
+- [ ] Fix unix_mail_redux/nix/module.nix certificate renewal to enqueue
+      `systemctl --no-block try-reload-or-restart dovecot.service postfix.service`.
+      The renewal unit is ordered Before those services, so synchronously waiting
+      for their reloads deadlocks its own start and a NixOS switch. Add an ordering
+      regression test upstream, then repin the module here. Bound service duration.
+      Live unblock at 09:23 EDT: canceled only queued reload jobs 3428291/3428292;
+      renewal completed, then explicitly reloaded both mail services. No services
+      were stopped; no failed units remain. The source-level defect is still pending.
+
+## Manage Collie declaratively on Thelio (2026-09-04)
+
+- [ ] Package Collie with a pinned upstream release and content hash; add an
+      executable version check. The current installation is AltanS/collie 1.5.1
+      at `~/.local/share/collie/versions/1.5.1`. Preserve its mutable configuration
+      and state under `~/.config/collie`; keep secrets out of the Nix store.
+- [ ] Declare the lingering user service and private HTTPS ingress on 8446.
+      The existing bridge binds localhost:8787. Make Nix own ingress; prevent
+      Collie's lifecycle commands from modifying the public HTTPS listener.
+      Curiosity poke: restart and upgrade must preserve the entire Mechatron
+      443 handler set and Funnel flag, plus unrelated private listeners.
+- [ ] Add an update command that discovers newer stable releases, updates the
+      version/hash pin, and builds/checks the candidate before activation.
+      Preserve Nix generation rollback; prevent imperative self-update from
+      replacing the package or bypassing the host's deployment workflow.
+- [ ] Migrate the existing user unit with a recoverable backup, test the full
+      host configuration, inspect activation, then verify the live private URL
+      and an externally delivered GitHub webhook.
+
+Live repair completed from libjxlz on 2026-09-04 at approximately 22:32 EDT:
+`COLLIE_SERVE_PORT=8446` is in `~/.config/collie/.env`; the enabled, lingering
+user service serves `https://thelio-nixos.tail66c90.ts.net:8446/` (HTTP 200).
+Port 443 contains only Mechatron's three pre-existing public paths. A second
+`collie restart` left the complete Tailscale configuration byte-identical.
+Both public relay IPs returned HTTP 200 for `/badges/libjxlz.json`.
+GitHub's redelivery succeeded with HTTP 200 at 22:31:05 EDT, independently
+confirming that public webhook access was restored.
+Backups and before/after routing snapshots are in
+`~/.config/collie/backups/20260904-routing/`. The declarative migration and
+updater are requested work, not yet implemented. Finish the live repair and
+checkpoint tonight; avoid starting a host rebuild after 22:00.
+
 ## Stop importing Windows PATH into Tiki WSL (2026-09-04)
 
 - [x] Add a failing effective-configuration contract, disable automatic Windows

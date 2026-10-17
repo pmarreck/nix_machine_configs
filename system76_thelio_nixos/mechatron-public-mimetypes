@@ -1,0 +1,5 @@
+# darkhttpd extension map. The badge server's default MIME is JSON so an
+# unknown file does not become a generic download. JPEG XL is unknown to
+# that default map, and the explainer art is .jxl.
+# Keep this in step with mechatron-prime nixos/public-mimetypes.
+image/jxl jxl

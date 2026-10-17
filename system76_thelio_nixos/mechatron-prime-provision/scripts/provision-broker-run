@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -u
+
+# All paths and the endpoint come from the service unit, never a client.
+repo=${1:-}
+mode=${2:-}
+[[ $repo =~ ^pmarreck/[A-Za-z0-9._-]{1,100}$ ]] || exit 2
+[[ ${repo#*/} != . && ${repo#*/} != .. ]] || exit 2
+[[ $mode == dry || $mode == live ]] || exit 2
+: "${CREDENTIALS_DIRECTORY:?credentials required}"
+: "${MECHATRON_PROVISION_ENDPOINT:?endpoint required}"
+: "${MECHATRON_PROVISION_HELPER:?helper required}"
+export GH_HOST=github.com GH_PROMPT_DISABLED=1
+# Bound Go's thread demand on high-core hosts inside the service's task limit.
+export GOMAXPROCS=2
+unset GH_DEBUG GITHUB_TOKEN GITHUB_ENTERPRISE_TOKEN GH_ENTERPRISE_TOKEN
+GH_TOKEN=$(<"$CREDENTIALS_DIRECTORY/github-token") || exit 1
+export GH_TOKEN
+[[ -n $GH_TOKEN ]] || exit 1
+
+# GitHub redirects transferred repositories. Verify the returned owner and
+# canonical identity before permitting the helper to touch any hooks.
+metadata=$(gh api --hostname github.com "repos/$repo" 2>/dev/null) || exit 1
+jq -e --arg repo "$repo" '
+	(.owner.login | ascii_downcase) == "pmarreck" and
+	(.full_name | ascii_downcase) == ($repo | ascii_downcase)
+' <<< "$metadata" >/dev/null 2>&1 || exit 1
+unset metadata
+umask 077
+allowlist=$(mktemp) || exit 1
+trap 'rm -f -- "$allowlist"' EXIT
+printf '%s\n' "$repo" > "$allowlist"
+args=(--allowlist "$allowlist" --owner pmarreck --endpoint "$MECHATRON_PROVISION_ENDPOINT")
+if [[ $mode == dry ]]; then
+	args+=(--dry-run)
+	"$MECHATRON_PROVISION_HELPER" "${args[@]}" </dev/null >/dev/null 2>&1 || exit 1
+else
+	# This root-owned credential is the receiver's existing environment file.
+	# Do not export the signing secret to gh or include it on any command line.
+	set +a
+	# shellcheck disable=SC1091
+	source "$CREDENTIALS_DIRECTORY/webhook-env"
+	: "${MECHATRON_GITHUB_WEBHOOK_SECRET:?signing credential required}"
+	secret=$MECHATRON_GITHUB_WEBHOOK_SECRET
+	unset MECHATRON_GITHUB_WEBHOOK_SECRET
+	printf '%s\n' "$secret" | "$MECHATRON_PROVISION_HELPER" "${args[@]}" >/dev/null 2>&1
+	rc=$?
+	unset secret
+	[[ $rc == 0 ]] || exit 1
+fi
+printf 'success\n'

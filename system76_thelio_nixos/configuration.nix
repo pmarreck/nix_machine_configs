@@ -111,18 +111,32 @@ in
       # <nixos-hardware/system76>
       # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./task-manager-shortcut.nix # Ctrl-Alt-Delete: TMOG, with GNOME fallback
       ./zfs.nix
+      ./everamp-ups.nix # USB monitoring and tested 0/5/10-minute outage policy
       ./ollama.nix   # local inference backend for codescan (Ollama-CUDA, 2× NVIDIA) — Einstein 2026-07-07
       ./mechatron-prime-attic.nix   # tailnet-local binary cache for Mechatron Prime CI — Codex 2026-07-08
       ./mechatron-prime-receiver.nix   # GitHub webhook receiver for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-public.nix   # Funnel, tailnet port 80, JPEG XL type, Collie service-worker retirement — 2026-09-26
       ./mechatron-prime-worker.nix   # queue worker for Mechatron Prime CI — Codex 2026-07-08
+      ./mechatron-prime-provision.nix # credential-isolated, sudo-free CI webhook onboarding
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
+      ./mechatron-prime-darwin-builder.nix   # aarch64-darwin remote builder on m4max — 2026-09-24
+      ./dune-firewall.nix   # Dune player ports UDP 7777 and TCP 31982 — 2026-09-25
+      ./dune-world.nix   # user units: world at boot, heal, backup, update check — 2026-09-26
+      ./fleet-status.nix # nightly Git fetch and fleet report — 2026-09-29
+      ./tmp-cleanup.nix # hourly deletion of inactive ephemeral temporary files
+      ./llmsend-inbox-reminders.nix # private, explicit-recipient hourly reminders
+      ./build-resources.nix # isolated native jobs, aggregate memory budget and OOM attribution
       inputs.unix-mail-redux.nixosModules.default   # tailnet-only human/agent mail — Einstein 2026-08-28
       ./accentd.nix   # macOS-style press-and-hold accent popup (evdev/uinput + GTK4) — Einstein 2026-07-28
       ./rotational-io.nix   # bfq + deeper queues for the USB-docked spinning rpool; Klipsch name fix — Einstein 2026-07-28
       # home-manager.nixosModule
       # <nixos-unstable/nixos/modules/services/monitoring/netdata.nix>
     ];
+
+  # A child OOM kill must not stop the terminal server and unrelated sessions.
+  systemd.user.services.herdr.serviceConfig.OOMPolicy = "continue";
 
   services.unix-mail-redux = {
     enable = true;
@@ -134,11 +148,16 @@ in
     # Temporary final-lap policy explicitly accepted by Peter on 2026-09-03.
     # The From header is forgeable; signed S/MIME enforcement follows launch.
     trustUnsignedHumanMail = true;
-    # A live 2026-09-03 proof showed the temporary PTY client could disconnect
-    # Codex without delivering the wake. Keep Codex passive until a native
-    # app-server wake exists; Claude and Grok retain their terminal wake path.
-    allowDetachedCodexWake = false;
+    # Durable notices first; Peter also authorized ANSI-aware empty-prompt
+    # wakes on 2026-09-10. This is advisory draft protection, not an atomic lock.
+    herdrCommand = "${inputs.herdr.packages.${system}.herdr}/bin/herdr";
+    herdrSocket = "/home/pmarreck/.config/herdr/herdr.sock";
+    mailboxRoutes = {
+      einstein = "/home/pmarreck";
+      code = "/home/pmarreck";
+    };
     wakeProjects = [ "*" ];
+    terminalWakeProjects = [ "*" ];
   };
 
   # Overlays
@@ -151,6 +170,8 @@ in
     # Firefox Nightly
     (import ./firefox-overlay.nix)
     (import ./packages)
+    # Ephemeral: wezterm PR 7487 key-repeat fix, self-expiring (see file header).
+    (import ./wezterm-pr7487-overlay.nix)
   ];
 
   # Any temporarily-allowed insecure packages.
@@ -522,7 +543,7 @@ in
       # The original reason is obsolete: jbd2 is the EXT4 journaling daemon, and
       # this host has a ZFS root (rpool/nixos/var/log is its own dataset), so the
       # high-disk-utilization failure mode it worked around cannot occur here.
-      # Flush cost is now bounded by SystemMaxUse=1G in journald.extraConfig.
+      # Flush cost is now bounded by SystemMaxUse=1G in journald.settings.Journal.
       # If boot time regresses noticeably, lower that bound rather than
       # re-masking and going blind again.
       systemd-journal-flush.enable = true;
@@ -818,12 +839,13 @@ in
     # disk. Mitigated by bounding the journal hard (was 300M x 50 = 15G ceiling)
     # so each flush stays small. If boot regresses noticeably, lower SystemMaxUse
     # further rather than returning to "auto" and going blind again.
-    journald.extraConfig = ''
-      Storage=persistent
-      SystemMaxUse=1G
-      SystemMaxFileSize=64M
-      SystemMaxFiles=16
-    '';
+    # extraConfig was removed. The same keys live under settings.Journal.
+    journald.settings.Journal = {
+      Storage = "persistent";
+      SystemMaxUse = "1G";
+      SystemMaxFileSize = "64M";
+      SystemMaxFiles = "16";
+    };
 
     # screensaver config
     # seems to only work when home manager is present. commenting out here, try again later
@@ -1166,7 +1188,6 @@ in
       "/var/spool"
       "/nix/var/log/nix"
       "/home/pmarreck/.local/share/Steam"
-      "/home/pmarreck/.local/share/docker"
     ];
   };
 
@@ -1411,7 +1432,7 @@ in
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
       # gamehub # REMOVED from nixpkgs (archived upstream, old webkitgtk 4.0)
-      gravit # gravity simulator
+      # gravit removed from nixpkgs unstable (unmaintained upstream since 2022-06).
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
       scorched3d # played the original version a lot in the military
@@ -1523,7 +1544,6 @@ in
     ];
     # Gnome package exclusions
     gnome.excludePackages = (with pkgs; [
-      gnome-photos
       gnome-tour
     ]) ++ (with pkgs; [
       cheese # webcam tool
@@ -1562,7 +1582,7 @@ in
       pnpm
       nim
       nixd
-      gemini-cli
+      antigravity-cli # gemini-cli is marked for removal; the command is agy
       aspell
       bashInteractive
       bat
@@ -1734,6 +1754,7 @@ in
       lsof # for listing open files and ports
       # for showing off nixos:
       fastfetch # system info (neofetch was removed from nixpkgs; fastfetch is the maintained replacement)
+      b3sum # BLAKE3 hashing; ~/dotfiles bin/repo-maintenance keys its state with it
       nix-tree # show nixpkgs tree
       hydra-check # show hydra status
       ripgrep # rg, the best grep
@@ -1756,7 +1777,7 @@ in
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       # latest.firefox-nightly-bin # firefox # had to disable for now due to segfault on unstable: https://github.com/NixOS/patchelf/issues/520
-      firefox-beta
+      firefox # was firefox-beta; nixpkgs removed the beta and its alias now points at stable
       chromium # like chrome but without the google
       wezterm # nerdy but very nice terminal
       kitty # another nice terminal emulator
@@ -1788,10 +1809,10 @@ in
       # gnomeExtensions.toggle-imwheel # for mouse wheel scrolling # "incompatible with current Gnome version"
       # gnomeExtensions.what-watch # analog floating clock # "incompatible with current Gnome version"
       sushi # file previewer (just hit spacebar in Gnome Files)
-      libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
+      libreoffice # needed for gnome sushi to preview Office files, otherwise *big hang*. The fresh and still names now warn and both mean this package.
       dconf-editor # for editing gnome settings
       zenity # for zenity, a GUI dialog box tool
-      nitrogen # wallpaper/desktop image manager
+      # nitrogen was removed from nixpkgs (gtk2/gtkmm2). GNOME sets the wallpaper.
       dconf2nix # for converting dconf settings to nix
       home-manager # for managing user settings in Nix
       xbacklight # for controlling screen brightness (renamed from xorg.xbacklight)
@@ -1946,23 +1967,6 @@ in
   # Quickemu/QEMU guest conveniences. This installs the SPICE USB helper so
   # unprivileged sessions can redirect selected USB devices into VMs.
   virtualisation.spiceUSBRedirection.enable = true;
-
-  # Docker and other VM options
-  virtualisation.docker = {
-    # enable = true;
-    enableOnBoot = true;
-    rootless = {
-      enable = true;
-      setSocketVariable = true;
-      daemon.settings = { }; # https://docs.docker.com/engine/reference/commandline/dockerd/#daemon-configuration-file
-    };
-    autoPrune = {
-      enable = true;
-      dates = "weekly";
-    };
-    enableNvidia = true; # enabling may let you use ML stuff that can then use the GPU via CUDA etc.
-    # storageDriver = null; # by default, lets docker pick
-  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];

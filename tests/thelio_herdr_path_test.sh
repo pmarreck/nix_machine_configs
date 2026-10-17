@@ -37,5 +37,13 @@ case ":$out:" in
 	*) fail 'Herdr PATH must include /home/pmarreck/.grok/bin' ;;
 esac
 
+capture nix eval --raw \
+	"path:$ROOT_DIR#nixosConfigurations.thelio-nixos.config.systemd.user.services.herdr.serviceConfig.OOMPolicy"
+if [ "$rc" -eq 0 ] && [ "$out" = continue ]; then
+	pass 'Herdr continues when an individual child is OOM-killed'
+else
+	fail 'Herdr OOM policy must continue without stopping other sessions'
+fi
+
 printf '%d/%d assertions passed\n' "$((total - failures))" "$total"
 exit "$failures"

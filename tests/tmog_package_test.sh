@@ -22,48 +22,30 @@ else
 	fail 'package must wrap the AppImage and must not claim redistribution rights'
 fi
 
-if rg -Fq 'file+https://tmog.org/downloads/release-linux.json' "$ROOT_DIR/flake.nix" &&
-	rg -Fq 'inherit (tmogRelease) url sha256;' "$ROOT_DIR/flake.nix" &&
+if ! rg -Fq 'file+https://tmog.org/version.txt' "$ROOT_DIR/flake.nix" &&
+	rg -q 'file\+https://tmog\.org/rtm/downloads/TaskManagerOG-[0-9]+\.[0-9]+\.[0-9]+-x86_64\.AppImage' "$ROOT_DIR/flake.nix" &&
 	! rg -Fq 'builtins.fetchurl' "$PACKAGE"; then
-	pass 'Linux version, versioned artifact and checksum come from one locked manifest'
+	pass 'versioned official AppImage is locked without mutable version metadata'
 else
-	fail 'TMOG must use the Linux manifest, not the cross-platform version or stale legacy AppImage'
-fi
-
-# The parser is a local test fixture, not a flake input for this pure-data check.
-release_contract="$(nix eval --impure --json --expr '
-  let
-    parse = import '"$ROOT_DIR"'/packages/tmog-release.nix;
-    good = { schemaVersion = 1; platform = "Linux"; architecture = "x86_64";
-      version = "0.1.4"; artifact = "/downloads/TaskManagerOG-0.1.4-x86_64.AppImage";
-      sha256 = "a9873347ee2b1a4895cf2c8f39660d8cf4b86ab89b24c08d541f237e365b4346"; };
-    rejects = change: !(builtins.tryEval
-      (builtins.deepSeq (parse { manifest = good // change; }) true)).success;
-  in {
-    valid = (parse { manifest = good; }).url ==
-      "https://tmog.org/downloads/TaskManagerOG-0.1.4-x86_64.AppImage";
-    wrongPlatform = rejects { platform = "Windows"; };
-    wrongArch = rejects { architecture = "aarch64"; };
-    wrongSchema = rejects { schemaVersion = 2; };
-    mismatchedVersion = rejects { version = "0.1.5"; };
-    externalURL = rejects { artifact = "https://example.com/evil.AppImage"; };
-    missingHash = rejects { sha256 = ""; };
-  }
-' 2>/dev/null)"
-release_status=$?
-if [ "$release_status" -eq 0 ] &&
-  printf '%s' "$release_contract" | jq -e 'length == 7 and all(.[]; . == true)' >/dev/null; then
-  pass 'release manifest accepts Linux x86_64 and rejects wrong identity/version/URL/hash'
-else
-  fail 'release manifest validation must reject cross-platform or inconsistent metadata'
+	fail 'TMOG must use a versioned locked artifact, not mutable version.txt or impure evaluation'
 fi
 
 package_version="$(nix eval --raw "$ROOT_DIR#packages.x86_64-linux.tmog.version" 2>/dev/null)"
 package_status=$?
 if [ "$package_status" -eq 0 ] && [[ "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-	pass 'flake exposes a semantic version from the locked official endpoint'
+	pass 'flake exposes an explicit semantic version'
 else
 	fail 'flake must expose packages.x86_64-linux.tmog at its locked semantic version'
+fi
+
+locked_url="$(jq -r '.nodes["tmog-linux"].locked.url' "$ROOT_DIR/flake.lock")"
+locked_hash="$(jq -r '.nodes["tmog-linux"].locked.narHash' "$ROOT_DIR/flake.lock")"
+if [ "$locked_url" = "https://tmog.org/rtm/downloads/TaskManagerOG-${package_version}-x86_64.AppImage" ] &&
+	[[ "$locked_hash" == sha256-* ]] &&
+	jq -e '.nodes | has("tmog-version") | not' "$ROOT_DIR/flake.lock" >/dev/null; then
+	pass 'locked artifact version agrees with package version; obsolete metadata input removed'
+else
+	fail 'TMOG artifact, package version, and lock must remain consistent'
 fi
 
 check_name="$(nix eval --raw "$ROOT_DIR#checks.x86_64-linux.tmog.name" 2>/dev/null)"

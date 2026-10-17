@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+
+# Delete expired ephemeral files; never archive their contents elsewhere.
+# Process references protect whole top-level subtrees conservatively.
+tmp_cleanup_eligible() {
+	local now="$1" access="$2" modify="$3" change="$4"
+	local cutoff=$((now - 86400))
+	(( access <= cutoff && modify <= cutoff && change <= cutoff ))
+}
+
+tmp_cleanup_run() (
+	set +f
+	shopt -s nullglob dotglob
+	local root="$1" proc_root="$2" workspace="$3" now="$4" mode="$5"
+	# The service pins store paths. Direct runs use the system Coreutils links,
+	# never a PATH lookup that could resolve to a recoverable deletion wrapper.
+	local rm_bin="${TMP_CLEANUP_RM:-/run/current-system/sw/bin/rm}"
+	local unlink_bin="${TMP_CLEANUP_UNLINK:-/run/current-system/sw/bin/unlink}"
+	[[ "$rm_bin" == /* && -x "$rm_bin" && "$unlink_bin" == /* && -x "$unlink_bin" ]] || return 1
+	local process reference target relative top stat_line tail state flags
+	local -a fields=()
+	local -A busy=()
+	local removed=0 skipped=0 errors=0 candidates path metadata access modify change
+	root=$(realpath -e -- "$root") || return 1
+	case "$root" in /|/etc|/home|/usr|/var|/run|"$HOME") printf 'cleanup: unsafe root\n' >&2; return 1 ;; esac
+	workspace=$(realpath -m -- "$workspace") || return 1
+	case "$workspace" in "$root"|"$root"/*) printf 'cleanup: workspace must be outside the source\n' >&2; return 1 ;; esac
+	[[ -d "$proc_root" && -d "$root" ]] || return 1
+	[[ "$mode" == apply || "$mode" == dry-run ]] || return 2
+	[[ "$now" =~ ^[0-9]+$ ]] || return 2
+	protect_reference() {
+		local value="${1% (deleted)}" rest first
+		case "$value" in
+			"$root") busy["$root"]=1 ;;
+			"$root"/*)
+				rest="${value#"$root"/}"; first="${rest%%/*}"
+				busy["$root/$first"]=1 ;;
+		esac
+	}
+	# Nested mount points are never traversed by deletion.
+	if [[ -f "$proc_root/self/mountinfo" ]]; then
+		local mountinfo _mount_id _parent_id _device _mount_root _rest
+		mountinfo=$(cat "$proc_root/self/mountinfo") || return 1
+		while IFS= read -r line; do
+			read -r _mount_id _parent_id _device _mount_root target _rest <<< "$line"
+			target="${target//\\040/ }"; target="${target//\\011/$'\t'}"
+			target="${target//\\012/$'\n'}"; target="${target//\\134/\\}"
+			case "$target" in "$root"/*) protect_reference "$target" ;; esac
+		done <<< "$mountinfo"
+	fi
+
+	# An incomplete process snapshot is not evidence that a path is idle.
+	for process in "$proc_root"/[0-9]*; do
+		[[ -d "$process" ]] || continue
+		if [[ -f "$process/stat" ]]; then
+			if ! stat_line=$(cat "$process/stat" 2>/dev/null); then
+				[[ ! -d "$process" ]] && continue
+				printf 'cleanup: process inspection failed; pass skipped\n' >&2; return 1
+			fi
+			tail="${stat_line##*) }"
+			read -r -a fields <<< "$tail"
+			state="${fields[0]-}"; flags="${fields[6]-}"
+			[[ "$flags" =~ ^[0-9]+$ ]] || return 1
+			# Zombies have no live references; kernel threads have no user files.
+			[[ "$state" == Z || "$state" == X ]] && continue
+			(( flags & 2097152 )) && continue
+		fi
+		if [[ ! -r "$process/fd" || ! -x "$process/fd" ]]; then
+			[[ ! -d "$process" ]] && continue
+			printf 'cleanup: descriptor inspection failed; pass skipped\n' >&2; return 1
+		fi
+		for reference in "$process/cwd" "$process/root" "$process/exe" "$process/fd"/*; do
+			[[ -L "$reference" ]] || continue
+			if ! target=$(readlink -- "$reference" 2>/dev/null); then
+				[[ ! -L "$reference" || ! -d "$process" ]] && continue
+				printf 'cleanup: reference inspection failed; pass skipped\n' >&2; return 1
+			fi
+			# Avoid lossy interpretation of unusual /proc link names.
+			if [[ "$target" == *$'\n'* ]]; then
+				printf 'cleanup: ambiguous process reference; pass skipped\n' >&2; return 1
+			fi
+			protect_reference "$target"
+		done
+		# A mapped file remains in use even after its file descriptor closes.
+		if [[ -f "$process/maps" ]]; then
+			local maps line _address _permissions _offset _device _inode
+			if ! maps=$(cat "$process/maps" 2>/dev/null); then
+				[[ ! -d "$process" ]] && continue
+				printf 'cleanup: mapping inspection failed; pass skipped\n' >&2; return 1
+			fi
+			while IFS= read -r line; do
+				read -r _address _permissions _offset _device _inode target <<< "$line"
+				case "$target" in "$root"|"$root"/*)
+					if [[ "$target" == *'\012'* || "$line" == *' ' || "$line" == *$'\t' ]]; then
+						printf 'cleanup: ambiguous mapped path; pass skipped\n' >&2; return 1
+					fi ;;
+				esac
+				protect_reference "$target"
+			done <<< "$maps"
+		fi
+	done
+	if [[ -n "${busy["$root"]-}" ]]; then
+		printf 'cleanup: root is busy; pass skipped\n'; return 0
+	fi
+
+	umask 077
+	mkdir -p -- "$workspace" || return 1
+	candidates=$(mktemp "$workspace/.candidates.XXXXXX") || return 1
+	# Enumerate names without asking a FUSE mount for metadata. Root cannot
+	# stat every user-mounted AppImage; mountinfo already protects that subtree.
+	# Preserve NUL paths, including hidden entries and whitespace.
+	trap '"$unlink_bin" -- "$candidates"' EXIT
+	local -a inventory=("$root"/*)
+	if (( ${#inventory[@]} > 0 )) && ! printf '%s\0' "${inventory[@]}" > "$candidates"; then
+		printf 'cleanup: inventory failed; pass skipped\n' >&2; return 1
+	fi
+	while IFS= read -r -d '' path; do
+		relative="${path#"$root"/}"; top="${relative%%/*}"
+		case "$top" in systemd-private-*|.X11-unix|.ICE-unix|.XIM-unix|.font-unix|.X*-lock) skipped=$((skipped + 1)); continue ;; esac
+		if [[ -n "${busy["$root/$top"]-}" ]]; then skipped=$((skipped + 1)); continue; fi
+		# Revalidate location and freshness immediately before each deletion.
+		if [[ -L "$path" || ( ! -f "$path" && ! -d "$path" ) ]]; then skipped=$((skipped + 1)); continue; fi
+		if ! target=$(realpath -e -- "$path") || [[ "$target" != "$path" ]]; then
+			errors=$((errors + 1)); continue
+		fi
+		if ! metadata=$(stat -c '%X %Y %Z' -- "$path"); then errors=$((errors + 1)); continue; fi
+		read -r access modify change <<< "$metadata"
+		if [[ -d "$path" ]]; then
+			# Inventory reads change directory atime. Contents must all be old,
+			# and directory creation/changes must also be older than the window.
+			access="$modify"
+			local cutoff=$((now - 86400)) exception
+			if ! exception=$(find "$path" -xdev \
+				\( -type d \( -newermt "@$cutoff" -o -newerct "@$cutoff" \) \
+				-o ! -type d \( \( ! -type f -a ! -type l \) \
+				-o -newerat "@$cutoff" -o -newermt "@$cutoff" -o -newerct "@$cutoff" \) \) -print -quit); then
+				errors=$((errors + 1)); continue
+			fi
+			if [[ -n "$exception" ]]; then skipped=$((skipped + 1)); continue; fi
+		fi
+		if ! tmp_cleanup_eligible "$now" "$access" "$modify" "$change"; then continue; fi
+		if [[ "$mode" == dry-run ]]; then removed=$((removed + 1)); continue; fi
+		if [[ -d "$path" ]]; then
+			if "$rm_bin" -r --one-file-system --preserve-root=all -- "$path"; then
+				removed=$((removed + 1))
+			else errors=$((errors + 1)); fi
+		elif "$unlink_bin" -- "$path"; then
+			removed=$((removed + 1))
+		else errors=$((errors + 1)); fi
+	done < "$candidates"
+	printf 'cleanup: mode=%s removed=%d protected=%d errors=%d\n' "$mode" "$removed" "$skipped" "$errors"
+	(( errors == 0 ))
+)
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+	mode=apply
+	case "${1-}" in
+		--dry-run) mode=dry-run ;;
+		-h|--help) printf 'Usage: tmp-cleanup [--dry-run]\nDelete inactive /tmp regular files and entirely stale trees after 24 hours; busy paths stay.\n'; exit 0 ;;
+		--about) printf 'tmp-cleanup 1.0: Linux ephemeral-file cleanup\n'; exit 0 ;;
+		'') ;;
+		*) printf 'tmp-cleanup: unsupported argument\n' >&2; exit 2 ;;
+	esac
+	tmp_cleanup_run /tmp /proc /run/tmp-cleanup "$(date +%s)" "$mode"
+fi

@@ -830,7 +830,6 @@ in
     ];
     # Gnome package exclusions
     gnome.excludePackages = (with pkgs; [
-      gnome-photos
       gnome-tour
     ]) ++ (with pkgs.gnome; [
 
@@ -973,7 +972,7 @@ in
       kmon # kernel module monitor
       stable.firefox # stable binary cache; the rolling beta closure would build locally
       ldc # d-lang LLVM compiler
-      libreoffice-fresh # needed for gnome sushi to preview Office files, otherwise *big hang*. No idea if I picked the right LibreOffice as there's like a dozen variants and NO docs about this.
+      libreoffice # needed for gnome sushi to preview Office files, otherwise *big hang*. The fresh and still names now warn and both mean this package.
       lsof # for listing open files and ports
       luajit # High-performance JIT compiler for Lua 5.1
       lz4 # Extremely fast compression algorithm
@@ -986,6 +985,7 @@ in
       murex # awesome looking shell, see murex.rocks
       ncdu # "ncurses du (disk usage)"
       fastfetch # system info (neofetch was removed from nixpkgs)
+      b3sum # BLAKE3 hashing; ~/dotfiles bin/repo-maintenance keys its state with it
       nethogs # network bandwidth monitor
       nitrogen # wallpaper/desktop image manager
       nix-bash-completions # bash completions for nix
