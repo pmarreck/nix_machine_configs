@@ -1,0 +1,579 @@
+#!/usr/bin/env bash
+# Tailnet client for Mechatron Prime status and exact operational controls.
+set -u
+
+version="0.2.0"
+default_url="https://thelio-nixos.tail66c90.ts.net:8444/ops"
+supported_locales="am ar az bg bn bs da de el en es fa fi fil fr ha he hi hr hu id ig is it ja km ko mk nb nl pa pl ps pt_br ro ru sl sq sr sv sw ta th tr uk ur vi yo zh_hans zh_hant"
+
+message() {
+	case "$1" in
+		title) printf 'Mechatron Prime CI' ;;
+		worker) printf 'Worker' ;;
+		queue) printf 'Queue' ;;
+		claimed) printf 'Claimed by worker' ;;
+		waiting) printf 'Waiting to be claimed' ;;
+		current) printf 'Current' ;;
+		recent) printf 'Recent outcomes' ;;
+		history) printf 'Mechatron Prime CI history' ;;
+		none) printf 'none' ;;
+		ledger_unavailable) printf 'unavailable (the result ledger could not be read)' ;;
+		truncated_history) printf 'the server truncated its ledger projection; older runs were not searched' ;;
+		unknown_command) printf 'unknown command' ;;
+		unsupported_locale) printf 'unsupported locale' ;;
+		invalid_response) printf 'server returned an invalid CI status document' ;;
+		invalid_history) printf 'server returned an invalid CI history document' ;;
+		invalid_queue) printf 'server returned an invalid CI queue document' ;;
+		invalid_limit) printf 'history limit must be an integer from 1 through 100' ;;
+		invalid_project) printf 'project must be a repository name or pmarreck/REPOSITORY' ;;
+		invalid_commit) printf 'commit must be a 7–40 character hexadecimal SHA prefix' ;;
+		help) printf '%s\n' \
+			'Usage: mechatron-ci [options] [status|queue|log|provision|halt|resume|cancel]' \
+			'' \
+			'Commands:' \
+			'  status       Show admission, worker, queue, current job, and recent results' \
+			'  queue        Show current, claimed, and waiting jobs with elapsed time' \
+			'  log          Show a bounded, sanitized history of CI results' \
+			'               A finished run is queryable as soon as it finishes: the' \
+			'               worker records it before starting the next job, and the' \
+			'               server reads the ledger per request. Nothing is batched,' \
+			'               so polling faster than a job takes only adds load.' \
+			'  provision    Create or converge the GitHub push webhook for a pmarreck repo.' \
+			'               Host-local: uses the credential-isolated Unix-socket service.' \
+			'               This is not an /ops action.' \
+			'               No sudo or client-side secret access is required.' \
+			'               The webhook secret is never accepted on argv or printed.' \
+			'               Default is one repo (--project, or origin if it is pmarreck/*).' \
+			'  halt         Persistently halt admission and cancel/requeue active work' \
+			'  resume       Reopen admission and immediately drain queued work' \
+			'  cancel       Cancel/requeue only the active build; admission stays unchanged' \
+			'' \
+			'Options:' \
+			'  --json       Emit the stable JSON status document' \
+			'  --limit N    Return 1–100 history results (default: 50; log only)' \
+			'  --project P  Filter queue/log, or select the repo to provision' \
+			'  --commit SHA Filter queue/log to a 7–40 character SHA prefix' \
+			'  --dry-run    Classify webhook state without GitHub writes (provision only)' \
+			'  --url URL    Override the tailnet operations base URL' \
+			'  --lang CODE  Select one of the prepared locale codes' \
+			'  --color      Force ANSI color even when not a terminal' \
+			'  --simple     Suppress decorated terminal output' \
+			'  --no-color   Suppress ANSI color' \
+			'  --no-ansi    Suppress all ANSI styling' \
+			'  -h, --help   Show this help' \
+			'  --about      Show version, platform, and architecture' ;;
+		*) return 1 ;;
+	esac
+}
+
+locale_supported() {
+	local wanted="$1"
+	local locale
+	for locale in $supported_locales; do
+		[ "$wanted" = "$locale" ] && return 0
+	done
+	return 1
+}
+
+normalize_locale() {
+	local value="${1:-en}"
+	value="${value%%.*}"
+	value="${value%%@*}"
+	value="${value//-/_}"
+	value="${value,,}"
+	case "$value" in
+		c|posix|'') printf 'en\n'; return ;;
+		zh_hant*) printf 'zh_hant\n'; return ;;
+		zh_hans*) printf 'zh_hans\n'; return ;;
+		zh_tw*|zh_hk*|zh_mo*) printf 'zh_hant\n'; return ;;
+		zh*) printf 'zh_hans\n'; return ;;
+	esac
+	local locale
+	for locale in pt_br fil am ar az bg bn bs da de el en es fa "fi" fr ha he hi hr hu id ig is it ja km ko mk nb nl pa pl ps ro ru sl sq sr sv sw ta th tr uk ur vi yo; do
+		case "$value" in "$locale"|"$locale"_*) printf '%s\n' "$locale"; return ;; esac
+	done
+	printf '%s\n' "$value"
+}
+
+command=status
+emit_json=false
+base_url="${MECHATRON_CI_URL:-$default_url}"
+explicit_lang=""
+show_help=false
+show_about=false
+history_limit=50
+history_limit_set=false
+project_filter=""
+commit_filter=""
+provision_dry_run=false
+provision_all_owner_repos=false
+# auto honours the stream: colour on a terminal, never through a pipe. Later
+# arguments override earlier ones, so --color --no-color ends up never.
+color_mode=auto
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		status|queue|log|provision|halt|resume|cancel) command="$1" ;;
+		--json) emit_json=true ;;
+		--color) color_mode=always ;;
+		--simple|--no-color|--no-ansi) color_mode=never ;;
+		--dry-run) provision_dry_run=true ;;
+		--all-owner-repos) provision_all_owner_repos=true ;;
+		--limit)
+			[ "$#" -ge 2 ] || { printf '%s: --limit requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			history_limit="$1"
+			history_limit_set=true
+			;;
+		--project)
+			[ "$#" -ge 2 ] || { printf '%s: --project requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			project_filter="$1"
+			;;
+		--commit)
+			[ "$#" -ge 2 ] || { printf '%s: --commit requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			commit_filter="$1"
+			;;
+		--url)
+			[ "$#" -ge 2 ] || { printf '%s: --url requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			base_url="$1"
+			;;
+		--lang)
+			[ "$#" -ge 2 ] || { printf '%s: --lang requires a value\n' "$(message title)" >&2; exit 2; }
+			shift
+			explicit_lang="$1"
+			;;
+		-h|--help) show_help=true ;;
+		--about) show_about=true ;;
+		--)
+			shift
+			[ "$#" -eq 0 ] || { printf '%s: %s: %s\n' "$(message title)" "$(message unknown_command)" "$1" >&2; exit 2; }
+			break
+			;;
+		*) printf '%s: %s: %s\n' "$(message title)" "$(message unknown_command)" "$1" >&2; exit 2 ;;
+	esac
+	shift
+done
+
+# Resolve colour once, after every argument has been seen. A stopped host is
+# the only state painted here: it is the one condition that otherwise reads as
+# ordinary idleness, which is exactly how a halted worker went unnoticed
+# overnight on 2026-07-27.
+case "$color_mode" in
+	always) use_color=true ;;
+	never) use_color=false ;;
+	*) if [ -t 1 ]; then use_color=true; else use_color=false; fi ;;
+esac
+if [ "$use_color" = true ]; then
+	alarm_start=$'\033[1;31m'
+	alarm_reset=$'\033[0m'
+else
+	alarm_start=""
+	alarm_reset=""
+fi
+
+if [ "$show_about" = true ]; then
+	printf 'mechatron-ci %s — Mechatron Prime tailnet CI control — %s %s\n' "$version" "$(uname -s)" "$(uname -m)"
+	exit 0
+fi
+
+if [ "$show_help" = true ]; then
+	message help
+	exit 0
+fi
+
+locale_request="$explicit_lang"
+if [ -z "$locale_request" ]; then locale_request="${MECHATRON_CI_LANG:-}"; fi
+if [ -z "$locale_request" ]; then
+	native_locale="${LC_ALL:-${LC_MESSAGES:-${LANG:-en}}}"
+	if [ -n "${LANGUAGE:-}" ] && [ "$native_locale" != C ] && [ "$native_locale" != POSIX ]; then
+		locale_request="${LANGUAGE%%:*}"
+	else
+		locale_request="$native_locale"
+	fi
+fi
+locale="$(normalize_locale "$locale_request")"
+if ! locale_supported "$locale"; then
+	printf '%s: %s: %s\n' "$(message title)" "$(message unsupported_locale)" "$locale_request" >&2
+	exit 2
+fi
+if [ "$locale" != en ]; then
+	printf 'WARN: i18n missing-locale %s\n' "$locale" >&2
+fi
+
+if [ "$history_limit_set" = true ] && [ "$command" != log ]; then
+	printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2
+	exit 2
+fi
+
+if [ "$provision_dry_run" = true ] && [ "$command" != provision ]; then
+	printf '%s: --dry-run applies only to provision\n' "$(message title)" >&2
+	exit 2
+fi
+if [ "$provision_all_owner_repos" = true ] && [ "$command" != provision ]; then
+	printf '%s: --all-owner-repos applies only to provision\n' "$(message title)" >&2
+	exit 2
+fi
+
+if [ -n "$commit_filter" ] && [ "$command" != log ] && [ "$command" != queue ]; then
+	printf '%s: --commit applies only to queue and log\n' "$(message title)" >&2
+	exit 2
+fi
+if [ -n "$project_filter" ] && [ "$command" != log ] && [ "$command" != queue ] && [ "$command" != provision ]; then
+	printf '%s: --project applies only to queue, log, and provision\n' "$(message title)" >&2
+	exit 2
+fi
+if [ -n "$project_filter" ]; then
+	case "$project_filter" in
+		pmarreck/[A-Za-z0-9._-]*|[A-Za-z0-9._-]*) ;;
+		*) printf '%s: %s\n' "$(message title)" "$(message invalid_project)" >&2; exit 2 ;;
+	esac
+	case "$project_filter" in
+		pmarreck/*) project_filter="${project_filter,,}" ;;
+		*) project_filter="pmarreck/${project_filter,,}" ;;
+	esac
+	case "$project_filter" in
+		pmarreck/|*/*/*|pmarreck/*[!A-Za-z0-9._-]*) printf '%s: %s\n' "$(message title)" "$(message invalid_project)" >&2; exit 2 ;;
+	esac
+fi
+if [ -n "$commit_filter" ]; then
+	case "$commit_filter" in
+		???????*) ;;
+		*) printf '%s: %s\n' "$(message title)" "$(message invalid_commit)" >&2; exit 2 ;;
+	esac
+	case "$commit_filter" in
+		*[!0-9A-Fa-f]*) printf '%s: %s\n' "$(message title)" "$(message invalid_commit)" >&2; exit 2 ;;
+	esac
+	if [ "${#commit_filter}" -gt 40 ]; then
+		printf '%s: %s\n' "$(message title)" "$(message invalid_commit)" >&2
+		exit 2
+	fi
+	commit_filter="${commit_filter,,}"
+fi
+case "$history_limit" in
+	''|*[!0-9]*) printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2; exit 2 ;;
+esac
+if [ "$history_limit" -lt 1 ] || [ "$history_limit" -gt 100 ]; then
+	printf '%s: %s\n' "$(message title)" "$(message invalid_limit)" >&2
+	exit 2
+fi
+
+base_url="${base_url%/}"
+curl_command="${MECHATRON_CI_CURL:-curl}"
+
+infer_provision_project_from_git() {
+	local url name
+	url="$(git remote get-url origin 2>/dev/null)" || return 1
+	url="${url%.git}"
+	case "$url" in
+		git@github.com:pmarreck/*) name="${url##*/}" ;;
+		https://github.com/pmarreck/*) name="${url##*/}" ;;
+		http://github.com/pmarreck/*) name="${url##*/}" ;;
+		ssh://git@github.com/pmarreck/*) name="${url##*/}" ;;
+		*) return 1 ;;
+	esac
+	[ -n "$name" ] || return 1
+	printf 'pmarreck/%s\n' "$name"
+}
+
+if [ "$command" = provision ]; then
+	if [ "$provision_all_owner_repos" = true ]; then
+		printf '%s: bulk provisioning is administrator-only; use one --project per request\n' "$(message title)" >&2
+		exit 2
+	fi
+	if [ -z "$project_filter" ]; then
+		project_filter="$(infer_provision_project_from_git)" || {
+			printf '%s: provision requires --project P or a pmarreck origin remote\n' "$(message title)" >&2
+			exit 2
+		}
+		project_filter="${project_filter,,}"
+	fi
+	body="$(jq -cn --arg repository "$project_filter" --argjson dry_run "$provision_dry_run" '{repository:$repository,dry_run:$dry_run}')" || exit 1
+	if ! document="$(printf '%s' "$body" | "$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 110 \
+		--unix-socket "${MECHATRON_PROVISION_SOCKET:-/run/mechatron-prime-provision.sock}" \
+		--header 'Content-Type: application/json' --data-binary @- http://localhost/provision)"; then
+		printf '%s: local provisioning service unavailable or request failed; no sudo fallback\n' "$(message title)" >&2
+		exit 1
+	fi
+	if ! jq -e --arg repo "$project_filter" '.ok == true and .last.repository == $repo and .last.result == "success"' <<< "$document" >/dev/null 2>&1; then
+		printf '%s: invalid provisioning response\n' "$(message title)" >&2
+		exit 1
+	fi
+	if [ "$emit_json" = true ]; then
+		printf '%s\n' "$document"
+	elif [ "$provision_dry_run" = true ]; then
+		printf 'CHECKED %s (dry-run; no changes)\n' "$project_filter"
+	else
+		printf 'VERIFIED %s\n' "$project_filter"
+	fi
+	exit 0
+fi
+
+fetch_status() {
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci.json"
+}
+
+# Percent-encode everything outside the unreserved set so a filter value can
+# never introduce another query parameter or alter the routed path.
+url_encode() {
+	local text="$1" index character output=""
+	for (( index = 0; index < ${#text}; index++ )); do
+		character="${text:index:1}"
+		case "$character" in
+			[A-Za-z0-9._~-]) output+="$character" ;;
+			*) output+="$(printf '%%%02X' "'$character")" ;;
+		esac
+	done
+	printf '%s' "$output"
+}
+
+# Filters are sent to the server so they apply to the WHOLE ledger. Filtering
+# only after the fetch confines the answer to whatever slice the server chose to
+# return, which made runs outside that slice look as though they never ran.
+fetch_history() {
+	local query=""
+	[ -n "$project_filter" ] && query+="&project=$(url_encode "$project_filter")"
+	[ -n "$commit_filter" ] && query+="&commit=$(url_encode "$commit_filter")"
+	[ -n "$query" ] && query="?${query#&}"
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci-log.json$query"
+}
+
+fetch_queue() {
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci-queue.json"
+}
+
+# Timestamps remain canonical ISO-8601 UTC strings in JSON.  The client adds
+# integer durations for immediate agent use; malformed legacy timestamps yield
+# null rather than inventing elapsed time.
+add_history_durations() {
+	jq '
+		def seconds_between($start; $finish):
+			try ((($finish | fromdateiso8601) - ($start | fromdateiso8601)) | floor) catch null;
+		.results |= map(. + {duration_seconds: seconds_between(.started_at; .finished_at)})
+	'
+}
+
+add_queue_durations() {
+	jq '
+		def seconds_between($start; $finish):
+			try ((($finish | fromdateiso8601) - ($start | fromdateiso8601)) | floor) catch null;
+		.generated_at as $now |
+		.worker.current |= if . then . + {elapsed_seconds: seconds_between(.started_at; $now)} else . end |
+		.claimed |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)}) |
+		.waiting |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)})
+	'
+}
+
+filter_jobs() {
+	jq --arg project "$project_filter" --arg commit "$commit_filter" '
+		def matches:
+			($project == "" or (.repository | ascii_downcase) == $project) and
+			($commit == "" or (.commit_sha | ascii_downcase | startswith($commit)));
+		.worker.current |= if . and (. | matches) then . else null end |
+		.claimed |= map(select(matches)) |
+		.waiting |= map(select(matches))
+	'
+}
+
+filter_history() {
+	jq --arg project "$project_filter" --arg commit "$commit_filter" '
+		def matches:
+			($project == "" or (.repository | ascii_downcase) == $project) and
+			($commit == "" or (.commit_sha | ascii_downcase | startswith($commit)));
+		.results |= map(select(matches))
+	'
+}
+
+post_action() {
+	local route="$1"
+	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 30 \
+		--request POST --output /dev/null "$base_url/actions/mechatron-worker/$route"
+}
+
+case "$command" in
+	halt) post_action halt || exit $? ;;
+	resume) post_action resume || exit $? ;;
+	cancel) post_action stop || exit $? ;;
+esac
+
+if [ "$command" = log ]; then
+	document="$(fetch_history)" || exit $?
+	if ! jq -e '
+		type == "object" and
+		(.generated_at | type == "string") and
+		(.results | type == "array") and
+		(all(.results[];
+			(.repository | type == "string") and
+			(.commit_sha | type == "string") and
+			(.status == "success" or .status == "failure" or .status == "stopped") and
+			(.failure_stage | type == "string") and
+			(.failure_detail | type == "string") and
+			(.started_at | type == "string") and
+			(.finished_at | type == "string")
+		))
+	' <<< "$document" >/dev/null 2>&1; then
+		printf '%s: %s\n' "$(message title)" "$(message invalid_history)" >&2
+		exit 1
+	fi
+	# Never let a bound pass unremarked: a filtered miss over a truncated set is
+	# not the same answer as a filtered miss over the whole ledger.
+	if [ "$(jq -r '.truncated // false' <<< "$document")" = true ]; then
+		printf '%s: %s\n' "$(message title)" "$(message truncated_history)" >&2
+	fi
+	document="$(add_history_durations <<< "$document")" || exit $?
+	document="$(filter_history <<< "$document")" || exit $?
+	document="$(jq --argjson limit "$history_limit" '.results = .results[0:$limit]' <<< "$document")" || exit $?
+	if [ "$emit_json" = true ]; then
+		jq . <<< "$document"
+		exit $?
+	fi
+	jq -r --arg title "$(message history)" '
+		def duration_text($seconds):
+			if $seconds == null then "unknown"
+			else ($seconds | floor) as $s |
+				($s / 3600 | floor) as $h |
+				(($s % 3600) / 60 | floor) as $m |
+				($s % 60) as $r |
+				if $h > 0 then ($h|tostring) + "h " + ($m|tostring) + "m " + ($r|tostring) + "s"
+				elif $m > 0 then ($m|tostring) + "m " + ($r|tostring) + "s"
+				else ($r|tostring) + "s" end
+			end;
+		def outcome:
+			if .status == "success" then "PASS"
+			elif .status == "stopped" and .failure_stage == "github-timeout" then "TIMEOUT"
+			elif .status == "stopped" then "STOPPED"
+			else "FAIL" end;
+		[$title + " (" + (.results | length | tostring) + " newest)"] +
+		[.results[] |
+			"  " + (.finished_at // .started_at) +
+			"  ran " + duration_text(.duration_seconds) +
+			"  " + outcome +
+			"  " + .repository + "@" + (.commit_sha[0:12]) +
+			(if .status == "failure" or .status == "stopped" then
+				(if .failure_stage == "" then "" else "  " + .failure_stage end) +
+				(if .failure_detail == "" then "" else (if .failure_stage == "" then "  " else ": " end) + .failure_detail end)
+			else "" end)
+		] | .[]
+	' <<< "$document"
+	exit $?
+fi
+
+if [ "$command" = queue ]; then
+	document="$(fetch_queue)" || exit $?
+	if ! jq -e '
+		type == "object" and
+		(.generated_at | type == "string") and
+		(.admission.state == "running" or .admission.state == "halted") and
+		(.worker.state | type == "string") and
+		(.worker.current == null or (
+			(.worker.current.repository | type == "string") and
+			(.worker.current.commit_sha | type == "string") and
+			(.worker.current.state | type == "string") and
+			(.worker.current.target | type == "string") and
+			(.worker.current.started_at | type == "string") and
+			(.worker.current.pending | type == "number")
+		)) and
+		(.claimed | type == "array") and (.waiting | type == "array") and
+		(all((.claimed + .waiting)[];
+			(.repository | type == "string") and
+			(.commit_sha | type == "string") and
+			(.queued_at | type == "string")
+		))
+	' <<< "$document" >/dev/null 2>&1; then
+		printf '%s: %s\n' "$(message title)" "$(message invalid_queue)" >&2
+		exit 1
+	fi
+	document="$(add_queue_durations <<< "$document")" || exit $?
+	document="$(filter_jobs <<< "$document")" || exit $?
+	if [ "$emit_json" = true ]; then
+		jq . <<< "$document"
+		exit $?
+	fi
+	jq -r \
+		--arg title "$(message title)" \
+		--arg worker_label "$(message worker)" \
+		--arg current_label "$(message current)" \
+		--arg claimed_label "$(message claimed)" \
+		--arg waiting_label "$(message waiting)" \
+		--arg alarm_start "$alarm_start" \
+		--arg alarm_reset "$alarm_reset" \
+		--arg none "$(message none)" '
+		def duration_text($seconds):
+			if $seconds == null then "unknown"
+			else ($seconds | floor) as $s |
+				($s / 3600 | floor) as $h |
+				(($s % 3600) / 60 | floor) as $m |
+				($s % 60) as $r |
+				if $h > 0 then ($h|tostring) + "h " + ($m|tostring) + "m " + ($r|tostring) + "s"
+				elif $m > 0 then ($m|tostring) + "m " + ($r|tostring) + "s"
+				else ($r|tostring) + "s" end
+			end;
+		def job_line:
+			"  " + .repository + "@" + (.commit_sha[0:12]) +
+			"  queued " + (if .queued_at == "" then "unknown" else .queued_at end) +
+			"  waiting " + duration_text(.waiting_seconds);
+		(if .admission.state == "halted"
+		 then $alarm_start + "STOPPED" + $alarm_reset
+		 else (.admission.state | ascii_upcase) end) as $admission |
+		(if .worker.current then
+			.worker.current | .repository + "@" + (.commit_sha[0:12]) +
+			"  " + (if .target == "" then .state else .target end) +
+			"  started " + (if .started_at == "" then "unknown" else .started_at end) +
+			"  running " + duration_text(.elapsed_seconds)
+		else $none end) as $current |
+		[$title + " queue: " + $admission,
+		 $worker_label + ": " + .worker.state,
+		 $current_label + ": " + $current,
+		 $claimed_label + " (" + (.claimed | length | tostring) + "):" ] +
+		(if (.claimed | length) == 0 then ["  " + $none] else [.claimed[] | job_line] end) +
+		[$waiting_label + " (" + (.waiting | length | tostring) + "):" ] +
+		(if (.waiting | length) == 0 then ["  " + $none] else [.waiting[] | job_line] end) |
+		.[]
+	' <<< "$document"
+	exit $?
+fi
+
+document="$(fetch_status)" || exit $?
+if ! jq -e '
+	type == "object" and
+	(.generated_at | type == "string") and
+	(.admission.state == "running" or .admission.state == "halted") and
+	(.worker.state | type == "string") and
+	(.worker.queue_depth | type == "number") and
+	(.recent | type == "array")
+' <<< "$document" >/dev/null 2>&1; then
+	printf '%s: %s\n' "$(message title)" "$(message invalid_response)" >&2
+	exit 1
+fi
+
+if [ "$emit_json" = true ]; then
+	jq . <<< "$document"
+	exit $?
+fi
+
+jq -r \
+	--arg title "$(message title)" \
+	--arg worker_label "$(message worker)" \
+	--arg queue_label "$(message queue)" \
+	--arg current_label "$(message current)" \
+	--arg recent_label "$(message recent)" \
+	--arg alarm_start "$alarm_start" \
+	--arg alarm_reset "$alarm_reset" \
+	--arg none "$(message none)" \
+	--arg unavailable "$(message ledger_unavailable)" '
+	(if .admission.state == "halted"
+	 then $alarm_start + "STOPPED" + $alarm_reset
+	 else (.admission.state | ascii_upcase) end) as $admission |
+	(.worker.state // "unknown") as $worker |
+	(if .worker.current then (.worker.current.repository + "@" + (.worker.current.commit_sha[0:12]) + " " + .worker.current.target) else $none end) as $current |
+	[$title + ": " + $admission,
+	 $worker_label + ": " + $worker + "  " + $queue_label + ": " + (.worker.queue_depth | tostring),
+	 $current_label + ": " + $current,
+	 $recent_label + ":"] +
+	(if .recent_available == false then ["  " + $unavailable]
+	 elif (.recent | length) == 0 then ["  " + $none]
+	 else [.recent[] | "  " + (if .status == "success" then "PASS" elif .status == "stopped" and .failure_stage == "github-timeout" then "TIMEOUT" elif .status == "stopped" then "STOPPED" else "FAIL" end) + "  " + .repository + "@" + (.commit_sha[0:12]) + (if .failure_stage == "" then "" else "  " + .failure_stage end)] end) |
+	.[]
+' <<< "$document"

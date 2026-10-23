@@ -1,5 +1,6 @@
 -- Bounded, read-only probes through injected process and file adapters.
 local probes=require('ops.probes')
+local queues=require('watch.queues')
 local M={}
 function M.notable(line)
 	for _,pattern in ipairs({'Out of memory:','oom%-kill:','NVRM: Xid','I/O error','blk_update_request','nvme.-timeout','nvme.-reset controller','ZFS.-FAULT'}) do
@@ -30,6 +31,13 @@ function M.run(p,config)
 	local swap_free=tonumber(mem:match('SwapFree:%s*(%d+)'))
 	s.memory.swap_used_kib=swap_total and swap_free and swap_total-swap_free
 	s.uptime_seconds=tonumber(read('/proc/uptime'):match('^[%d.]+'))
+	s.boot_id=read('/proc/sys/kernel/random/boot_id'):gsub('%s+$','')
+	s.queues={}
+	for name,probe in pairs({ci=function() return queues.ci(command) end,
+		builds=function() return queues.builds(p,command,s.uptime_seconds,config.build_runtime or (p.runtime or '/run/user/unknown')..'/build-budget') end}) do
+		local worked,value=pcall(probe)
+		if worked then s.queues[name]=value else s.probe_errors[#s.probe_errors+1]=name..' queue probe unavailable' end
+	end
 	local mounts=config.mounts or {'/','/home','/nix','/tmp'}
 	local args={'df','-Pk'}; for _,path in ipairs(mounts) do args[#args+1]=path end
 	s.disks=probes.parse_df(command(args))

@@ -9,7 +9,8 @@ let
 in pkgs.writeShellApplication {
   name = "mechatron-checkup";
   runtimeInputs = [
-    pkgs.coreutils pkgs.procps pkgs.systemd pkgs.websocat
+    pkgs.coreutils pkgs.procps pkgs.systemd pkgs.websocat pkgs.util-linux
+    (import ./packages.nix { inherit pkgs; }).mechatronCi
     (pkgs.luajit.withPackages (p: [ p.cjson p.luafilesystem ]))
     llmsendSource.packages.${pkgs.stdenv.hostPlatform.system}.writeNote
   ];

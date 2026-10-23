@@ -5,7 +5,9 @@ local collect=require('watch.collect')
 local model=require('watch.model')
 local M={}
 function M.collect(config)
-	return collect.run({now=os.date('!%Y-%m-%dT%H:%M:%SZ'),command=command,read=function(path)
+	local runtime=os.getenv('XDG_RUNTIME_DIR')
+	if not runtime then runtime='/run/user/'..assert(command({'id','-u'}):match('^%d+')) end
+	return collect.run({now=os.date('!%Y-%m-%dT%H:%M:%SZ'),runtime=runtime,command=command,read=function(path)
 		local f=io.open(path,'r'); if not f then return nil end
 		local bytes=f:read(1048576); f:close(); return bytes
 	end},config)

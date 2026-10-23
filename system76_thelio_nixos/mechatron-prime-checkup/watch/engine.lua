@@ -5,7 +5,7 @@ function M.run(p,delivery_only)
 	local state=p.load()
 	local slot=math.floor((p.now+(p.utc_offset or 0))/10800)
 	if not delivery_only and (not state or slot>state.slot) then
-		local s=p.collect(); s.health=model.evaluate(s)
+		local s=p.collect(); s.health=model.evaluate(s,state and state.snapshot)
 		state={slot=slot,id='host-checkup-'..slot,snapshot=s,native={status='pending'},alert=state and state.alert}
 		p.save(state)
 	end
