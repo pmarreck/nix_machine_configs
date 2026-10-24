@@ -99,8 +99,6 @@ end
 --- physical waiting queue so an active worker never looks falsely idle.
 function M.collect_mechatron(source, include_recent)
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
-	local active_queue_text = source.read("/var/lib/mechatron-prime/active-queue.ndjson") or ""
-	local current_text = source.read("/var/lib/mechatron-prime/current.json")
 	local control_text = source.read("/var/lib/mechatron-prime/control.json")
 	local control = control_text and cjson.decode(control_text) or nil
 	local admission = {state = "running", changed_at = ""}
@@ -121,14 +119,23 @@ function M.collect_mechatron(source, include_recent)
 	-- output inside its five-second budget, which is likeliest precisely when a
 	-- heavy build has loaded the machine. Treating a slow probe as proof of
 	-- idleness erased the very build it was asked about.
-	local worker_stopped = worker_state == "inactive" or worker_state == "failed"
-	local active_worker = not worker_stopped
-	local current = nil
-	if active_worker and current_text and current_text:match("%S") then
-		local decoded = cjson.decode(current_text)
-		if decoded and (decoded.state == "building" or decoded.state == "preparing") then current = decoded end
+	local currents, workers, claimed_parts = {}, {}, {}
+	for _, id in ipairs({"legacy", "1", "2"}) do
+		local suffix = id == "legacy" and "" or "-" .. id
+		local state = id == "legacy" and worker_state or source.service("system", "mechatron-prime-worker@" .. id .. ".service")
+		local stopped = state == "inactive" or state == "failed"
+		local decoded = not stopped and cjson.decode(source.read("/var/lib/mechatron-prime/current" .. suffix .. ".json") or "")
+		local current = nil
+		if decoded and (decoded.state == "building" or decoded.state == "preparing") then
+			decoded.worker_id = id
+			current = decoded
+			currents[#currents + 1] = current
+			worker_state = state
+		end
+		workers[#workers + 1] = {id = id, state = state, current = current}
+		if not stopped then claimed_parts[#claimed_parts + 1] = source.read("/var/lib/mechatron-prime/active-queue" .. suffix .. ".ndjson") or "" end
 	end
-	local claimed_text = active_worker and active_queue_text or ""
+	local claimed_text = table.concat(claimed_parts, "\n")
 	local claimed_depth = probes.count_ndjson(claimed_text)
 	local waiting_depth = probes.count_ndjson(queue_text)
 	-- A nil from the probe means the ledger could not be read. That is reported
@@ -143,7 +150,9 @@ function M.collect_mechatron(source, include_recent)
 	return {
 		admission = admission,
 		worker_state = worker_state,
-		current = current,
+		current = currents[1],
+		currents = currents,
+		workers = workers,
 		claimed = queued_jobs(claimed_text),
 		waiting = queued_jobs(queue_text),
 		claimed_depth = claimed_depth,
@@ -205,6 +214,19 @@ function M.collect(source)
 	end
 
 	local clocksound = source.timer("clocksound.timer")
+	local credential = source.private_source_credential()
+	services[#services + 1] = {
+		id = "mechatron-source-credential",
+		label = "CI private-source credential configuration",
+		state = credential.state,
+		state_label = credential.state == "present" and "configured (metadata)" or credential.state,
+		detail = "Metadata-only check for a nonempty regular credential file; does not verify token validity, permissions or GitHub authentication.",
+	}
+	health_services[#health_services + 1] = {
+		id = "mechatron-source-credential",
+		label = "CI private-source credential configuration",
+		state = credential.state, expected = "present", severity = "warning",
+	}
 	clocksound.schedule = "07:00–23:00 plus midnight"
 	clocksound.source = "/etc/nixos/system76_thelio_nixos/configuration.nix:385"
 	clocksound.chime = probes.classify_chime(clocksound.load_state, clocksound.active_state)

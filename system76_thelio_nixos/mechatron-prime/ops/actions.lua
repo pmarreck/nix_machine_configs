@@ -5,7 +5,7 @@ local by_path = {
 	["/ops/actions/mechatron-webhook/stop"] = {id = "mechatron-webhook-stop", scope = "system", unit = "mechatron-prime-webhook.service", verb = "stop"},
 	["/ops/actions/mechatron-webhook/restart"] = {id = "mechatron-webhook-restart", scope = "system", unit = "mechatron-prime-webhook.service", verb = "restart"},
 	["/ops/actions/mechatron-worker/start"] = {id = "mechatron-worker-start", scope = "system", unit = "mechatron-prime-worker.service", verb = "start"},
-	["/ops/actions/mechatron-worker/stop"] = {id = "mechatron-worker-stop", scope = "system", unit = "mechatron-prime-worker.service", verb = "stop"},
+	["/ops/actions/mechatron-worker/stop"] = {id = "mechatron-worker-stop", kind = "mechatron", argv = {"cancel"}},
 	["/ops/actions/mechatron-worker/halt"] = {id = "mechatron-worker-halt", kind = "mechatron", argv = {"halt"}},
 	["/ops/actions/mechatron-worker/resume"] = {id = "mechatron-worker-resume", kind = "mechatron", argv = {"resume"}},
 	["/ops/actions/fsearch/run"] = {id = "fsearch-run", scope = "user", unit = "fsearch-update.service", verb = "start"},

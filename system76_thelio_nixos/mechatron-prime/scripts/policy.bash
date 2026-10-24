@@ -175,6 +175,110 @@ build_exit_was_stopped() {
 	return 1
 }
 
+# Decide whether a GitHub or Nix-fetch failure is a fast brownout that should
+# be retried with exponential backoff. GitHub has been flaky for months;
+# treating an i/o timeout as a test failure sends agents debugging the wrong
+# layer. Hang bounds (124) and signals are deadlines/interrupts, not blips.
+# Permanent client errors and unknown stderr fail closed: not retryable.
+# complexity: O(n) in stderr length
+github_failure_is_retryable() {
+	local code="${1-}"
+	local text="${2-}"
+	local lower
+	case "$code" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$code" -eq 0 ] && return 1
+	if build_exit_was_stopped "$code"; then
+		return 1
+	fi
+	lower=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')
+	if [[ $lower == *'http 401'* || $lower == *'http 404'* || $lower == *'http 422'* || $lower == *'http 410'* ]]; then
+		return 1
+	fi
+	if [[ $lower == *'http 403'* || $lower == *'status 403'* ]]; then
+		if [[ $lower == *'secondary rate limit'* ]]; then
+			return 0
+		fi
+		return 1
+	fi
+	if [[ $lower == *'i/o timeout'* ||
+		$lower == *'tls handshake timeout'* ||
+		$lower == *'timeout was reached'* ||
+		$lower == *'connection refused'* ||
+		$lower == *'connection reset'* ||
+		$lower == *'connection aborted'* ||
+		$lower == *'network is unreachable'* ||
+		$lower == *'temporary failure in name resolution'* ||
+		$lower == *'ssl connect error'* ||
+		$lower == *'unexpected eof'* ||
+		$lower == *'http 429'* ||
+		$lower == *'http 502'* ||
+		$lower == *'http 503'* ||
+		$lower == *'http 504'* ||
+		$lower == *'http error 429'* ||
+		$lower == *'http error 500'* ||
+		$lower == *'http error 502'* ||
+		$lower == *'http error 503'* ||
+		$lower == *'http error 504'* ||
+		$lower == *'502 bad gateway'* ||
+		$lower == *'503 service unavailable'* ||
+		$lower == *'504 gateway timeout'* ||
+		$lower == *'secondary rate limit'* ]]; then
+		return 0
+	fi
+	return 1
+}
+
+# Seconds to wait after a failed GitHub attempt. Attempt 1 waits the base
+# interval; each later attempt doubles, capped. Tests inject the sleeper.
+github_retry_backoff_seconds() {
+	local attempt="${1-}"
+	local base="${MECHATRON_GITHUB_RETRY_BASE_SECONDS:-1}"
+	local max="${MECHATRON_GITHUB_RETRY_MAX_SECONDS:-8}"
+	local delay
+	local i
+	case "$attempt" in
+		''|*[!0-9]*) printf '0'; return 1 ;;
+	esac
+	case "$base" in
+		''|*[!0-9]*) base=1 ;;
+	esac
+	case "$max" in
+		''|*[!0-9]*) max=8 ;;
+	esac
+	if [ "$attempt" -lt 1 ]; then
+		printf '0'
+		return 1
+	fi
+	delay=$base
+	i=1
+	while [ "$i" -lt "$attempt" ]; do
+		delay=$((delay * 2))
+		i=$((i + 1))
+	done
+	if [ "$delay" -gt "$max" ]; then
+		delay=$max
+	fi
+	printf '%s' "$delay"
+}
+
+# Sleep used by GitHub retry loops. Tests set MECHATRON_SLEEP_SKIP=1 and
+# MECHATRON_SLEEP_LOG so backoff is recorded without waiting on the clock.
+mechatron_sleep() {
+	local seconds="${1-}"
+	case "$seconds" in
+		''|*[!0-9.]*) return 1 ;;
+	esac
+	if [ -n "${MECHATRON_SLEEP_LOG-}" ]; then
+		printf '%s\n' "$seconds" >> "$MECHATRON_SLEEP_LOG"
+	fi
+	if [ "${MECHATRON_SLEEP_SKIP:-0}" = 1 ]; then
+		return 0
+	fi
+	sleep "$seconds"
+}
+
 badge_json() {
 	local state="${1:-}"
 	local color

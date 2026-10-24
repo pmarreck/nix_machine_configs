@@ -1,6 +1,7 @@
 # Mechatron Prime — tailnet-only host operations console and local maintenance timers.
 { lib, pkgs, herdrPackage, ... }:
 let
+  runtime = import ../nix/packages.nix { inherit pkgs; };
   luaEnv = pkgs.luajit.withPackages (ps: with ps; [ cjson luasocket ]);
   # Keep the complete runtime tree as an explicit derivation input. This makes
   # source changes observable even when the Nix evaluator reuses module parses.
@@ -34,6 +35,7 @@ let
     ];
     text = ''
       export LUA_PATH="${opsSource}/?.lua;;"
+      export MECHATRON_CONTROL_BINARY="${runtime.mechatronControl}/bin/mechatron-prime-control"
       exec ${luaEnv}/bin/luajit ${opsSource}/ops/server.lua
     '';
   };

@@ -2,6 +2,13 @@
 local json=require('cjson.safe')
 local M={}
 local function array(value) return type(value)=='table' end
+local function currents(ci)
+	if ci and ci.worker then
+		if type(ci.worker.currents)=='table' then return ci.worker.currents end
+		if type(ci.worker.current)=='table' then return {ci.worker.current} end
+	end
+	return {}
+end
 function M.ci(command)
 	local bytes=command({'mechatron-ci','queue','--json'})
 	assert(#bytes<=32768,'CI queue exceeds snapshot byte bound')
@@ -10,6 +17,8 @@ function M.ci(command)
 		and type(value.admission)=='table' and type(value.admission.state)=='string','incomplete CI queue')
 	if value.worker.current==json.null then value.worker.current=nil end
 	assert(value.worker.current==nil or type(value.worker.current)=='table','invalid CI current job')
+	assert(value.worker.currents==nil or type(value.worker.currents)=='table','invalid CI current jobs')
+	assert(#currents(value)<=3,'too many CI current jobs')
 	assert(#value.waiting+#value.claimed<=256,'CI queue exceeds snapshot bound')
 	for _,job in ipairs(value.waiting) do assert(type(job.waiting_seconds)=='number' and job.waiting_seconds>=0,'invalid CI waiting age') end
 	return value
@@ -90,16 +99,21 @@ function M.issues(current,previous,compare)
 	end
 	local ci=current.ci
 	if ci and ci.admission.state~='halted' then
-		local active=ci.worker.current
-		if active and (active.elapsed_seconds or 0)>=1800 then add('ci:runtime',(active.repository or 'CI job')..' running '..active.elapsed_seconds..'s; review runtime allowance') end
+		local active=currents(ci)
+		for _,job in ipairs(active) do
+			if (job.elapsed_seconds or 0)>=1800 then add('ci:runtime',(job.repository or 'CI job')..' running '..job.elapsed_seconds..'s; review runtime allowance') end
+		end
 		for _,job in ipairs(ci.waiting) do
 			if job.waiting_seconds>=1800 then add('ci:wait',(job.repository or 'CI job')..' waiting '..job.waiting_seconds..'s')
-			elseif not active and job.waiting_seconds>=300 then add('ci:idle','queued work with no reported current job; inspect watcher and claims') end
+			elseif #active==0 and job.waiting_seconds>=300 then add('ci:idle','queued work with no reported current job; inspect watcher and claims') end
 		end
-		if compare and active and previous and previous.ci and previous.ci.worker.current then
-			local old=previous.ci.worker.current
-			if active.repository==old.repository and active.commit_sha==old.commit_sha and active.started_at==old.started_at and active.target==old.target then
-				add('ci:progress','same CI commit and target since previous check; progress is unconfirmed, not proof of a hang')
+		if compare then
+			for _,job in ipairs(active) do
+				for _,old in ipairs(currents(previous and previous.ci)) do
+					if job.repository==old.repository and job.commit_sha==old.commit_sha and job.started_at==old.started_at and job.target==old.target then
+						add('ci:progress',(job.repository or 'CI job')..' has same commit and target since previous check; progress is unconfirmed, not proof of a hang')
+					end
+				end
 			end
 		end
 	end

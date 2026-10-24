@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if ! declare -F admission_priority_names >/dev/null; then
+	# shellcheck disable=SC1091
+	source "${BASH_SOURCE[0]%/*}/admission_priority.bash"
+fi
+
 build_budget_valid_project() { [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$ ]]; }
 
 # Pure argument construction, also exercised without a live user manager.
@@ -10,41 +15,142 @@ build_budget_args() {
 	result=(--user --scope --quiet --slice=agentbuilds.slice
 		"--unit=build-$project-$identity.scope" "--working-directory=$cwd"
 		--property=MemoryHigh=12G --property=MemoryMax=16G
-		--property=MemorySwapMax=0 --property=OOMPolicy=stop -- "$@")
+		--property=MemorySwapMax=0 --property=OOMPolicy=stop
+		"--property=RuntimeMaxSec=${BUILD_BUDGET_RUNTIME_SECONDS:-1800}" --property=TimeoutStopSec=5s -- "$@")
 }
 
-# Keep one reservation FD in the caller. A bounded kernel wait on slot2
-# periodically rechecks slot1, without a busy loop or competing lease helpers.
-# The nameref is an output written into the caller's scope.
+# Linux process birth ticks distinguish a live owner from a reused PID.
+build_budget_process_identity() {
+	local stat rest
+	{ IFS= read -r stat < "/proc/$1/stat"; } 2>/dev/null || return 1
+	rest=${stat##*) }
+	local -a fields=()
+	read -r -a fields <<< "$rest"
+	[[ "${fields[0]-}" != Z ]] || return 3
+	[[ "${fields[19]-}" =~ ^[0-9]+$ ]] || return 2
+	printf '%s\n' "${fields[19]}"
+}
+
+# Nameref output transfers the caller's ticket path.
+# shellcheck disable=SC2034
+build_budget_register_ticket() {
+	local -n ticket_out="$1"
+	local runtime="$2" project="${3:-unknown}" gate sequence=0 birth path temporary owner=$BASHPID
+	build_budget_valid_project "$project" || return 2
+	mkdir -p "$runtime/waiters" || return 1
+	exec {gate}> "$runtime/.queue.lock" || return 1
+	if ! flock "$gate"; then exec {gate}>&-; return 1; fi
+	if [[ -e "$runtime/sequence" ]]; then
+		read -r sequence < "$runtime/sequence" || { exec {gate}>&-; return 1; }
+	fi
+	[[ "$sequence" =~ ^[0-9]{1,12}$ ]] || { exec {gate}>&-; return 1; }
+	sequence=$((sequence+1))
+	birth=$(build_budget_process_identity "$owner") || { exec {gate}>&-; return 1; }
+	printf -v path '%s/waiters/%020d' "$runtime" "$sequence"
+	temporary=$(command mktemp "$runtime/.ticket.XXXXXXXX") || { exec {gate}>&-; return 1; }
+	if ! printf '%s\n' "$sequence" > "$temporary" || ! command mv -f -- "$temporary" "$runtime/sequence"; then exec {gate}>&-; return 1; fi
+	temporary=$(command mktemp "$runtime/.ticket.XXXXXXXX") || { exec {gate}>&-; return 1; }
+	if ! printf '%s %s %s\n' "$owner" "$birth" "$project" > "$temporary" || ! command mv -f -- "$temporary" "$path"; then exec {gate}>&-; return 1; fi
+	ticket_out=$path
+	exec {gate}>&-
+}
+
+build_budget_ticket_first() {
+	local ticket="$1" runtime="$2" held="${3:-false}" gate='' path pid birth project observed first='' status=1 owner_status names rank best_rank=2 wanted listing
+	if [[ "$held" != true ]]; then
+		exec {gate}> "$runtime/.queue.lock" || return 2
+		if ! flock "$gate"; then exec {gate}>&-; return 2; fi
+	fi
+	names=$(build_budget_priority_names) || { [[ -z "$gate" ]] || exec {gate}>&-; return 2; }
+	local -a priorities=()
+	mapfile -t priorities < <(jq -r '.[]' <<< "$names")
+	# Nix runtime Bash lacks readline's compgen builtin. Use a pinned directory
+	# adapter and check its status before parsing, including under noglob.
+	local -a tickets=()
+	if ! listing=$(command find "$runtime/waiters" -mindepth 1 -maxdepth 1 -type f -name '[0-9]*' -print); then [[ -z "$gate" ]] || exec {gate}>&-; return 2; fi
+	listing=$(printf '%s\n' "$listing" | LC_ALL=C sort) || { [[ -z "$gate" ]] || exec {gate}>&-; return 2; }
+	mapfile -t tickets <<< "$listing"
+	for path in "${tickets[@]}"; do
+		[[ -f "$path" ]] || continue
+		if ! read -r pid birth project < "$path" || [[ ! "$pid" =~ ^[0-9]+$ ]]; then status=2; break; fi
+		if observed=$(build_budget_process_identity "$pid"); then
+			if [[ "$observed" = "$birth" ]]; then
+				rank=1
+				for wanted in "${priorities[@]}"; do if [[ "$wanted" = "$project" ]]; then rank=0; break; fi; done
+				if (( rank < best_rank )); then first=$path; best_rank=$rank; fi
+				continue
+			fi
+		else
+			owner_status=$?
+			if [[ "$owner_status" -ne 3 && -e "/proc/$pid" ]]; then status=2; break; fi
+		fi
+		command unlink "$path" || { status=2; break; }
+	done
+	if [[ "$status" -ne 2 && "$first" = "$ticket" ]]; then status=0; fi
+	[[ -z "$gate" ]] || exec {gate}>&-
+	return "$status"
+}
+
+build_budget_priority_names() {
+	admission_priority_names /etc/mechatron-prime/scheduling.json "$(admission_priority_now)"
+}
+
+# Production polling is bounded; tests replace this wait port with barriers.
+build_budget_wait() { sleep 1; }
+
+build_budget_acquire_fair_slot() {
+	local output="$1" runtime="$2" ticket="$3" status warned=0 gate
+	while :; do
+		exec {gate}> "$runtime/.queue.lock" || return 1
+		if ! flock "$gate"; then exec {gate}>&-; return 1; fi
+		if build_budget_ticket_first "$ticket" "$runtime" true; then
+			if build_budget_acquire_slot "$output" "$runtime"; then
+				exec {gate}>&-; return 0
+			else status=$?; fi
+			[[ "$status" -eq 75 ]] && status=1
+		else status=$?; fi
+		exec {gate}>&-
+		[[ "$status" -eq 1 ]] || return "$status"
+		if [[ "$warned" -eq 0 ]]; then printf 'build-budget: waiting behind older queued work\n' >&2; warned=1; fi
+		build_budget_wait || return $?
+	done
+}
+
+build_budget_runtime_limit() {
+	local project="$1" policy="${2:-/etc/mechatron-prime/runtime-approvals.json}"
+	if [[ ! -e "$policy" ]]; then printf '1800\n'; return 0; fi
+	jq -er --arg key "local/$project" '
+		if .schema != "mechatron-runtime-approvals/v1" or (.approvals|type) != "object" then error("invalid registry")
+		elif .approvals[$key] == null then 1800
+		else .approvals[$key] | if .approved_by == "mechatron-prime" and (.reason|type)=="string" and (.reason|length)>0
+			and (.seconds|type)=="number" and .seconds==(.seconds|floor) and .seconds>0 and .seconds<=86400
+			then .seconds else error("invalid runtime approval") end end' "$policy" 2>/dev/null
+}
+
+# Try both slots under the admission gate. Return 75 when full; the caller
+# releases the gate and rechecks priority/age before its next attempt.
 # shellcheck disable=SC2034
 build_budget_acquire_slot() {
 	local -n selected_fd="$1"
-	local runtime="$2" fd status warned=0
-	while :; do
-		exec {fd}>"$runtime/slot-1.lock" || return 1
+	local runtime="$2" fd status slot
+	for slot in 1 2; do
+		exec {fd}>"$runtime/slot-$slot.lock" || return 1
 		if flock -n -E 75 "$fd"; then selected_fd=$fd; return 0; else status=$?; fi
 		exec {fd}>&-
 		[[ "$status" -eq 75 ]] || return "$status"
-		exec {fd}>"$runtime/slot-2.lock" || return 1
-		if [[ "$warned" -eq 0 ]]; then
-			printf 'build-budget: waiting for an available build slot\n' >&2
-			warned=1
-		fi
-		if flock -w 1 -E 75 "$fd"; then selected_fd=$fd; return 0; else status=$?; fi
-		exec {fd}>&-
-		[[ "$status" -eq 75 ]] || return "$status"
 	done
+	return 75
 }
 
 build_budget_main() (
 	set +e
 	set -u
-	local project='' runtime state identity unit slot_fd scratch='' rc base
+	local project='' runtime state identity unit slot_fd scratch='' rc base ticket=''
 	local rm_bin="${BUILD_BUDGET_RM:-/run/current-system/sw/bin/rm}"
 	local -a args=()
 	case "${1-}" in
 		-h|--help)
-			printf 'Usage: build-budget [--project NAME] -- COMMAND [ARG...]\nTwo shared build slots; each job has 12 GiB high/16 GiB maximum and no swap.\nRuns outside the agent cgroup. Successful task-owned scratch is removed; failed scratch is retained.\nBypassed or pre-existing jobs are not covered. Nix daemon builders retain their separate budget.\n'; exit 0 ;;
+			printf 'Usage: build-budget [--project NAME] -- COMMAND [ARG...]\nTwo FIFO build/test slots; 30-minute execution default, 12 GiB high/16 GiB maximum and no swap.\nLonger runs require infrastructure approval. Queue wait is excluded.\nRuns outside the agent cgroup. Successful task-owned scratch is removed; failed scratch is retained.\nBypassed or pre-existing jobs are not covered. Nix daemon builders retain their separate budget.\n'; exit 0 ;;
 		--about) printf 'build-budget 1.0: Linux systemd build-memory containment\n'; exit 0 ;;
 		--project) project="${2-}"; [[ $# -ge 2 ]] || exit 2; shift 2 ;;
 	esac
@@ -71,11 +177,18 @@ build_budget_main() (
 	chmod 700 -- "$runtime" "$state" || exit 1
 	trap 'exit 130' INT
 	trap 'exit 143' TERM
-	build_budget_acquire_slot slot_fd "$runtime" || exit $?
+	local BUILD_BUDGET_RUNTIME_SECONDS
+	BUILD_BUDGET_RUNTIME_SECONDS=$(build_budget_runtime_limit "$project") || { printf 'build-budget: invalid runtime approval registry\n' >&2; exit 1; }
+	build_budget_register_ticket ticket "$runtime" "$project" || exit $?
+	trap '[[ -z "$ticket" || ! -e "$ticket" ]] || command unlink "$ticket"' EXIT
+	build_budget_acquire_fair_slot slot_fd "$runtime" "$ticket" || exit $?
+	command unlink "$ticket" || exit 1
+	ticket=''
 	identity=$(cat /proc/sys/kernel/random/uuid) || exit 1
 	unit="build-$project-$identity.scope"
 	base="${TMPDIR:-/tmp}"
 	scratch=$(mktemp -d "$base/build-$project.XXXXXXXX") || exit 1
+	# shellcheck disable=SC2329 # invoked by the EXIT trap
 	build_budget_finish() {
 		local status="$1" properties peak result record
 		properties=$(systemctl --user show "$unit" -p MemoryPeak -p Result --value 2>/dev/null)

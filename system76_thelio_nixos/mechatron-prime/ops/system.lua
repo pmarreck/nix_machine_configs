@@ -43,8 +43,10 @@ end
 
 --- Construct the privileged host adapter from an injected process boundary;
 --- exact command vectors remain inspectable and deterministic in unit tests.
-function M.new(adapter)
+function M.new(adapter, options)
 	adapter = adapter or default_adapter
+	options = options or {}
+	local control_binary = options.control_binary or os.getenv("MECHATRON_CONTROL_BINARY") or mechatron_control_binary
 	local system = {}
 
 	local function timed(argv)
@@ -98,6 +100,13 @@ function M.new(adapter)
 
 	function system.read(path)
 		return adapter.read(path)
+	end
+
+	--- Fixed metadata-only probe: never open or return credential contents.
+	--- Follow an intentional secret-management symlink to its target.
+	function system.private_source_credential()
+		local output, ok = timed({"stat", "--dereference", "--format=%f:%s", "--", "/etc/mechatron-prime/github-read-token.env"})
+		return probes.classify_credential_metadata(ok and output or nil)
 	end
 
 	function system.now()
@@ -212,7 +221,7 @@ function M.new(adapter)
 			return true, trim(output)
 		end
 		if action.kind == "mechatron" then
-			local command = {mechatron_control_binary}
+			local command = {control_binary}
 			append(command, action.argv)
 			local output, ok = timed(command)
 			if not ok then return false, trim(output) ~= "" and trim(output) or "Mechatron action failed" end

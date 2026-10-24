@@ -31,8 +31,10 @@ assert test "${args[6]}" = '--property=MemoryHigh=12G'
 assert test "${args[7]}" = '--property=MemoryMax=16G'
 assert test "${args[8]}" = '--property=MemorySwapMax=0'
 assert test "${args[9]}" = '--property=OOMPolicy=stop'
-assert test "${args[10]}" = '--'
-assert test "${args[13]}" = 'exit 7'
+assert test "${args[10]}" = '--property=RuntimeMaxSec=1800'
+assert test "${args[11]}" = '--property=TimeoutStopSec=5s'
+assert test "${args[12]}" = '--'
+assert test "${args[15]}" = 'exit 7'
 out='' err='' rc=0
 capture build_budget_main --project '../bad' -- true
 assert test "$rc" -eq 2
@@ -126,6 +128,9 @@ assert test "$rc" -eq 1
 assert test ! -e "$fixture/requested-arguments"
 assert test ! -e "$fixture/state/build-budget/runs.ndjson"
 adapter_envelope=34359738368
+build_budget_runtime_limit() { printf '1800\n'; }
+build_budget_priority_names() { printf '[]\n'; }
+build_budget_wait() { :; }
 adapter_status=7
 capture build_budget_main --project validate -- bash -c 'exit 7'
 assert test "$rc" -eq 7
@@ -193,7 +198,7 @@ for slot_case in free-one free-two release-one release-two three-intervals wait-
 	fi
 	if [[ "$slot_case" == release-one ]]; then
 		assert test "$(wc -l < "$fixture/slot-effects")" -eq 3
-		assert test "$(sed -n '2p' "$fixture/slot-effects" | cut -d' ' -f1-4)" = '-w 1 -E 75'
+		assert test "$(sed -n '2p' "$fixture/slot-effects" | cut -d' ' -f1-3)" = '-n -E 75'
 	fi
 	fixture="$fixture_previous"
 done

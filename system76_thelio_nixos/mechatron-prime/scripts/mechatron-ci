@@ -28,7 +28,7 @@ message() {
 		invalid_project) printf 'project must be a repository name or pmarreck/REPOSITORY' ;;
 		invalid_commit) printf 'commit must be a 7–40 character hexadecimal SHA prefix' ;;
 		help) printf '%s\n' \
-			'Usage: mechatron-ci [options] [status|queue|log|halt|resume|cancel]' \
+			'Usage: mechatron-ci [options] [status|queue|log|provision|halt|resume|cancel]' \
 			'' \
 			'Commands:' \
 			'  status       Show admission, worker, queue, current job, and recent results' \
@@ -38,6 +38,12 @@ message() {
 			'               worker records it before starting the next job, and the' \
 			'               server reads the ledger per request. Nothing is batched,' \
 			'               so polling faster than a job takes only adds load.' \
+			'  provision    Create or converge the GitHub push webhook for a pmarreck repo.' \
+			'               Host-local: uses the credential-isolated Unix-socket service.' \
+			'               This is not an /ops action.' \
+			'               No sudo or client-side secret access is required.' \
+			'               The webhook secret is never accepted on argv or printed.' \
+			'               Default is one repo (--project, or origin if it is pmarreck/*).' \
 			'  halt         Persistently halt admission and cancel/requeue active work' \
 			'  resume       Reopen admission and immediately drain queued work' \
 			'  cancel       Cancel/requeue only the active build; admission stays unchanged' \
@@ -45,8 +51,9 @@ message() {
 			'Options:' \
 			'  --json       Emit the stable JSON status document' \
 			'  --limit N    Return 1–100 history results (default: 50; log only)' \
-			'  --project P  Filter queue/log to P or pmarreck/P' \
+			'  --project P  Filter queue/log, or select the repo to provision' \
 			'  --commit SHA Filter queue/log to a 7–40 character SHA prefix' \
+			'  --dry-run    Classify webhook state without GitHub writes (provision only)' \
 			'  --url URL    Override the tailnet operations base URL' \
 			'  --lang CODE  Select one of the prepared locale codes' \
 			'  --color      Force ANSI color even when not a terminal' \
@@ -98,16 +105,20 @@ history_limit=50
 history_limit_set=false
 project_filter=""
 commit_filter=""
+provision_dry_run=false
+provision_all_owner_repos=false
 # auto honours the stream: colour on a terminal, never through a pipe. Later
 # arguments override earlier ones, so --color --no-color ends up never.
 color_mode=auto
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
-		status|queue|log|halt|resume|cancel) command="$1" ;;
+		status|queue|log|provision|halt|resume|cancel) command="$1" ;;
 		--json) emit_json=true ;;
 		--color) color_mode=always ;;
 		--simple|--no-color|--no-ansi) color_mode=never ;;
+		--dry-run) provision_dry_run=true ;;
+		--all-owner-repos) provision_all_owner_repos=true ;;
 		--limit)
 			[ "$#" -ge 2 ] || { printf '%s: --limit requires a value\n' "$(message title)" >&2; exit 2; }
 			shift
@@ -197,8 +208,21 @@ if [ "$history_limit_set" = true ] && [ "$command" != log ]; then
 	exit 2
 fi
 
-if { [ -n "$project_filter" ] || [ -n "$commit_filter" ]; } && [ "$command" != log ] && [ "$command" != queue ]; then
-	printf '%s: --project and --commit apply only to queue and log\n' "$(message title)" >&2
+if [ "$provision_dry_run" = true ] && [ "$command" != provision ]; then
+	printf '%s: --dry-run applies only to provision\n' "$(message title)" >&2
+	exit 2
+fi
+if [ "$provision_all_owner_repos" = true ] && [ "$command" != provision ]; then
+	printf '%s: --all-owner-repos applies only to provision\n' "$(message title)" >&2
+	exit 2
+fi
+
+if [ -n "$commit_filter" ] && [ "$command" != log ] && [ "$command" != queue ]; then
+	printf '%s: --commit applies only to queue and log\n' "$(message title)" >&2
+	exit 2
+fi
+if [ -n "$project_filter" ] && [ "$command" != log ] && [ "$command" != queue ] && [ "$command" != provision ]; then
+	printf '%s: --project applies only to queue, log, and provision\n' "$(message title)" >&2
 	exit 2
 fi
 if [ -n "$project_filter" ]; then
@@ -238,6 +262,54 @@ fi
 
 base_url="${base_url%/}"
 curl_command="${MECHATRON_CI_CURL:-curl}"
+
+infer_provision_project_from_git() {
+	local url name
+	url="$(git remote get-url origin 2>/dev/null)" || return 1
+	url="${url%.git}"
+	case "$url" in
+		git@github.com:pmarreck/*) name="${url##*/}" ;;
+		https://github.com/pmarreck/*) name="${url##*/}" ;;
+		http://github.com/pmarreck/*) name="${url##*/}" ;;
+		ssh://git@github.com/pmarreck/*) name="${url##*/}" ;;
+		*) return 1 ;;
+	esac
+	[ -n "$name" ] || return 1
+	printf 'pmarreck/%s\n' "$name"
+}
+
+if [ "$command" = provision ]; then
+	if [ "$provision_all_owner_repos" = true ]; then
+		printf '%s: bulk provisioning is administrator-only; use one --project per request\n' "$(message title)" >&2
+		exit 2
+	fi
+	if [ -z "$project_filter" ]; then
+		project_filter="$(infer_provision_project_from_git)" || {
+			printf '%s: provision requires --project P or a pmarreck origin remote\n' "$(message title)" >&2
+			exit 2
+		}
+		project_filter="${project_filter,,}"
+	fi
+	body="$(jq -cn --arg repository "$project_filter" --argjson dry_run "$provision_dry_run" '{repository:$repository,dry_run:$dry_run}')" || exit 1
+	if ! document="$(printf '%s' "$body" | "$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 110 \
+		--unix-socket "${MECHATRON_PROVISION_SOCKET:-/run/mechatron-prime-provision.sock}" \
+		--header 'Content-Type: application/json' --data-binary @- http://localhost/provision)"; then
+		printf '%s: local provisioning service unavailable or request failed; no sudo fallback\n' "$(message title)" >&2
+		exit 1
+	fi
+	if ! jq -e --arg repo "$project_filter" '.ok == true and .last.repository == $repo and .last.result == "success"' <<< "$document" >/dev/null 2>&1; then
+		printf '%s: invalid provisioning response\n' "$(message title)" >&2
+		exit 1
+	fi
+	if [ "$emit_json" = true ]; then
+		printf '%s\n' "$document"
+	elif [ "$provision_dry_run" = true ]; then
+		printf 'CHECKED %s (dry-run; no changes)\n' "$project_filter"
+	else
+		printf 'VERIFIED %s\n' "$project_filter"
+	fi
+	exit 0
+fi
 
 fetch_status() {
 	"$curl_command" --fail --silent --show-error --connect-timeout 5 --max-time 15 "$base_url/ci.json"
@@ -289,6 +361,7 @@ add_queue_durations() {
 			try ((($finish | fromdateiso8601) - ($start | fromdateiso8601)) | floor) catch null;
 		.generated_at as $now |
 		.worker.current |= if . then . + {elapsed_seconds: seconds_between(.started_at; $now)} else . end |
+		.worker.currents = ((.worker.currents // (if .worker.current then [.worker.current] else [] end)) | map(. + {elapsed_seconds: seconds_between(.started_at; $now)})) |
 		.claimed |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)}) |
 		.waiting |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)})
 	'
@@ -299,7 +372,8 @@ filter_jobs() {
 		def matches:
 			($project == "" or (.repository | ascii_downcase) == $project) and
 			($commit == "" or (.commit_sha | ascii_downcase | startswith($commit)));
-		.worker.current |= if . and (. | matches) then . else null end |
+		.worker.currents |= map(select(matches)) |
+		.worker.current = (.worker.currents[0] // null) |
 		.claimed |= map(select(matches)) |
 		.waiting |= map(select(matches))
 	'
@@ -335,7 +409,7 @@ if [ "$command" = log ]; then
 		(all(.results[];
 			(.repository | type == "string") and
 			(.commit_sha | type == "string") and
-			(.status == "success" or .status == "failure") and
+			(.status == "success" or .status == "failure" or .status == "stopped") and
 			(.failure_stage | type == "string") and
 			(.failure_detail | type == "string") and
 			(.started_at | type == "string") and
@@ -368,13 +442,18 @@ if [ "$command" = log ]; then
 				elif $m > 0 then ($m|tostring) + "m " + ($r|tostring) + "s"
 				else ($r|tostring) + "s" end
 			end;
+		def outcome:
+			if .status == "success" then "PASS"
+			elif .status == "stopped" and .failure_stage == "github-timeout" then "TIMEOUT"
+			elif .status == "stopped" then "STOPPED"
+			else "FAIL" end;
 		[$title + " (" + (.results | length | tostring) + " newest)"] +
 		[.results[] |
 			"  " + (.finished_at // .started_at) +
 			"  ran " + duration_text(.duration_seconds) +
-			"  " + (if .status == "success" then "PASS" else "FAIL" end) +
+			"  " + outcome +
 			"  " + .repository + "@" + (.commit_sha[0:12]) +
-			(if .status == "failure" then
+			(if .status == "failure" or .status == "stopped" then
 				(if .failure_stage == "" then "" else "  " + .failure_stage end) +
 				(if .failure_detail == "" then "" else (if .failure_stage == "" then "  " else ": " end) + .failure_detail end)
 			else "" end)
@@ -440,11 +519,11 @@ if [ "$command" = queue ]; then
 		(if .admission.state == "halted"
 		 then $alarm_start + "STOPPED" + $alarm_reset
 		 else (.admission.state | ascii_upcase) end) as $admission |
-		(if .worker.current then
-			.worker.current | .repository + "@" + (.commit_sha[0:12]) +
+		(if (.worker.currents | length) > 0 then
+			[.worker.currents[] | .repository + "@" + (.commit_sha[0:12]) +
 			"  " + (if .target == "" then .state else .target end) +
 			"  started " + (if .started_at == "" then "unknown" else .started_at end) +
-			"  running " + duration_text(.elapsed_seconds)
+			"  running " + duration_text(.elapsed_seconds)] | join("\n         ")
 		else $none end) as $current |
 		[$title + " queue: " + $admission,
 		 $worker_label + ": " + .worker.state,
@@ -497,6 +576,6 @@ jq -r \
 	 $recent_label + ":"] +
 	(if .recent_available == false then ["  " + $unavailable]
 	 elif (.recent | length) == 0 then ["  " + $none]
-	 else [.recent[] | "  " + (if .status == "success" then "PASS" else "FAIL" end) + "  " + .repository + "@" + (.commit_sha[0:12]) + (if .failure_stage == "" then "" else "  " + .failure_stage end)] end) |
+	 else [.recent[] | "  " + (if .status == "success" then "PASS" elif .status == "stopped" and .failure_stage == "github-timeout" then "TIMEOUT" elif .status == "stopped" then "STOPPED" else "FAIL" end) + "  " + .repository + "@" + (.commit_sha[0:12]) + (if .failure_stage == "" then "" else "  " + .failure_stage end)] end) |
 	.[]
 ' <<< "$document"

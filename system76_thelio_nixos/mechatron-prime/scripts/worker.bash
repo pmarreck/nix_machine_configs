@@ -17,6 +17,18 @@ if ! declare -F ci_admission_state >/dev/null; then
 	# shellcheck disable=SC1090
 	source "${MECHATRON_CONTROL_LIB:-$script_dir/control_lib.bash}"
 fi
+if ! declare -F job_budget_remaining >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_RUNTIME_BUDGET_LIB:-$script_dir/runtime_budget.bash}"
+fi
+if ! declare -F claim_fifo_job >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_QUEUE_CLAIM_LIB:-$script_dir/queue_claim.bash}"
+fi
+if ! declare -F prioritize_queue_batch >/dev/null; then
+	# shellcheck disable=SC1090
+	source "${MECHATRON_PRIORITY_LIB:-$script_dir/admission_priority.bash}" || exit 1
+fi
 
 umask 027
 state_dir="${MECHATRON_STATE_DIR:-/var/lib/mechatron-prime}"
@@ -30,7 +42,22 @@ results_file="$state_dir/results.ndjson"
 results_database="$state_dir/results.sqlite3"
 current_file="$state_dir/current.json"
 active_queue_file="$state_dir/active-queue.ndjson"
-build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-7200}"
+worker_id="${MECHATRON_WORKER_ID:-legacy}"
+claim_dir="$state_dir"
+case "$worker_id" in
+	legacy) ;;
+	1|2)
+		claim_dir="$state_dir/workers/$worker_id"
+		current_file="$state_dir/current-$worker_id.json"
+		active_queue_file="$state_dir/active-queue-$worker_id.ndjson"
+		;;
+	*) printf 'Invalid fixed worker identity\n' >&2; exit 2 ;;
+esac
+repository_lease=9
+worker_lease=8
+build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-1800}"
+runtime_approvals="${MECHATRON_RUNTIME_APPROVALS_FILE:-/etc/mechatron-prime/runtime-approvals.json}"
+prefetch_timeout="${MECHATRON_PREFETCH_TIMEOUT_SECONDS:-60}"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
 nix_options=()
@@ -57,25 +84,56 @@ unset MECHATRON_GITHUB_READ_TOKEN
 case "$build_timeout" in
 	""|*[!0-9]*|0) printf 'Invalid build timeout\n' >&2; exit 1 ;;
 esac
+case "$prefetch_timeout" in
+	""|*[!0-9]*|0) printf 'Invalid prefetch timeout\n' >&2; exit 1 ;;
+esac
 case "$cache_push" in
 	true|false) ;;
 	*) printf 'Invalid cache-push setting\n' >&2; exit 1 ;;
 esac
+if [ "${1:-}" = --admission-open ]; then
+	admission_state=$(ci_admission_state "$state_dir") || exit 255
+	[ "$admission_state" = running ]
+	exit "$?"
+fi
 
 mkdir -p "$state_dir/queue" "$state_dir/batches" "$state_dir/logs" "$state_dir/work" || exit 1
-touch "$queue_file" "$results_file" || exit 1
-chmod 0640 "$queue_file" "$results_file" || exit 1
+mkdir -p "$claim_dir" || exit 1
+# The queue file is watched by a PathChanged unit, and attribute changes count.
+# Create and fix mode only when needed so coordinator pre-steps and idle lane
+# starts never retrigger the watcher that started them.
+prepare_quiet_file() {
+	[ -e "$1" ] || : > "$1" || return 1
+	[ "$(stat -c '%a' "$1")" = 640 ] || chmod 0640 "$1" || return 1
+}
+prepare_quiet_file "$queue_file" || exit 1
+prepare_quiet_file "$results_file" || exit 1
+initialize_status_store "$results_database" || { printf 'Status database is unavailable\n' >&2; exit 1; }
+if [ "${1:-}" = --recover-legacy-only ]; then
+	[ "$worker_id" = legacy ] || exit 2
+	# Coordinator preparation never clears live lane telemetry or claims.
+	recover_orphaned_claim "$state_dir" "$queue_file" "$queue_lock" "$results_database" || exit 1
+	rm -f -- "$state_dir/current.json" "$state_dir/active-queue.ndjson"
+	exit 0
+fi
+if [ "$worker_id" != legacy ]; then
+	worker_lane_begin worker_lease "$state_dir" "$worker_id" "$queue_file" "$queue_lock" "$results_database" || exit "$?"
+fi
 # A previous clean worker exit removes this file.  If a process was killed
 # without its EXIT trap, a fresh worker owns the authoritative recovery path;
 # do not present stale claimed work to read-only clients.
 rm -f -- "$active_queue_file"
+# Recover at most the in-progress claim even when admission is halted, so a
+# SIGKILLed drain still returns to the queue instead of vanishing behind halt.
+# Historical batch files without a pointer are leftovers and must not be requeued.
+recover_orphaned_claim "$claim_dir" "$queue_file" "$queue_lock" "$results_database" \
+	|| { printf 'Claimed-batch recovery failed\n' >&2; exit 1; }
 admission_state="$(ci_admission_state "$state_dir")" || { printf 'CI admission state is invalid\n' >&2; exit 1; }
 if [ "$admission_state" = halted ]; then
 	printf 'Mechatron Prime worker: admission halted; queue preserved\n'
 	exit 0
 fi
 [ -d "$badge_dir" ] || { printf 'Badge directory is missing\n' >&2; exit 1; }
-initialize_status_store "$results_database" || { printf 'Status database is unavailable\n' >&2; exit 1; }
 migrate_legacy_results "$results_database" "$results_file" "$badge_dir" || { printf 'Legacy result migration failed\n' >&2; exit 1; }
 
 publish_current() {
@@ -126,6 +184,7 @@ publish_current idle || exit 1
 batch=""
 recovery_line=1
 recover_on_interrupt=false
+prefetch_pid=""
 
 # shellcheck disable=SC2329 # invoked by EXIT trap
 cleanup_current() {
@@ -136,12 +195,18 @@ cleanup_current() {
 # shellcheck disable=SC2329 # invoked by INT/TERM traps
 interrupt_worker() {
 	trap - INT TERM
+	if [ -n "$prefetch_pid" ]; then
+		kill -TERM "$prefetch_pid" 2>/dev/null || true
+		wait "$prefetch_pid" 2>/dev/null || true
+		prefetch_pid=""
+	fi
 	if [ "$recover_on_interrupt" = true ] && [ -n "$batch" ]; then
 		# The signal may arrive during the claim's locked rename window. Release
 		# our claim descriptor before the recovery helper takes the same lock.
 		exec 9>&- || true
 		recover_claimed_batch "$batch" "$recovery_line" "$queue_file" "$queue_lock" >/dev/null 2>&1 || true
 	fi
+	clear_claim_pointer "$claim_dir" >/dev/null 2>&1 || true
 	cleanup_current
 	exit 143
 }
@@ -160,6 +225,17 @@ while :; do
 	batch_sequence=$((batch_sequence + 1))
 	batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$-$batch_sequence"
 	batch="$state_dir/batches/builds-$batch_id.ndjson"
+	if [ "$worker_id" != legacy ]; then
+		if claim_fifo_job repository_lease "$state_dir" "$queue_file" "$queue_lock" "$batch" "$claim_dir"; then
+			recover_on_interrupt=true
+			cp -- "$batch" "$active_queue_file" || exit 1
+			chmod 0640 "$batch" "$active_queue_file" || exit 1
+		else
+			claim_status=$?
+			[ "$claim_status" -eq 3 ] && exit 0
+			exit "$claim_status"
+		fi
+	else
 	exec 9> "$queue_lock" || exit 1
 	flock 9 || exit 1
 	if [ ! -s "$queue_file" ]; then
@@ -187,7 +263,9 @@ while :; do
 	: > "$queue_file" || exit 1
 	cp -- "$batch" "$active_queue_file" || exit 1
 	chmod 0640 "$batch" "$queue_file" "$active_queue_file" || exit 1
+	write_claim_pointer "$claim_dir" "$batch" 1 || exit 1
 	exec 9>&-
+	fi
 
 batch_total=0
 while IFS= read -r queued_item; do
@@ -195,6 +273,8 @@ while IFS= read -r queued_item; do
 done < "$batch"
 
 item_number=0
+# write_claim_pointer records $batch as a path in claim.json; it does not write the batch.
+# shellcheck disable=SC2094
 while IFS= read -r item; do
 	[ -n "$item" ] || continue
 	item_number=$((item_number + 1))
@@ -205,6 +285,7 @@ while IFS= read -r item; do
 	chmod 0640 "$target_results_file" || exit 1
 	publish_current idle || exit 1
 	started_at="$(now_utc)"
+	job_started_seconds=$(job_budget_now) || exit 1
 	repo=""
 	ref=""
 	sha=""
@@ -247,6 +328,12 @@ while IFS= read -r item; do
 				failure_stage="superseded"
 				failure_detail="superseded by a newer commit on $ref"
 			else
+			runtime_policy_error=false
+			if ! runtime_limit=$(job_runtime_limit "$build_timeout" "$repo" "$runtime_approvals"); then
+				runtime_policy_error=true
+				runtime_limit=0
+			fi
+			job_deadline=$((job_started_seconds+runtime_limit))
 			log_file="$state_dir/logs/$repo_name-$run_id.log"
 			target_list="$state_dir/work/$repo_name-$run_id.targets"
 			paths_file="$state_dir/work/$repo_name-$run_id.paths"
@@ -260,15 +347,72 @@ while IFS= read -r item; do
 			} >> "$log_file"
 
 			flake="github:$repo/$sha"
-			{
-				printf '\n=== nix flake prefetch %s ===\n' "$flake"
-				date -u +%Y-%m-%dT%H:%M:%SZ
-			} >> "$log_file"
-			prefetch_json="$(nix flake prefetch --json "$flake" 2>> "$log_file")"
-			prefetch_status=$?
+			prefetch_out="$state_dir/work/$repo_name-$run_id.prefetch.json"
+			prefetch_err="$state_dir/work/$repo_name-$run_id.prefetch.err"
+			: > "$prefetch_out"
+			: > "$prefetch_err"
+			chmod 0640 "$prefetch_out" "$prefetch_err"
+			prefetch_attempts="${MECHATRON_GITHUB_RETRY_ATTEMPTS:-4}"
+			attempt=1
+			prefetch_status=1
+			prefetch_err_text=""
+			# Background so INT/TERM can run while prefetch is in flight. A
+			# foreground wait on a hung child would delay the trap until the
+			# child exited, which is how a claimed job vanished on SIGKILL.
+			# Fast GitHub 502/timeout blips retry with injected backoff; the
+			# hang bound (124) and signals do not.
+			while [ "$attempt" -le "$prefetch_attempts" ]; do
+				{
+					printf '\n=== nix flake prefetch %s attempt %s ===\n' "$flake" "$attempt"
+					date -u +%Y-%m-%dT%H:%M:%SZ
+				} >> "$log_file"
+				: > "$prefetch_out"
+				: > "$prefetch_err"
+				if ! prefetch_budget=$(job_budget_slice "$job_deadline" "$prefetch_timeout"); then prefetch_status=124; break; fi
+				timeout --kill-after=5s "$prefetch_budget" nix flake prefetch --json "$flake" \
+					> "$prefetch_out" 2> "$prefetch_err" {repository_lease}>&- {worker_lease}>&- &
+				prefetch_pid=$!
+				wait "$prefetch_pid"
+				prefetch_status=$?
+				prefetch_pid=""
+				cat "$prefetch_err" >> "$log_file"
+				prefetch_err_text="$(cat "$prefetch_err" 2>/dev/null || true)"
+				if [ "$prefetch_status" -eq 0 ]; then
+					break
+				fi
+				if build_exit_was_stopped "$prefetch_status"; then
+					break
+				fi
+				if ! github_failure_is_retryable "$prefetch_status" "$prefetch_err_text"; then
+					break
+				fi
+				if [ "$attempt" -eq "$prefetch_attempts" ]; then
+					break
+				fi
+				backoff=$(github_retry_backoff_seconds "$attempt")
+				if ! backoff_budget=$(job_budget_slice "$job_deadline" "$backoff"); then prefetch_status=124; break; fi
+				mechatron_sleep "$backoff_budget"
+				attempt=$((attempt + 1))
+			done
+			prefetch_json="$(cat "$prefetch_out" 2>/dev/null || true)"
 			if [ "$prefetch_status" -ne 0 ]; then
-				failure_stage="source-fetch"
-				failure_detail="could not fetch the exact queued flake source"
+				if [ "$runtime_policy_error" = true ]; then
+					failure_stage="runtime-policy"
+					failure_detail="runtime approval registry is invalid; job not started"
+				elif ! job_budget_remaining "$job_deadline" "$(job_budget_now)" >/dev/null; then
+					status="stopped"; failure_stage="execution-timeout"; failure_detail="whole-job runtime budget exhausted"
+				elif [ "$prefetch_status" -eq 124 ] || github_failure_is_retryable "$prefetch_status" "$prefetch_err_text"; then
+					status="stopped"
+					failure_stage="github-timeout"
+					failure_detail="GitHub source fetch timed out after $attempt attempts"
+				elif build_exit_was_stopped "$prefetch_status"; then
+					status="stopped"
+					failure_stage="source-fetch"
+					failure_detail="could not fetch the exact queued flake source"
+				else
+					failure_stage="source-fetch"
+					failure_detail="could not fetch the exact queued flake source"
+				fi
 			elif ! source_store="$(jq -er '.storePath | strings | select(startswith("/"))' <<< "$prefetch_json" 2>> "$log_file")" || [ ! -d "$source_store" ]; then
 				failure_stage="source-fetch"
 				failure_detail="Nix returned no usable source store path"
@@ -343,9 +487,9 @@ while IFS= read -r item; do
 							printf '\n=== nix build %s#%s ===\n' "$flake" "$target"
 							date -u +%Y-%m-%dT%H:%M:%SZ
 						} >> "$log_file"
-						MECHATRON_CURRENT_REPO_NAME="$repo_name" timeout "$build_timeout" \
+						MECHATRON_CURRENT_REPO_NAME="$repo_name" job_budget_command "$job_deadline" "$runtime_limit" \
 							nix build "${nix_options[@]}" --no-link --print-out-paths "$flake#$target" \
-							> "$target_paths" 2>> "$log_file"
+							> "$target_paths" 2>> "$log_file" {repository_lease}>&- {worker_lease}>&-
 						build_status=$?
 						target_status=success
 						if [ "$build_status" -ne 0 ]; then
@@ -391,8 +535,8 @@ while IFS= read -r item; do
 		else
 			sort -u "$paths_file" > "$paths_file.sorted"
 			if [ "$cache_push" = true ]; then
-				MECHATRON_CURRENT_REPO_NAME="$repo_name" attic push --stdin local:fleet \
-					< "$paths_file.sorted" >> "$log_file" 2>&1
+				MECHATRON_CURRENT_REPO_NAME="$repo_name" job_budget_command "$job_deadline" "$runtime_limit" attic push --stdin local:fleet \
+					< "$paths_file.sorted" >> "$log_file" 2>&1 {repository_lease}>&- {worker_lease}>&-
 				attic_status=$?
 				if [ "$attic_status" -ne 0 ]; then
 					status="failure"
@@ -403,6 +547,9 @@ while IFS= read -r item; do
 		fi
 	fi
 
+	if [ -n "$log_file" ] && [ "$runtime_policy_error" = false ] && ! job_budget_remaining "$job_deadline" "$(job_budget_now)" >/dev/null; then
+		status="stopped"; failure_stage="execution-timeout"; failure_detail="whole-job runtime budget exhausted; request an approved exception before retrying"
+	fi
 	if [ -n "$repo_name" ]; then
 		if [ "$failure_stage" = "superseded" ]; then
 			# Commit-addressable only. A commit displaced from the queue never
@@ -448,12 +595,18 @@ while IFS= read -r item; do
 	record_ci_result "$results_database" "$run_id" "$delivery" "$repo" "$ref" "$sha" \
 		"$default_branch" "$started_at" "$finished_at" "$status" "$failure_stage" \
 		"$failure_detail" "$log_file" "$target_results_file" || exit 1
-	printf '%s\n' "$result_json" >> "$results_file" || exit 1
+	(flock 7 && printf '%s\n' "$result_json" >> "$results_file") 7> "$state_dir/.results.lock" || exit 1
 	chmod 0640 "$results_file" || exit 1
 	recovery_line=$((item_number + 1))
+	# claim.json is the write target; $batch is only recorded as a path.
+	# shellcheck disable=SC2094
+	write_claim_pointer "$claim_dir" "$batch" "$recovery_line" || exit 1
 	printf 'Mechatron Prime worker: %s@%s => %s (%s)\n' "$repo" "$sha" "$status" "$failure_stage"
 done < "$batch"
 
+clear_claim_pointer "$claim_dir" || exit 1
+exec {repository_lease}>&-
+repository_lease=9
 recover_on_interrupt=false
 done
 

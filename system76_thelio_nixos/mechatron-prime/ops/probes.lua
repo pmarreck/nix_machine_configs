@@ -2,6 +2,19 @@ local cjson = require("cjson.safe")
 
 local M = {}
 
+--- Classify stat's mode/size projection. Presence is configuration evidence,
+--- never proof of token validity or successful private-source authentication.
+function M.classify_credential_metadata(text)
+	local mode_text, size_text = (text or ""):match("^([%da-fA-F]+):(%d+)%s*$")
+	local mode = mode_text and tonumber(mode_text, 16)
+	local size = size_text and tonumber(size_text)
+	if not mode or mode > 65535 or not size or size == math.huge then
+		return {state = "unavailable"}
+	end
+	if math.floor(mode / 4096) ~= 8 then return {state = "not-regular"} end
+	return {state = size == 0 and "empty" or "present"}
+end
+
 --- Parse Linux meminfo into scalar capacity facts used by both display and
 --- threshold logic, preferring the kernel's reclaim-aware MemAvailable value.
 function M.parse_meminfo(text)

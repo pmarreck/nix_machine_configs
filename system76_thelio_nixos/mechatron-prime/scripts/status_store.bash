@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Transactional CI result ledger. The worker is the sole writer; badge and ops
-# readers may query concurrently through SQLite's WAL snapshots.
+# Transactional CI result ledger. Workers serialize writes through SQLite;
+# badge and ops readers query concurrently through WAL snapshots.
 
 sql_quote() {
 	local value="${1:-}"
@@ -8,10 +8,16 @@ sql_quote() {
 	printf "'%s'" "$value"
 }
 
-initialize_status_store() {
+initialize_status_store() (
 	local database="${1:-}"
 	[ -n "$database" ] || return 1
-	sqlite3 -bail "$database" >/dev/null <<'SQL'
+	# Opening a new SQLite file can need a schema lock even before its CLI
+	# processes .timeout. Serialize cold initialization, not whole job execution.
+	exec 9> "$database.schema.lock" || return 1
+	flock 9 || return 1
+	# The busy handler must precede journal-mode initialization: two cold lanes
+	# can otherwise race before the SQL batch reaches its busy_timeout pragma.
+	sqlite3 -bail -cmd '.timeout 5000' "$database" >/dev/null <<'SQL'
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 PRAGMA busy_timeout = 5000;
@@ -55,7 +61,7 @@ SQL
 	# would then be skipped as already done.
 	upgrade_status_store "$database" || return 1
 	chmod 0640 "$database"
-}
+)
 
 # Widen the run and target status vocabulary from ('success','failure') to
 # include 'stopped'. SQLite cannot alter a CHECK constraint in place, so each
@@ -138,7 +144,7 @@ migrate_legacy_results() {
 	local badge_state
 
 	[ -f "$database" ] && [ -f "$legacy_results" ] && [ -d "$badge_dir" ] || return 1
-	marker="$(sqlite3 "$database" "SELECT value FROM ledger_metadata WHERE key = 'legacy_ndjson_v1';")" || return 1
+	marker="$(sqlite3 -bail -cmd '.timeout 5000' "$database" "SELECT value FROM ledger_metadata WHERE key = 'legacy_ndjson_v1';")" || return 1
 	[ "$marker" = complete ] && return 0
 	empty_targets="$(mktemp "${TMPDIR:-/tmp}/mechatron-legacy-targets.XXXXXX.ndjson")" || return 1
 	: > "$empty_targets"
@@ -169,7 +175,7 @@ migrate_legacy_results() {
 		fi
 	done < "$legacy_results"
 	rm -f "$empty_targets"
-	sqlite3 -bail "$database" \
+	sqlite3 -bail -cmd '.timeout 5000' "$database" \
 		"INSERT INTO ledger_metadata (key, value) VALUES ('legacy_ndjson_v1', 'complete') ON CONFLICT(key) DO UPDATE SET value = excluded.value;" \
 		>/dev/null
 }
@@ -230,4 +236,16 @@ record_ci_result() {
 	rm -f "$sql_file"
 	[ "$sqlite_status" -eq 0 ] || return "$sqlite_status"
 	chmod 0640 "$database"
+}
+
+# True when this delivery already has a terminal ledger row, so orphan recovery
+# can skip it instead of rebuilding a run that was recorded before the pointer
+# advanced.
+ci_delivery_has_result() {
+	local database="${1:-}"
+	local delivery="${2:-}"
+	local found
+	[ -n "$database" ] && [ -f "$database" ] && [ -n "$delivery" ] || return 2
+	found="$(sqlite3 -bail -cmd '.timeout 5000' "$database" "SELECT 1 FROM ci_runs WHERE delivery_id = $(sql_quote "$delivery") LIMIT 1;")" || return 2
+	[ "$found" = 1 ]
 }

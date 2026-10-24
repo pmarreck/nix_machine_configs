@@ -29,7 +29,23 @@ local function ci_current_json(current)
 		target = current.target or "",
 		started_at = current.started_at or "",
 		pending = current.pending or 0,
+		worker_id = current.worker_id,
 	}
+end
+
+local function ci_currents_json(queue)
+	local values = {}
+	for _, current in ipairs(queue.currents or (queue.current and {queue.current} or {})) do
+		local value = ci_current_json(current)
+		if value then values[#values + 1] = value end
+	end
+	return json_array(values)
+end
+
+local function ci_instances_json(queue)
+	local values = {}
+	for _, worker in ipairs(queue.workers or {}) do values[#values + 1] = {id = worker.id, state = worker.state} end
+	return json_array(values)
 end
 
 local function ci_queue_jobs(runs)
@@ -80,6 +96,8 @@ function M.ci_json(model)
 			state = mechatron.worker_state,
 			queue_depth = mechatron.queue_depth,
 			current = ci_current_json(mechatron.current),
+			currents = ci_currents_json(mechatron),
+			instances = ci_instances_json(mechatron),
 		},
 		recent = json_array(recent),
 		-- Distinguishes "no runs yet" from "the ledger could not be read", which
@@ -100,6 +118,8 @@ function M.ci_queue_json(generated_at, queue)
 		worker = {
 			state = queue.worker_state,
 			current = ci_current_json(queue.current),
+			currents = ci_currents_json(queue),
+			instances = ci_instances_json(queue),
 		},
 		claimed = json_array(ci_queue_jobs(queue.claimed)),
 		waiting = json_array(ci_queue_jobs(queue.waiting)),
@@ -202,9 +222,16 @@ end
 --- probe output crosses a single HTML-escaping boundary before display.
 function M.page(model)
 	local current_build = "Idle"
-	if model.mechatron.current then
-		current_build = model.mechatron.current.repo .. " @ " .. model.mechatron.current.sha
+	local builds = {}
+	for _, current in ipairs(model.mechatron.currents or (model.mechatron.current and {model.mechatron.current} or {})) do
+		builds[#builds + 1] = (current.worker_id and "Lane " .. current.worker_id .. ": " or "") .. current.repo .. " @ " .. current.sha .. " · " .. (current.target or current.state)
 	end
+	if #builds > 0 then current_build = table.concat(builds, "; ") end
+	local lanes = {}
+	for _, worker in ipairs(model.mechatron.workers or {}) do
+		if worker.id ~= "legacy" then lanes[#lanes + 1] = worker.id .. ": " .. worker.state end
+	end
+	local lane_states = #lanes > 0 and table.concat(lanes, "; ") or "Not reported"
 
 	return string.format([[<!doctype html>
 <html lang="en">
@@ -271,7 +298,7 @@ function M.page(model)
 	</nav>
 	<section class="panel active" data-panel="services">
 		<div class="grid">
-			<article class="card"><div class="card-heading"><h3>Mechatron worker</h3>%s</div><dl><dt>Current build</dt><dd>%s</dd><dt>Queue depth</dt><dd>%s</dd></dl>%s</article>
+			<article class="card"><div class="card-heading"><h3>Mechatron worker</h3>%s</div><dl><dt>Current builds</dt><dd>%s</dd><dt>Worker lanes</dt><dd>%s</dd><dt>Queue depth</dt><dd>%s</dd></dl>%s</article>
 			<article class="card"><div class="card-heading"><h3>Grandfather clock</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd><dt>Declarative source</dt><dd><code>%s</code></dd></dl>%s</article>
 			<article class="card"><div class="card-heading"><h3>FSearch database</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd></dl>%s</article>
 			%s
@@ -303,12 +330,13 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 		-- indistinguishable from healthy idleness.
 		status_badge(model.mechatron.admission.state == "halted" and "stopped" or model.mechatron.worker_state),
 		html_escape(current_build),
+		html_escape(lane_states),
 		html_escape(model.mechatron.queue_depth),
 		action_forms({
 			{label = "Drain queue", path = "/ops/actions/mechatron-worker/start"},
 			{label = "Halt CI", path = "/ops/actions/mechatron-worker/halt", danger = true},
 			{label = "Resume CI", path = "/ops/actions/mechatron-worker/resume"},
-			{label = "Cancel build", path = "/ops/actions/mechatron-worker/stop", danger = true},
+			{label = "Cancel all active CI builds", path = "/ops/actions/mechatron-worker/stop", danger = true},
 		}),
 		status_badge(model.clocksound.chime.state, model.clocksound.chime.label),
 		html_escape(model.clocksound.schedule),

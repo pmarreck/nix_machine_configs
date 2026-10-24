@@ -25,14 +25,14 @@ action="${1:-}"
 case "$action" in
 	halt)
 		write_ci_admission "$state_dir" halted "$now" || exit 1
-		"$systemctl_command" --no-block stop mechatron-prime-worker.service || exit 1
+		"$systemctl_command" --no-block stop mechatron-prime-worker.service mechatron-prime-worker@1.service mechatron-prime-worker@2.service || exit 1
 		;;
 	resume)
 		write_ci_admission "$state_dir" running "$now" || exit 1
 		"$systemctl_command" --no-block start mechatron-prime-worker.service || exit 1
 		;;
 	cancel)
-		"$systemctl_command" --no-block stop mechatron-prime-worker.service || exit 1
+		"$systemctl_command" --no-block stop mechatron-prime-worker.service mechatron-prime-worker@1.service mechatron-prime-worker@2.service || exit 1
 		;;
 	drop)
 		shift
@@ -99,11 +99,14 @@ case "$action" in
 				"drop-$now-$drop_line-${drop_sha:0:12}" "$drop_delivery" "$drop_repo" "$drop_ref" "$drop_sha" '' \
 				"$now" "$now" stopped cancelled "cancelled from the queue by an operator" \
 				'' "$drop_empty_targets" >/dev/null 2>&1 || true
+			exec 7> "$state_dir/.results.lock" || exit 1
+			flock 7 || exit 1
 			printf '%s\n' "$(jq -cn \
 				--arg started_at "$now" --arg finished_at "$now" --arg delivery "$drop_delivery" \
 				--arg repo "$drop_repo" --arg ref "$drop_ref" --arg sha "$drop_sha" \
 				'{started_at:$started_at,finished_at:$finished_at,delivery:$delivery,repo:$repo,ref:$ref,sha:$sha,status:"stopped",failure_stage:"cancelled",failure_detail:"cancelled from the queue by an operator",targets:[],paths:[],log:""}')" \
 				>> "$state_dir/results.ndjson"
+			exec 7>&-
 			write_commit_badge_status "$badge_dir" "$drop_repo" CANCELLED "$drop_sha" || true
 		done < "$drop_matched"
 		rm -f -- "$drop_matched" "$drop_empty_targets"

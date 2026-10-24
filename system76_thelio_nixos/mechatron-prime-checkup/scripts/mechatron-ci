@@ -361,6 +361,7 @@ add_queue_durations() {
 			try ((($finish | fromdateiso8601) - ($start | fromdateiso8601)) | floor) catch null;
 		.generated_at as $now |
 		.worker.current |= if . then . + {elapsed_seconds: seconds_between(.started_at; $now)} else . end |
+		.worker.currents = ((.worker.currents // (if .worker.current then [.worker.current] else [] end)) | map(. + {elapsed_seconds: seconds_between(.started_at; $now)})) |
 		.claimed |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)}) |
 		.waiting |= map(. + {waiting_seconds: seconds_between(.queued_at; $now)})
 	'
@@ -371,7 +372,8 @@ filter_jobs() {
 		def matches:
 			($project == "" or (.repository | ascii_downcase) == $project) and
 			($commit == "" or (.commit_sha | ascii_downcase | startswith($commit)));
-		.worker.current |= if . and (. | matches) then . else null end |
+		.worker.currents |= map(select(matches)) |
+		.worker.current = (.worker.currents[0] // null) |
 		.claimed |= map(select(matches)) |
 		.waiting |= map(select(matches))
 	'
@@ -517,11 +519,11 @@ if [ "$command" = queue ]; then
 		(if .admission.state == "halted"
 		 then $alarm_start + "STOPPED" + $alarm_reset
 		 else (.admission.state | ascii_upcase) end) as $admission |
-		(if .worker.current then
-			.worker.current | .repository + "@" + (.commit_sha[0:12]) +
+		(if (.worker.currents | length) > 0 then
+			[.worker.currents[] | .repository + "@" + (.commit_sha[0:12]) +
 			"  " + (if .target == "" then .state else .target end) +
 			"  started " + (if .started_at == "" then "unknown" else .started_at end) +
-			"  running " + duration_text(.elapsed_seconds)
+			"  running " + duration_text(.elapsed_seconds)] | join("\n         ")
 		else $none end) as $current |
 		[$title + " queue: " + $admission,
 		 $worker_label + ": " + .worker.state,
