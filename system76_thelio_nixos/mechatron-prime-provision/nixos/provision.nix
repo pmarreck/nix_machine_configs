@@ -24,6 +24,7 @@ in {
     systemd.services.mechatron-prime-provision = {
       description = "Mechatron Prime credential-isolated webhook provisioner";
       wantedBy = [ "multi-user.target" ];
+      stopIfChanged = false;
       requires = [ "mechatron-prime-provision.socket" ];
       after = [ "network-online.target" "mechatron-prime-provision.socket" ];
       environment = {

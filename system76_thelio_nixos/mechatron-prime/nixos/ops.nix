@@ -76,6 +76,8 @@ in
   systemd.services.mechatron-prime-ops = {
     description = "Mechatron Prime tailnet-only operations console";
     wantedBy = [ "multi-user.target" ];
+    # Long-running units restart in one step on activation; see restart_policy_nix_test.
+    stopIfChanged = false;
     after = [ "network-online.target" "tailscaled.service" ];
     wants = [ "network-online.target" ];
     environment = {
@@ -101,6 +103,9 @@ in
   systemd.services.mechatron-prime-ops-route = {
     description = "Publish Mechatron Prime operations privately through Tailscale Serve";
     wantedBy = [ "multi-user.target" ];
+    # The route is a remain-after-exit oneshot: a stop phase would run ExecStop
+    # and take the operator port down until a start phase that may never come.
+    stopIfChanged = false;
     after = [ "tailscaled.service" "mechatron-prime-ops.service" ];
     requires = [ "tailscaled.service" "mechatron-prime-ops.service" ];
     serviceConfig = {

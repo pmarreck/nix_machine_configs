@@ -93,6 +93,9 @@ in
   systemd.services.mechatron-prime-webhook = {
     description = "Mechatron Prime GitHub webhook receiver";
     wantedBy = [ "multi-user.target" ];
+    # Restart in one step on activation so an interrupted switch cannot leave
+    # the receiver stopped and pushes answered with 502.
+    stopIfChanged = false;
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
 
@@ -123,6 +126,7 @@ in
   systemd.services.mechatron-prime-badges = {
     description = "Mechatron Prime public read-only badge endpoint";
     wantedBy = [ "multi-user.target" ];
+    stopIfChanged = false;
     after = [ "systemd-tmpfiles-setup.service" ];
     serviceConfig = {
       User = "mechatron-prime-badges";
