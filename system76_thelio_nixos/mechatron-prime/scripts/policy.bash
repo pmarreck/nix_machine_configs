@@ -373,3 +373,30 @@ write_badge_status() {
 	fi
 	write_badge_document "$badge_dir/$repo_name.json" "$state"
 }
+
+# Summarize why a cgroup's processes waited: cumulative PSI "some" stall
+# microseconds for CPU, IO and memory, plus the parent slice's CFS quota
+# throttling. Comparing two snapshots around a hung fetch names the starved
+# resource. Unreadable controller files report "-" rather than a false zero.
+# complexity: O(1) small file reads
+cgroup_stall_snapshot() {
+	local dir="${1-}" resource value line
+	local -a fields=()
+	for resource in cpu io memory; do
+		value=-
+		if [ -n "$dir" ] && [ -r "$dir/$resource.pressure" ]; then
+			while IFS= read -r line; do
+				case "$line" in some\ *total=*) value="${line##*total=}" ;; esac
+			done < "$dir/$resource.pressure"
+		fi
+		fields+=("${resource}_some_us=$value")
+	done
+	value=-
+	if [ -n "$dir" ] && [ -r "$dir/../cpu.stat" ]; then
+		while IFS= read -r line; do
+			case "$line" in throttled_usec\ *) value="${line#throttled_usec }" ;; esac
+		done < "$dir/../cpu.stat"
+	fi
+	fields+=("slice_throttled_us=$value")
+	printf '%s\n' "${fields[*]}"
+}

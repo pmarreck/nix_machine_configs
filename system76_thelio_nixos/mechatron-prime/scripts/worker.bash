@@ -58,6 +58,12 @@ worker_lease=8
 build_timeout="${MECHATRON_BUILD_TIMEOUT_SECONDS:-1800}"
 runtime_approvals="${MECHATRON_RUNTIME_APPROVALS_FILE:-/etc/mechatron-prime/runtime-approvals.json}"
 prefetch_timeout="${MECHATRON_PREFETCH_TIMEOUT_SECONDS:-60}"
+# The lane's own cgroup v2 directory, for stall snapshots around a failed
+# source fetch. MECHATRON_CGROUP_DIR overrides it for tests.
+lane_cgroup="${MECHATRON_CGROUP_DIR-}"
+if [ -z "$lane_cgroup" ] && IFS= read -r cgroup_line < /proc/self/cgroup 2>/dev/null && [[ $cgroup_line == 0::/* ]]; then
+	lane_cgroup="/sys/fs/cgroup${cgroup_line#0::}"
+fi
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
 nix_options=()
@@ -356,19 +362,25 @@ while IFS= read -r item; do
 			attempt=1
 			prefetch_status=1
 			prefetch_err_text=""
+			fetch_runs=0
+			hang_retried=false
 			# Background so INT/TERM can run while prefetch is in flight. A
 			# foreground wait on a hung child would delay the trap until the
 			# child exited, which is how a claimed job vanished on SIGKILL.
-			# Fast GitHub 502/timeout blips retry with injected backoff; the
-			# hang bound (124) and signals do not.
+			# Fast GitHub 502/timeout blips retry with injected backoff. A fetch
+			# stopped by its own hang bound (124) or kill (137+) gets one immediate
+			# retry: those hangs have cleared within minutes, and worker signals
+			# never reach this loop because interrupt_worker exits first.
 			while [ "$attempt" -le "$prefetch_attempts" ]; do
+				fetch_runs=$((fetch_runs + 1))
 				{
-					printf '\n=== nix flake prefetch %s attempt %s ===\n' "$flake" "$attempt"
+					printf '\n=== nix flake prefetch %s attempt %s ===\n' "$flake" "$fetch_runs"
 					date -u +%Y-%m-%dT%H:%M:%SZ
 				} >> "$log_file"
 				: > "$prefetch_out"
 				: > "$prefetch_err"
 				if ! prefetch_budget=$(job_budget_slice "$job_deadline" "$prefetch_timeout"); then prefetch_status=124; break; fi
+				stall_before="$(cgroup_stall_snapshot "$lane_cgroup")"
 				timeout --kill-after=5s "$prefetch_budget" nix flake prefetch --json "$flake" \
 					> "$prefetch_out" 2> "$prefetch_err" {repository_lease}>&- {worker_lease}>&- &
 				prefetch_pid=$!
@@ -376,12 +388,17 @@ while IFS= read -r item; do
 				prefetch_status=$?
 				prefetch_pid=""
 				cat "$prefetch_err" >> "$log_file"
+				if [ "$prefetch_status" -ne 0 ]; then
+					printf "prefetch stall before %s\nprefetch stall after %s\n" "$stall_before" "$(cgroup_stall_snapshot "$lane_cgroup")" >> "$log_file"
+				fi
 				prefetch_err_text="$(cat "$prefetch_err" 2>/dev/null || true)"
 				if [ "$prefetch_status" -eq 0 ]; then
 					break
 				fi
 				if build_exit_was_stopped "$prefetch_status"; then
-					break
+					[ "$hang_retried" = false ] || break
+					hang_retried=true
+					continue
 				fi
 				if ! github_failure_is_retryable "$prefetch_status" "$prefetch_err_text"; then
 					break
@@ -404,7 +421,7 @@ while IFS= read -r item; do
 				elif [ "$prefetch_status" -eq 124 ] || github_failure_is_retryable "$prefetch_status" "$prefetch_err_text"; then
 					status="stopped"
 					failure_stage="github-timeout"
-					failure_detail="GitHub source fetch timed out after $attempt attempts"
+					failure_detail="GitHub source fetch timed out after $fetch_runs attempts"
 				elif build_exit_was_stopped "$prefetch_status"; then
 					status="stopped"
 					failure_stage="source-fetch"
