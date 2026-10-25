@@ -20,6 +20,11 @@ source commit `44eb1c1` so an interrupted switch cannot leave those services
 stopped; the receiver file keeps its baseline badge MIME-type divergence and
 the provisioner copy under `../mechatron-prime-provision/` carries the same hunk.
 
+The operator control script (`scripts/mechatron-prime-control`) is updated from
+source commit `a2201be8b2a9`, which adds `retry --project P --commit SHA` for
+commits whose run stopped before the source was fetched; the pinned digest
+follows that commit.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored

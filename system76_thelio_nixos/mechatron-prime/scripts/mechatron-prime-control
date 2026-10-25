@@ -114,12 +114,87 @@ case "$action" in
 		jq -cn --arg action drop --argjson dropped "$drop_count" '{status:"ok",action:$action,dropped:$dropped}'
 		exit 0
 		;;
+	retry)
+		# Requeue one exact commit whose last run was stopped by infrastructure
+		# (the source fetch never observed the project's code). The receiver's
+		# accepted ledger deduplicates by delivery and by repository+commit for
+		# good, so a GitHub redelivery can never do this; the retry record gets
+		# a fresh delivery id instead and the ledger stays untouched. Timeouts,
+		# policy refusals and real failures are not retryable here.
+		shift
+		retry_project=""
+		retry_commit=""
+		while [ "$#" -gt 0 ]; do
+			case "$1" in
+				--project) [ "$#" -ge 2 ] || { printf 'retry: --project requires a value\n' >&2; exit 2; }; shift; retry_project="$1" ;;
+				--commit) [ "$#" -ge 2 ] || { printf 'retry: --commit requires a value\n' >&2; exit 2; }; shift; retry_commit="$1" ;;
+				*) printf 'retry: unknown option: %s\n' "$1" >&2; exit 2 ;;
+			esac
+			shift
+		done
+		[ -n "$retry_project" ] || { printf 'retry: --project is required\n' >&2; exit 2; }
+		[[ "$retry_commit" =~ ^[0-9a-f]{7,40}$ ]] || { printf 'retry: --commit needs 7 to 40 lowercase hex digits\n' >&2; exit 2; }
+		retry_project="${retry_project##*/}"
+		retry_database="$state_dir/results.sqlite3"
+		retry_queue="$state_dir/queue/builds.ndjson"
+		retry_lock="$state_dir/queue/.builds.lock"
+		retry_limit=2
+		retry_refuse() {
+			jq -cn --arg commit "$retry_commit" --arg reason "$1" '{status:"refused",action:"retry",commit:$commit,reason:$reason}'
+			exit 1
+		}
+		retry_sql() { sqlite3 -bail -json -cmd '.timeout 5000' "$retry_database" "$1"; }
+		[ -f "$retry_database" ] || retry_refuse "no CI ledger"
+		retry_scope="substr(repository, instr(repository, '/') + 1) = $(sql_quote "$retry_project")"
+
+		# The prefix must name exactly one commit of this project in the ledger.
+		retry_matches="$(retry_sql "SELECT DISTINCT commit_sha FROM ci_runs WHERE $retry_scope AND commit_sha LIKE $(sql_quote "$retry_commit") || '%';")" || exit 1
+		case "$(jq -r 'length' <<< "${retry_matches:-[]}")" in
+			0) retry_refuse "no CI result for that commit" ;;
+			1) retry_sha="$(jq -r '.[0].commit_sha' <<< "$retry_matches")" ;;
+			*) retry_refuse "commit prefix is ambiguous" ;;
+		esac
+
+		retry_runs="$(retry_sql "SELECT delivery_id, repository, ref, default_branch, status, failure_stage FROM ci_runs WHERE $retry_scope AND commit_sha = $(sql_quote "$retry_sha") ORDER BY finished_at DESC, rowid DESC;")" || exit 1
+		retry_status="$(jq -r '.[0].status' <<< "$retry_runs")"
+		retry_stage="$(jq -r '.[0].failure_stage' <<< "$retry_runs")"
+		case "$retry_status/$retry_stage" in
+			stopped/source-fetch|stopped/github-timeout) ;;
+			*) retry_refuse "latest result is $retry_status ($retry_stage), not an infrastructure stop" ;;
+		esac
+		retry_used="$(jq -r '[.[] | select(.delivery_id | startswith("retry-"))] | length' <<< "$retry_runs")"
+		[ "$retry_used" -lt "$retry_limit" ] || retry_refuse "retry limit of $retry_limit reached"
+		retry_origin="$(jq -r '[.[] | select(.delivery_id | startswith("retry-") | not)] | last // .[-1] | .delivery_id' <<< "$retry_runs")"
+		retry_record="$(jq -cn --arg ts "$now" --arg delivery "retry-$((retry_used + 1))-$retry_origin" \
+			--argjson row "$(jq -c '.[0]' <<< "$retry_runs")" --arg sha "$retry_sha" --arg retry_of "$retry_origin" \
+			'{ts:$ts,delivery:$delivery,repo:$row.repository,ref:$row.ref,sha:$sha,default_branch:$row.default_branch,status:"queued",retry_of:$retry_of}')" || exit 1
+
+		# Append under the receiver's own lock. A record for this commit that is
+		# still waiting makes the retry an idempotent no-op.
+		exec 8> "$retry_lock" || exit 1
+		flock 8 || exit 1
+		if [ -s "$retry_queue" ] && [ "$(select_queue_records match "$retry_project" '' "$retry_sha" < "$retry_queue" | wc -l | tr -d ' ')" -gt 0 ]; then
+			exec 8>&-
+			jq -cn --arg repo "$(jq -r .repo <<< "$retry_record")" --arg sha "$retry_sha" \
+				'{status:"ok",action:"retry",queued:false,reason:"already queued",repo:$repo,sha:$sha}'
+			exit 0
+		fi
+		if [ ! -e "$retry_queue" ]; then
+			: > "$retry_queue" || exit 1
+			chown --reference="$state_dir/queue" "$retry_queue" 2>/dev/null || true
+		fi
+		printf '%s\n' "$retry_record" >> "$retry_queue" || exit 1
+		chmod 0640 "$retry_queue" || exit 1
+		exec 8>&-
+		jq -c '{status:"ok",action:"retry",queued:true,delivery:.delivery,repo:.repo,sha:.sha}' <<< "$retry_record"
+		exit 0
+		;;
 	--help|-h)
-		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]}\n'
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n'
 		exit 0
 		;;
 	*)
-		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]}\n' >&2
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n' >&2
 		exit 2
 		;;
 esac
