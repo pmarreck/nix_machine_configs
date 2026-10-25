@@ -29,6 +29,9 @@ The worker and its policy library (`scripts/worker.bash`, `scripts/policy.bash`)
 are updated from source commit `c3877d05f3d1`, which retries a source fetch
 once after its own hang bound fires and logs lane stall snapshots for each
 failed attempt; both pinned digests follow that commit.
+The worker is then updated from source commit `af9784a`, which keeps a garbage-
+collection root on the newest green output of each repository, branch and
+target; its pinned digest follows that commit.
 
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository

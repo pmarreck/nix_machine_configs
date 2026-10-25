@@ -192,6 +192,28 @@ recovery_line=1
 recover_on_interrupt=false
 prefetch_pid=""
 
+# Keep the newest green closure of each repository, branch and target across
+# Nix garbage collection, which otherwise deletes every unrooted CI output and,
+# because keep-outputs is on, the build-time closure a root protects. A
+# `nix build --out-link` over outputs that already exist only registers indirect
+# roots through the daemon. Extra-output links beyond this build's count are
+# removed so an earlier build cannot keep pinning its old closure.
+keep_target_root() {
+	local outputs_file="$1" repo_name="$2" ref="$3" target="$4" dir stale index
+	local -a outputs=()
+	mapfile -t outputs < <(grep -v '^$' "$outputs_file")
+	[ "${#outputs[@]}" -gt 0 ] || return 1
+	dir="$state_dir/gcroots/$repo_name/${ref##*/}/$target"
+	mkdir -p "$dir" || return 1
+	timeout --kill-after=5s 60s nix build --out-link "$dir/out" "${outputs[@]}" \
+		> /dev/null 2>&1 {repository_lease}>&- {worker_lease}>&- || return 1
+	while IFS= read -r stale; do
+		index="${stale##*/out-}"
+		[[ $index =~ ^[0-9]+$ ]] && [ "$index" -ge "${#outputs[@]}" ] && rm -f -- "$stale"
+	done < <(find "$dir" -maxdepth 1 -type l -name 'out-*')
+	return 0
+}
+
 # shellcheck disable=SC2329 # invoked by EXIT trap
 cleanup_current() {
 	publish_current idle >/dev/null 2>&1 || true
@@ -537,6 +559,8 @@ while IFS= read -r item; do
 							break
 						fi
 						cat "$target_paths" >> "$paths_file"
+						keep_target_root "$target_paths" "$repo_name" "$ref" "$target" \
+							|| printf "warning: could not keep a GC root for %s\n" "$target" >> "$log_file"
 					done < "$target_list"
 				fi
 			fi
