@@ -27,7 +27,9 @@ assert test "${args[0]}" = '--user'
 assert test "${args[3]}" = '--slice=agentbuilds.slice'
 assert test "${args[4]}" = '--unit=build-validate-unit-id.scope'
 assert test "${args[5]}" = '--working-directory=/work/a b'
-assert test "${args[6]}" = '--property=MemoryHigh=12G'
+# MemoryHigh equals MemoryMax: with no swap, the band between them only reclaims
+# page cache, so an over-budget job crawled to its runtime limit instead of failing.
+assert test "${args[6]}" = '--property=MemoryHigh=16G'
 assert test "${args[7]}" = '--property=MemoryMax=16G'
 assert test "${args[8]}" = '--property=MemorySwapMax=0'
 assert test "${args[9]}" = '--property=OOMPolicy=stop'

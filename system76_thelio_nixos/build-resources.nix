@@ -9,7 +9,9 @@ in
 	systemd.user.slices.agentbuilds = {
 		description = "Shared native build and test memory budget";
 		sliceConfig = {
-			MemoryHigh = "24G";
+			# Equal to MemoryMax: build scopes cannot swap, so a soft line below the
+			# hard one only stalls them; reaching the envelope fails fast instead.
+			MemoryHigh = "32G";
 			MemoryMax = "32G";
 			MemorySwapMax = "2G";
 			CPUWeight = 20;

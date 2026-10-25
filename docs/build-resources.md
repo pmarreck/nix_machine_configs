@@ -6,9 +6,13 @@ cgroup. The command keeps its working directory, arguments, terminal and exit
 status. It supplies a unique task-owned `TMPDIR` beneath the caller's temporary
 directory. Do not replace that directory with shared scratch inside the job.
 
-Two cooperating jobs can run at once. Each has a 12 GiB soft threshold,
-16 GiB hard ceiling and no swap. Their aggregate `agentbuilds.slice` has a
-24 GiB soft threshold, 32 GiB hard ceiling and 2 GiB swap ceiling. The wrapper
+Two cooperating jobs can run at once. Each has a 16 GiB memory ceiling and
+no swap. Their aggregate `agentbuilds.slice` has a 32 GiB ceiling and a 2 GiB
+swap ceiling. The soft threshold (`MemoryHigh`) equals the hard ceiling at both
+levels. A job cannot swap, so between a lower soft line and the ceiling the
+kernel could reclaim only page cache: a job that settled there made almost no
+progress until its 30-minute runtime limit and gave no signal. At the ceiling it
+is now killed at once and attributed as an out-of-memory stop. The wrapper
 refuses to start unless the expected aggregate hard ceiling is installed.
 CPU and I/O weights yield to other work when there is contention; these are
 not CPU quotas.

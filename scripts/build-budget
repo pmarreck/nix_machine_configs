@@ -14,7 +14,7 @@ build_budget_args() {
 	shift 4
 	result=(--user --scope --quiet --slice=agentbuilds.slice
 		"--unit=build-$project-$identity.scope" "--working-directory=$cwd"
-		--property=MemoryHigh=12G --property=MemoryMax=16G
+		--property=MemoryHigh=16G --property=MemoryMax=16G
 		--property=MemorySwapMax=0 --property=OOMPolicy=stop
 		"--property=RuntimeMaxSec=${BUILD_BUDGET_RUNTIME_SECONDS:-1800}" --property=TimeoutStopSec=5s -- "$@")
 }
@@ -150,7 +150,7 @@ build_budget_main() (
 	local -a args=()
 	case "${1-}" in
 		-h|--help)
-			printf 'Usage: build-budget [--project NAME] -- COMMAND [ARG...]\nTwo FIFO build/test slots; 30-minute execution default, 12 GiB high/16 GiB maximum and no swap.\nLonger runs require infrastructure approval. Queue wait is excluded.\nRuns outside the agent cgroup. Successful task-owned scratch is removed; failed scratch is retained.\nBypassed or pre-existing jobs are not covered. Nix daemon builders retain their separate budget.\n'; exit 0 ;;
+			printf 'Usage: build-budget [--project NAME] -- COMMAND [ARG...]\nTwo FIFO build/test slots; 30-minute execution default, 16 GiB memory limit that fails fast and no swap.\nLonger runs require infrastructure approval. Queue wait is excluded.\nRuns outside the agent cgroup. Successful task-owned scratch is removed; failed scratch is retained.\nBypassed or pre-existing jobs are not covered. Nix daemon builders retain their separate budget.\n'; exit 0 ;;
 		--about) printf 'build-budget 1.0: Linux systemd build-memory containment\n'; exit 0 ;;
 		--project) project="${2-}"; [[ $# -ge 2 ]] || exit 2; shift 2 ;;
 	esac
