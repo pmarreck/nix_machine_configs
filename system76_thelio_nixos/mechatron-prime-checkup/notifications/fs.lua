@@ -220,10 +220,13 @@ function M.private_config(path)
 		end)
 	end)
 end
-function M.lock(path)
+-- Advisory exclusive flock on PATH, returning an unlock closure or nil when another process holds it.
+-- Nonblocking by default; WAIT blocks until the holder releases, so processes that a timer wake-up
+-- coalesces (the checkup sampler and its delivery retry) serialize instead of one of them failing.
+function M.lock(path,wait)
 	local dir,name=parent(path)
 	local fd=withfd(dir,function(d) return check(C.openat(d,name,bit.bor(WRONLY,CREAT,NOFOLLOW,CLOEXEC),ffi.cast("unsigned int",384)),"lock open") end)
-	if C.flock(fd,6)<0 then C.close(fd); return nil end
+	if C.flock(fd,wait and 2 or 6)<0 then C.close(fd); return nil end
 	return function() C.close(fd) end
 end
 return M

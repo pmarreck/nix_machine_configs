@@ -18,7 +18,7 @@ function M.new(config)
 	local p={now=os.time()}
 	local sign,hours,minutes=os.date('%z',p.now):match('([+-])(%d%d)(%d%d)')
 	p.utc_offset=hours and (tonumber(hours)*3600+tonumber(minutes)*60)*(sign=='-' and -1 or 1) or 0
-	p.unlock=fs.lock(config.state..'/.lock'); assert(p.unlock,'another checkup owns the lock')
+	p.unlock=fs.lock(config.state..'/.lock',true); assert(p.unlock,'checkup state lock unavailable')
 	local path=config.state..'/latest.json'
 	function p.load() local bytes=fs.read(path,131072); return bytes and assert(json.decode(bytes),'invalid checkup state') end
 	function p.save(state) fs.atomic(path,assert(json.encode(state))..'\n',384) end
