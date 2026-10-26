@@ -346,6 +346,7 @@ while IFS= read -r item; do
 	log_file=""
 	target_list=""
 	paths_file=""
+	unconfigured=false
 
 	if jq -e 'type == "object" and (.repo|type == "string") and (.ref|type == "string") and (.sha|type == "string") and (.delivery|type == "string")' <<< "$item" >/dev/null 2>&1; then
 		repo="$(jq -r .repo <<< "$item")"
@@ -507,6 +508,7 @@ while IFS= read -r item; do
 				else
 					failure_stage="target-manifest"
 					failure_detail=".mechatron-prime/targets is missing and no legacy target file exists"
+					unconfigured=true
 				fi
 				if [ -n "$targets_file" ]; then
 					printf 'targets_source=%s\n' "$target_source" >> "$log_file"
@@ -529,6 +531,7 @@ while IFS= read -r item; do
 				elif [ ! -s "$target_list" ]; then
 					failure_stage="target-manifest"
 					failure_detail="target manifest has no active targets"
+					unconfigured=true
 				elif ! write_badge_status "$badge_dir" "$repo" BUILDING "$sha"; then
 					failure_stage="status-publication"
 					failure_detail="could not publish BUILDING badge"
@@ -636,6 +639,10 @@ while IFS= read -r item; do
 				failure_stage="status-publication"
 				failure_detail="could not publish PASSING badge"
 			fi
+		elif [ "$unconfigured" = true ]; then
+			# Not onboarded: there is nothing to verify, so the badge claims
+			# neither a pass nor a failure. The ledger still records a failure.
+			write_badge_status "$badge_dir" "$repo" UNCONFIGURED "$sha" || true
 		elif [ "$status" = "stopped" ]; then
 			# A stopped build makes no claim about the repository, so it must
 			# not publish the failing badge that sends its agent debugging.

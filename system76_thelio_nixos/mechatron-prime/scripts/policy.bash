@@ -306,6 +306,10 @@ badge_json() {
 		# shows whether a commit was displaced automatically or dropped on
 		# purpose.
 		CANCELLED) color=orange ;;
+		# The commit has no target manifest, or one listing no targets, so there
+		# was nothing to verify. Grey and not isError: it is neither a pass nor
+		# evidence of broken code, only a repository not yet onboarded.
+		UNCONFIGURED) color=lightgrey ;;
 		*) return 1 ;;
 	esac
 	jq -cn \

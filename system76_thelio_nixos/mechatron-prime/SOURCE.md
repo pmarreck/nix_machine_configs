@@ -46,6 +46,12 @@ and `mechatron-ci log`; targets after a failed or stopped one are recorded as
 `skipped` (ledger schema version 3, a table rebuild on the worker's first
 start); and each run log ends with a result block.
 
+The ops process adapter, policy library and worker are then updated from
+source commit `378eeb7`. The adapter reports a command's real exit status
+(LuaJIT's default mode returned success from every popen close, so failed ops
+actions showed as done), and a commit with no target manifest, or one listing
+no targets, publishes a grey `UNCONFIGURED` badge instead of `FAILING`.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored
