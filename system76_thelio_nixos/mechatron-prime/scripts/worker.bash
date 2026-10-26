@@ -64,6 +64,13 @@ lane_cgroup="${MECHATRON_CGROUP_DIR-}"
 if [ -z "$lane_cgroup" ] && IFS= read -r cgroup_line < /proc/self/cgroup 2>/dev/null && [[ $cgroup_line == 0::/* ]]; then
 	lane_cgroup="/sys/fs/cgroup${cgroup_line#0::}"
 fi
+# Nix's fetcher cache (a ref-less Git repository) for between-job repacks.
+# Unset disables maintenance, so a test run can never touch a real cache. The
+# default limit is Git's own gc.autoPackLimit.
+tarball_cache_dir="${MECHATRON_TARBALL_CACHE_DIR-}"
+tarball_cache_pack_limit="${MECHATRON_TARBALL_CACHE_PACK_LIMIT:-50}"
+tarball_cache_repack_timeout="${MECHATRON_TARBALL_CACHE_REPACK_TIMEOUT_SECONDS:-600}"
+tarball_cache_lock="$state_dir/.tarball-cache.lock"
 cache_push="${MECHATRON_CACHE_PUSH:-true}"
 substituters="${MECHATRON_SUBSTITUTERS:-}"
 nix_options=()
@@ -250,6 +257,13 @@ while :; do
 	batch=""
 	recovery_line=1
 	recover_on_interrupt=false
+	# Repack before claiming, so the time is queue wait rather than job time.
+	# Another lane mid-job holds the shared cache lease, and maintenance skips.
+	if [ -n "$tarball_cache_dir" ]; then
+		cache_outcome="$(maintain_tarball_cache "$tarball_cache_dir" "$tarball_cache_lock" \
+			"$tarball_cache_pack_limit" "$tarball_cache_repack_timeout" {repository_lease}>&- {worker_lease}>&-)"
+		case "$cache_outcome" in *repack*) printf "Mechatron Prime worker: %s\n" "$cache_outcome" ;; esac
+	fi
 	batch_sequence=$((batch_sequence + 1))
 	batch_id="$(date -u +%Y%m%dT%H%M%SZ)-$$-$batch_sequence"
 	batch="$state_dir/batches/builds-$batch_id.ndjson"
@@ -294,6 +308,12 @@ while :; do
 	write_claim_pointer "$claim_dir" "$batch" 1 || exit 1
 	exec 9>&-
 	fi
+
+# Fetches read and extend the fetcher cache for the whole claimed batch, and
+# their Nix children inherit this lease. Waiting here means a repack is
+# running, which counts as queue time.
+exec {cache_lease}> "$tarball_cache_lock" || exit 1
+flock -s "$cache_lease" || exit 1
 
 batch_total=0
 while IFS= read -r queued_item; do
@@ -647,6 +667,7 @@ done < "$batch"
 
 clear_claim_pointer "$claim_dir" || exit 1
 exec {repository_lease}>&-
+exec {cache_lease}>&-
 repository_lease=9
 recover_on_interrupt=false
 done

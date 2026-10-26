@@ -33,6 +33,12 @@ The worker is then updated from source commit `af9784a`, which keeps a garbage-
 collection root on the newest green output of each repository, branch and
 target; its pinned digest follows that commit.
 
+The worker, policy library and worker module are then updated from source
+commit `e2cbfe4`, which repacks the worker's ref-less Nix fetcher cache with
+`git repack --geometric=2 -d` between jobs once it holds 50 packs, under a
+lease that keeps a repack from running under another lane's fetch. The
+module names the cache directory, which enables the maintenance.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored

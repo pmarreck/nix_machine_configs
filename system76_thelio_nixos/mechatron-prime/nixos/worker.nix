@@ -99,6 +99,9 @@ rec {
       MECHATRON_BUILD_TIMEOUT_SECONDS = "1800";
       MECHATRON_RUNTIME_APPROVALS_FILE = "/etc/mechatron-prime/runtime-approvals.json";
       MECHATRON_PREFETCH_TIMEOUT_SECONDS = "60";
+      # Nix's fetcher cache under XDG_CACHE_HOME; the worker repacks it between
+      # jobs. See docs/operations.md.
+      MECHATRON_TARBALL_CACHE_DIR = "/var/lib/mechatron-prime/.cache/nix/tarball-cache-v2";
       # CI must remain independent of Garnix even while the global host
       # configuration still lists its soon-to-disappear substituter.
       MECHATRON_SUBSTITUTERS = "http://100.96.171.61:8080/fleet https://cache.nixos.org/";

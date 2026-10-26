@@ -400,3 +400,39 @@ cgroup_stall_snapshot() {
 	fields+=("slice_throttled_us=$value")
 	printf '%s\n' "${fields[*]}"
 }
+
+# Keep Nix's fetcher cache (a ref-less bare Git repository that gains about
+# one pack per fetch) from accumulating thousands of packs. A geometric repack
+# rolls small packs together without a reachability walk, so it keeps every
+# object; `git gc` and `repack -a -d` would delete them all. The exclusive
+# lease is taken without waiting: a lane holding the shared lease means a
+# fetch may be reading the cache, and maintenance simply waits for a later
+# turn. Prints one outcome line; only a failed repack returns nonzero.
+# complexity: O(packs) to count; geometric repack amortizes to O(new objects)
+maintain_tarball_cache() {
+	local cache="$1" lock="$2" limit="$3" timeout_seconds="$4" packs after status lease
+	if [ ! -d "$cache/objects/pack" ]; then
+		printf 'tarball cache absent\n'
+		return 0
+	fi
+	packs="$(find "$cache/objects/pack" -maxdepth 1 -name 'pack-*.pack' | wc -l)"
+	if [ "$packs" -lt "$limit" ]; then
+		printf 'tarball cache below limit packs=%s limit=%s\n' "$packs" "$limit"
+		return 0
+	fi
+	exec {lease}> "$lock" || return 1
+	if ! flock -x -n "$lease"; then
+		exec {lease}>&-
+		printf 'tarball cache busy packs=%s\n' "$packs"
+		return 0
+	fi
+	timeout --kill-after=5s "$timeout_seconds" git -C "$cache" repack --geometric=2 -d -q > /dev/null
+	status=$?
+	exec {lease}>&-
+	if [ "$status" -ne 0 ]; then
+		printf 'tarball cache repack failed status=%s packs=%s\n' "$status" "$packs"
+		return 1
+	fi
+	after="$(find "$cache/objects/pack" -maxdepth 1 -name 'pack-*.pack' | wc -l)"
+	printf 'tarball cache repacked packs=%s->%s\n' "$packs" "$after"
+}
