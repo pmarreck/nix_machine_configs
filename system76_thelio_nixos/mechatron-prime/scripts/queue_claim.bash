@@ -48,9 +48,11 @@ queue_record_reserved() {
 		cursor=$(jq -er '.recovery_line | select(type=="number" and .==floor and .>0)' "$pointer" 2>/dev/null) || { [[ ! -e "$pointer" ]] && continue; return 2; }
 		[[ "$cursor" -eq 1 ]] || continue
 		[[ -f "$batch" && ! -L "$batch" ]] || return 2
-		other=$(head -n 1 "$batch") || return 2
-		other_delivery=$(jq -er '.delivery | strings | select(length>0)' <<< "$other" 2>/dev/null) || other_delivery=''
-		if [[ -n "$delivery" && "$delivery" = "$other_delivery" ]] || [[ "$item" = "$other" ]]; then return 0; fi
+		# Nothing in a batch has run at cursor 1, so every line is still reserved.
+		while IFS= read -r other || [[ -n "$other" ]]; do
+			other_delivery=$(jq -er '.delivery | strings | select(length>0)' <<< "$other" 2>/dev/null) || other_delivery=''
+			if [[ -n "$delivery" && "$delivery" = "$other_delivery" ]] || [[ "$item" = "$other" ]]; then return 0; fi
+		done < "$batch"
 	done
 	return 1
 }
@@ -59,7 +61,8 @@ queue_record_reserved() {
 claim_fifo_job() {
 	local -n selected_lease="$1"
 	local state="$2" queue="$3" lock="$4" batch="$5" claims="$6"
-	local gate lifecycle collapsed ordered remainder item repo key candidate delivery verdict held='' picked=false consumed=false status=0
+	local gate lifecycle collapsed ordered remainder settled item repo key candidate delivery verdict held='' picked=false consumed=false status=0
+	local picked_item='' picked_group=''
 	selected_lease=''
 	declare -F ci_delivery_has_result >/dev/null || return 1
 	mkdir -p "$state/leases" "$claims" || return 1
@@ -71,6 +74,7 @@ claim_fifo_job() {
 	if [[ ! -s "$queue" ]]; then exec {gate}>&-; exec {lifecycle}>&-; return 3; fi
 	collapsed=$(mktemp "$queue.candidates.XXXXXX") || { exec {gate}>&-; exec {lifecycle}>&-; return 1; }
 	remainder=$(mktemp "$queue.remaining.XXXXXX") || { rm -f -- "$collapsed"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
+	settled=$(mktemp "$queue.settled.XXXXXX") || { rm -f -- "$collapsed" "$remainder"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
 	if ! collapse_queue_batch < "$queue" > "$collapsed" 2>/dev/null; then
 		cp -- "$queue" "$collapsed" || status=1
 	fi
@@ -115,7 +119,8 @@ claim_fifo_job() {
 						if [[ "$verdict" -ne 1 ]]; then exec {candidate}>&-; status=1; break; fi
 					fi
 					held=$candidate
-					printf '%s\n' "$item" > "$batch" || { status=1; break; }
+					picked_item=$item
+					picked_group=$(jq -c '[.repo, .ref]' <<< "$item" 2>/dev/null) || picked_group=''
 					picked=true
 					continue
 				else
@@ -124,6 +129,21 @@ claim_fifo_job() {
 					if [[ "$status" -ne 75 ]]; then break; fi
 					status=0
 				fi
+			# Commits this claim displaced settle with it, ahead of the build, so their
+			# superseded verdicts do not wait behind every later build of the branch.
+			elif [[ "$picked_group" = \[* ]] && jq -e --argjson group "$picked_group" \
+					'.superseded == true and [.repo, .ref] == $group' <<< "$item" >/dev/null 2>&1; then
+				delivery=$(jq -er '.delivery | strings | select(length>0)' <<< "$item" 2>/dev/null) || delivery=''
+				if [[ -n "$delivery" ]]; then
+					if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then consumed=true; continue; else verdict=$?; fi
+					if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
+				fi
+				if queue_record_reserved "$state" "$item"; then :; else
+					verdict=$?
+					if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
+					printf '%s\n' "$item" >> "$settled" || { status=1; break; }
+					continue
+				fi
 			fi
 			printf '%s\n' "$item" >> "$remainder" || { status=1; break; }
 		done < "$collapsed"
@@ -131,12 +151,13 @@ claim_fifo_job() {
 	if [[ "$status" -eq 0 && "$picked" = true ]]; then
 		# Recovery deduplicates against the queue if publication fails before rename.
 		# The pointer must exist before the selected item disappears from the queue.
-		chmod 0640 "$batch" "$remainder" && write_claim_pointer "$claims" "$batch" 1 \
+		{ cat -- "$settled" && printf '%s\n' "$picked_item"; } > "$batch" \
+			&& chmod 0640 "$batch" "$remainder" && write_claim_pointer "$claims" "$batch" 1 \
 			&& queue_commit_effect "$remainder" "$queue" || status=1
 	elif [[ "$status" -eq 0 && "$consumed" = true ]]; then
 		chmod 0640 "$remainder" && queue_commit_effect "$remainder" "$queue" || status=1
 	fi
-	rm -f -- "$collapsed" "$remainder"
+	rm -f -- "$collapsed" "$remainder" "$settled"
 	exec {gate}>&-
 	exec {lifecycle}>&-
 	if [[ "$status" -ne 0 ]]; then

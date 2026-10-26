@@ -52,6 +52,11 @@ source commit `378eeb7`. The adapter reports a command's real exit status
 actions showed as done), and a commit with no target manifest, or one listing
 no targets, publishes a grey `UNCONFIGURED` badge instead of `FAILING`.
 
+The queue claim library is then updated from source commit `abaa153`: a lane's
+claim takes the superseded commits of the build it selects (same repository
+and branch) into the same batch, ahead of the build, so their verdicts no
+longer wait behind every later build of a frequently pushed branch.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored
