@@ -1,5 +1,14 @@
 # NixOS plan
 
+## WSL NFS client support (2026-10-26)
+
+- [x] Add a failing effective-configuration test requiring the WSL host to support NFS and supply `mount.nfs`; then add the narrow NFS filesystem declaration. Completed 2026-10-26 EDT: two assertions failed before the config change; all three pass afterward.
+  - Curiosity poke: a declared filesystem does not prove the userspace helper exists in the active system profile.
+- [x] Run the complete suite, build and dry-activate the exact WSL host, switch, and verify the live helper. Completed 2026-10-26 EDT: 18/18 test files pass; activation succeeds; the active system provides `mount.nfs` 2.9.1.
+  - Curiosity poke: adding NFS client support also starts NFS-related systemd units; inspect activation before switching.
+- [ ] Resolve the separate remote-export denial before claiming an end-to-end NFS mount. NFSv3 reports server access denied and NFSv4 reports operation not permitted from this WSL guest.
+  - Curiosity poke: virtualization may remap a reserved source port; verify server logs before changing export security.
+
 ## Mail attachments and consolidated inbox (2026-09-18)
 
 - [x] Update only unix-mail-redux and its llmsend lock nodes to 872f236 and

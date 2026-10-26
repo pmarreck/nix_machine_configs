@@ -32,6 +32,7 @@ in
 
   # WSL instances are routinely stopped rather than shut down conventionally.
   boot.tmp.cleanOnBoot = true;
+  boot.supportedFilesystems = [ "nfs" ];
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
