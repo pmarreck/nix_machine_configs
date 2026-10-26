@@ -37,6 +37,20 @@ assert test "${args[10]}" = '--property=RuntimeMaxSec=1800'
 assert test "${args[11]}" = '--property=TimeoutStopSec=5s'
 assert test "${args[12]}" = '--'
 assert test "${args[15]}" = 'exit 7'
+
+# The scope's unit Result is systemd's own view (success unless systemd stopped
+# it), not the command's outcome: a command that fails or is killed by an outside
+# signal still leaves Result=success. The verdict classifies both together.
+for case in \
+	'0|success|passed' '0||passed' \
+	'1|success|failed' '7|success|failed' '101|success|failed' '126|success|failed' '127|success|failed' '255|success|failed' \
+	'130|success|interrupted' '134|success|interrupted' '137|success|interrupted' '143|success|interrupted' '166|success|interrupted' \
+	'143|timeout|runtime-limit' '0|timeout|runtime-limit' \
+	'137|oom-kill|memory-limit' '1|oom-kill|memory-limit' \
+	'1|exit-code|failed' '143|signal|interrupted'; do
+	IFS='|' read -r case_exit case_result case_verdict <<< "$case"
+	assert test "$(build_budget_verdict "$case_exit" "$case_result")" = "$case_verdict"
+done
 out='' err='' rc=0
 capture build_budget_main --project '../bad' -- true
 assert test "$rc" -eq 2
@@ -140,12 +154,15 @@ scratch=$(< "$fixture/scratch-path")
 assert test -d "$scratch"
 assert test "$(jq -s '.[0].exit_code' "$fixture/state/build-budget/runs.ndjson")" = 7
 assert test "$(jq -s '.[0].peak_bytes' "$fixture/state/build-budget/runs.ndjson")" = 1234
+assert test "$(jq -r -s '.[0].verdict' "$fixture/state/build-budget/runs.ndjson")" = failed
+assert test "${err#*build-budget: exit=7 (failed); scratch retained at }" != "$err"
 adapter_status=0
 capture build_budget_main --project validate -- true
 assert test "$rc" -eq 0
 scratch=$(< "$fixture/scratch-path")
 assert test ! -e "$scratch"
 assert test "$(jq -s 'length' "$fixture/state/build-budget/runs.ndjson")" = 2
+assert test "$(jq -r -s '.[1].verdict' "$fixture/state/build-budget/runs.ndjson")" = passed
 
 # Admission is a state-transition classifier, not a timed race. The recording
 # lock adapter releases slot1 on the bounded slot2 wait's timeout. Retrying1

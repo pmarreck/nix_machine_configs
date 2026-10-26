@@ -142,6 +142,21 @@ build_budget_acquire_slot() {
 	return 75
 }
 
+# Classify a finished job from its command exit code and the scope's unit
+# Result. Result is systemd's view and stays "success" when the command fails or
+# an outside signal kills it, so neither field alone is the job's verdict.
+build_budget_verdict() {
+	local status="$1" unit_result="$2"
+	case "$unit_result" in
+		timeout) printf 'runtime-limit\n'; return ;;
+		oom-kill) printf 'memory-limit\n'; return ;;
+	esac
+	if [[ "$status" -eq 0 ]]; then printf 'passed\n'
+	elif [[ "$status" -gt 128 && "$status" -le 192 ]]; then printf 'interrupted\n'
+	else printf 'failed\n'
+	fi
+}
+
 build_budget_main() (
 	set +e
 	set -u
@@ -196,7 +211,8 @@ build_budget_main() (
 		result=$(awk '!/^[0-9]+$/ && NF {print; exit}' <<< "$properties")
 		record=$(jq -nc --arg project "$project" --arg unit "$unit" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
 			--arg scratch "$scratch" --arg peak "$peak" --arg result "$result" --argjson status "$status" \
-			'{schema:"build-budget/v1",project:$project,unit:$unit,datetime:$now,exit_code:$status,result:$result,peak_bytes:(try ($peak|tonumber) catch null),scratch:$scratch}')
+			--arg verdict "$(build_budget_verdict "$status" "$result")" \
+			'{schema:"build-budget/v1",project:$project,unit:$unit,datetime:$now,exit_code:$status,result:$result,verdict:$verdict,peak_bytes:(try ($peak|tonumber) catch null),scratch:$scratch}')
 		# Serialize one complete JSON record; failed receipts must remain visible.
 		if ! (flock 9 && printf '%s\n' "$record" >&9) 9>>"$state/runs.ndjson"; then
 			printf 'build-budget: could not persist completion receipt\n' >&2
@@ -208,7 +224,7 @@ build_budget_main() (
 				"$rm_bin" -r --one-file-system --preserve-root=all -- "$scratch" || printf 'build-budget: scratch cleanup failed: %s\n' "$scratch" >&2
 			fi
 		else
-			printf 'build-budget: exit=%s; scratch retained at %s\n' "$status" "$scratch" >&2
+			printf 'build-budget: exit=%s (%s); scratch retained at %s\n' "$status" "$(build_budget_verdict "$status" "$result")" "$scratch" >&2
 		fi
 	}
 	trap 'build_budget_finish "$?"' EXIT
