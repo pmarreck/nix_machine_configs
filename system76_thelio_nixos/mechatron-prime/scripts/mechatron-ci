@@ -413,7 +413,12 @@ if [ "$command" = log ]; then
 			(.failure_stage | type == "string") and
 			(.failure_detail | type == "string") and
 			(.started_at | type == "string") and
-			(.finished_at | type == "string")
+			(.finished_at | type == "string") and
+			((.targets // []) | type == "array") and
+			(all((.targets // [])[];
+				(.target | type == "string") and
+				(.status == "success" or .status == "failure" or .status == "stopped" or .status == "skipped")
+			))
 		))
 	' <<< "$document" >/dev/null 2>&1; then
 		printf '%s: %s\n' "$(message title)" "$(message invalid_history)" >&2
@@ -447,6 +452,11 @@ if [ "$command" = log ]; then
 			elif .status == "stopped" and .failure_stage == "github-timeout" then "TIMEOUT"
 			elif .status == "stopped" then "STOPPED"
 			else "FAIL" end;
+		def target_outcome:
+			if .status == "success" then "PASS"
+			elif .status == "stopped" then "STOPPED"
+			elif .status == "skipped" then "SKIPPED"
+			else "FAIL" end;
 		[$title + " (" + (.results | length | tostring) + " newest)"] +
 		[.results[] |
 			"  " + (.finished_at // .started_at) +
@@ -456,7 +466,8 @@ if [ "$command" = log ]; then
 			(if .status == "failure" or .status == "stopped" then
 				(if .failure_stage == "" then "" else "  " + .failure_stage end) +
 				(if .failure_detail == "" then "" else (if .failure_stage == "" then "  " else ": " end) + .failure_detail end)
-			else "" end)
+			else "" end),
+			((.targets // [])[] | "      " + target_outcome + "  " + .target)
 		] | .[]
 	' <<< "$document"
 	exit $?

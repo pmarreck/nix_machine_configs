@@ -23,14 +23,18 @@ local fixed_commands = {
 local codex_binary = "/home/pmarreck/.local/bin/codex"
 local mechatron_control_binary = "/run/current-system/sw/bin/mechatron-prime-control"
 local clocksound_timer = "clocksound.timer"
-local recent_ci_query = [[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]]
+-- Each run carries its targets in build order as name and status only; store
+-- output paths stay in the ledger.  A run recorded before per-target results
+-- existed gets an empty list.
+local ci_run_columns = [[repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at, (SELECT json_group_array(json_object('target', target, 'status', status) ORDER BY ordinal) FROM ci_targets WHERE ci_targets.run_id = ci_runs.run_id) AS targets_json]]
+local recent_ci_query = string.format([[SELECT %s FROM ci_runs ORDER BY finished_at DESC LIMIT 10;]], ci_run_columns)
 -- The history projection is bounded only as a runaway guard, not as a display
 -- window. It used to stop at 100 rows, which silently hid most of the ledger
 -- from filtered lookups; filtering now happens over everything the guard admits,
 -- and the query asks for one row PAST the bound so truncation is detectable
 -- rather than assumed.
 local ci_history_bound = 5000
-local ci_history_query = string.format([[SELECT repository, commit_sha, status, failure_stage, failure_detail, started_at, finished_at FROM ci_runs ORDER BY finished_at DESC LIMIT %d;]], ci_history_bound + 1)
+local ci_history_query = string.format([[SELECT %s FROM ci_runs ORDER BY finished_at DESC LIMIT %d;]], ci_run_columns, ci_history_bound + 1)
 
 local function trim(text)
 	return (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -182,6 +186,15 @@ function M.new(adapter, options)
 		if trim(output) == "" then return {} end
 		local decoded = cjson.decode(output)
 		if type(decoded) ~= "table" then return nil, "the result ledger returned an unreadable projection" end
+		for _, row in ipairs(decoded) do
+			if type(row.targets_json) == "string" then
+				local ok, targets = pcall(cjson.decode, row.targets_json)
+				if not ok or type(targets) ~= "table" then return nil, "the result ledger returned unreadable target outcomes" end
+				row.targets = targets
+			end
+			row.targets_json = nil
+			if type(row.targets) ~= "table" then row.targets = {} end
+		end
 		return decoded
 	end
 

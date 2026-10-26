@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS ci_targets (
 	run_id TEXT NOT NULL REFERENCES ci_runs(run_id) ON DELETE CASCADE,
 	ordinal INTEGER NOT NULL CHECK (ordinal > 0),
 	target TEXT NOT NULL,
-	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped', 'skipped')),
 	output_paths_json TEXT NOT NULL CHECK (json_valid(output_paths_json)),
 	PRIMARY KEY (run_id, ordinal),
 	UNIQUE (run_id, target)
@@ -63,22 +63,25 @@ SQL
 	chmod 0640 "$database"
 )
 
-# Widen the run and target status vocabulary from ('success','failure') to
-# include 'stopped'. SQLite cannot alter a CHECK constraint in place, so each
-# table is rebuilt and its rows copied. CREATE TABLE IF NOT EXISTS above is a
-# no-op on an existing ledger, which is precisely why this exists: a v1 file
-# keeps its narrow constraint until it is rebuilt here.
+# Widen the status vocabulary to the current schema. Version 2 added 'stopped'
+# to runs and targets; version 3 adds 'skipped' to targets, for a manifest
+# target the worker never built because an earlier one failed or stopped.
+# SQLite cannot alter a CHECK constraint in place, so each table is rebuilt and
+# its rows copied. CREATE TABLE IF NOT EXISTS above is a no-op on an existing
+# ledger, which is precisely why this exists: an older file keeps its narrow
+# constraint until it is rebuilt here. Both older versions take the same
+# rebuild to the current constraints.
 upgrade_status_store() {
 	local database="${1:-}"
 	local version
 	[ -n "$database" ] || return 1
 	version="$(sqlite3 -bail "$database" 'PRAGMA user_version;')" || return 1
 	case "$version" in
-		2) return 0 ;;
+		3) return 0 ;;
 		# A freshly created ledger already carries the widened constraint and
 		# needs only its version stamp.
-		0) sqlite3 -bail "$database" 'PRAGMA user_version = 2;' >/dev/null; return $? ;;
-		1) ;;
+		0) sqlite3 -bail "$database" 'PRAGMA user_version = 3;' >/dev/null; return $? ;;
+		1|2) ;;
 		*) return 1 ;;
 	esac
 	sqlite3 -bail "$database" >/dev/null <<'SQL'
@@ -109,7 +112,7 @@ CREATE TABLE ci_targets_upgraded (
 	run_id TEXT NOT NULL REFERENCES ci_runs(run_id) ON DELETE CASCADE,
 	ordinal INTEGER NOT NULL CHECK (ordinal > 0),
 	target TEXT NOT NULL,
-	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped')),
+	status TEXT NOT NULL CHECK (status IN ('success', 'failure', 'stopped', 'skipped')),
 	output_paths_json TEXT NOT NULL CHECK (json_valid(output_paths_json)),
 	PRIMARY KEY (run_id, ordinal),
 	UNIQUE (run_id, target)
@@ -117,7 +120,7 @@ CREATE TABLE ci_targets_upgraded (
 INSERT INTO ci_targets_upgraded SELECT * FROM ci_targets;
 DROP TABLE ci_targets;
 ALTER TABLE ci_targets_upgraded RENAME TO ci_targets;
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 COMMIT;
 PRAGMA foreign_keys = ON;
 SQL
@@ -220,7 +223,7 @@ record_ci_result() {
 			target_status="$(jq -er '.status | strings' <<< "$target_result")" || { render_status=1; break; }
 			output_paths_json="$(jq -ec '.output_paths | arrays' <<< "$target_result")" || { render_status=1; break; }
 			valid_nix_target "$target" || { render_status=1; break; }
-			case "$target_status" in success|failure|stopped) ;; *) render_status=1; break ;; esac
+			case "$target_status" in success|failure|stopped|skipped) ;; *) render_status=1; break ;; esac
 			printf 'INSERT INTO ci_targets (run_id, ordinal, target, status, output_paths_json) VALUES (%s, %s, %s, %s, %s);\n' \
 				"$(sql_quote "$run_id")" "$ordinal" "$(sql_quote "$target")" \
 				"$(sql_quote "$target_status")" "$(sql_quote "$output_paths_json")"

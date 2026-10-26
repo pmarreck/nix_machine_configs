@@ -39,6 +39,13 @@ commit `e2cbfe4`, which repacks the worker's ref-less Nix fetcher cache with
 lease that keeps a repack from running under another lane's fetch. The
 module names the cache directory, which enables the maintenance.
 
+The worker, ledger library, history CLI and ops ledger projection and renderer
+are then updated from source commit `7a26eb4`. Each CI run reports its targets
+with their own outcomes in `/ops/ci-log.json`, the CI projection's recent runs
+and `mechatron-ci log`; targets after a failed or stopped one are recorded as
+`skipped` (ledger schema version 3, a table rebuild on the worker's first
+start); and each run log ends with a result block.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored

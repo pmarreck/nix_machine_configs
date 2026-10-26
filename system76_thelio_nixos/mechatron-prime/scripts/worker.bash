@@ -582,6 +582,19 @@ while IFS= read -r item; do
 						keep_target_root "$target_paths" "$repo_name" "$ref" "$target" \
 							|| printf "warning: could not keep a GC root for %s\n" "$target" >> "$log_file"
 					done < "$target_list"
+					# A failed or stopped target ends the build, so the manifest
+					# targets after it never ran. Record them as skipped rather
+					# than leave the run looking as if it had fewer targets.
+					skipped_number=0
+					while IFS= read -r target; do
+						skipped_number=$((skipped_number + 1))
+						[ "$skipped_number" -le "$target_number" ] && continue
+						jq -cn \
+							--argjson ordinal "$skipped_number" \
+							--arg target "$target" \
+							'{ordinal:$ordinal,target:$target,status:"skipped",output_paths:[]}' \
+							>> "$target_results_file" || exit 1
+					done < "$target_list"
 				fi
 			fi
 			fi
@@ -633,6 +646,18 @@ while IFS= read -r item; do
 	fi
 
 	finished_at="$(now_utc)"
+	if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+		{
+			printf '\n=== result ===\n'
+			if [ -n "$failure_stage" ]; then
+				printf 'status=%s failure_stage=%s\n' "$status" "$failure_stage"
+			else
+				printf 'status=%s\n' "$status"
+			fi
+			jq -r '(if .status == "success" then "PASS" elif .status == "failure" then "FAIL" else (.status | ascii_upcase) end) + "  " + .target' \
+				< "$target_results_file"
+		} >> "$log_file" || exit 1
+	fi
 	targets_json='[]'
 	paths_json='[]'
 	[ -n "$target_list" ] && [ -f "$target_list" ] &&

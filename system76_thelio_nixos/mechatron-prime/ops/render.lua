@@ -83,12 +83,31 @@ function M.health_json(model)
 	return encoded .. "\n"
 end
 
+--- Project one ledger run for clients: its verdict plus each target's name and
+--- status in build order.  Output paths and log paths stay server-side.
+local function ci_run_json(run)
+	local targets = {}
+	for _, target in ipairs(run.targets or {}) do
+		targets[#targets + 1] = {target = target.target, status = target.status}
+	end
+	return {
+		repository = run.repository,
+		commit_sha = run.commit_sha,
+		status = run.status,
+		failure_stage = run.failure_stage or "",
+		failure_detail = run.failure_detail or "",
+		started_at = run.started_at,
+		finished_at = run.finished_at,
+		targets = json_array(targets),
+	}
+end
+
 --- Render the narrow agent-facing CI projection; private ledger paths,
 --- output paths, delivery IDs, and arbitrary SQL remain server-side.
 function M.ci_json(model)
 	local mechatron = model.mechatron
 	local recent = {}
-	for _, run in ipairs(mechatron.recent or {}) do recent[#recent + 1] = run end
+	for _, run in ipairs(mechatron.recent or {}) do recent[#recent + 1] = ci_run_json(run) end
 	local encoded, encode_error = cjson.encode({
 		generated_at = model.generated_at,
 		admission = mechatron.admission,
@@ -133,15 +152,7 @@ end
 function M.ci_history_json(generated_at, runs, meta)
 	local results = {}
 	for _, run in ipairs(runs or {}) do
-		results[#results + 1] = {
-			repository = run.repository,
-			commit_sha = run.commit_sha,
-			status = run.status,
-			failure_stage = run.failure_stage or "",
-			failure_detail = run.failure_detail or "",
-			started_at = run.started_at,
-			finished_at = run.finished_at,
-		}
+		results[#results + 1] = ci_run_json(run)
 	end
 	-- `total_runs` is the size of the set the filter searched, and `truncated`
 	-- says whether that set was itself cut short. Together they let a client
