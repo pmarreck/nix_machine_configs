@@ -108,7 +108,7 @@ in {
     description = "Thelio UPS 0/5/10-minute outage policy";
     after = [ "upsd.service" "upsdrv.service" ];
     environment = {
-      UPS_POLICY = toString ./ups/policy.lua;
+      UPS_POLICY = "${./ups/policy.lua}";
       UPS_QUERY = "${pkgs.coreutils}/bin/timeout 3 ${nut}/bin/upsc everamp@127.0.0.1 ups.status";
       UPS_NOTIFY = toString enqueue;
       UPS_POWEROFF = "${pkgs.systemd}/bin/systemctl --no-block poweroff";

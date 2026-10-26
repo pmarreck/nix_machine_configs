@@ -11,10 +11,13 @@ nix eval --json "$root#nixosConfigurations.thelio-nixos.config" --apply 'c: {
   firewall = c.power.ups.openFirewall;
   listeners = map (x: x.address) c.power.ups.upsd.listen;
   driver = c.systemd.services.upsdrv.serviceConfig;
+  # A path string without store context is not a closure member, so garbage
+  # collection deletes the policy and the monitor fails on every timer run.
+  policyReferenced = builtins.hasContext c.systemd.services.everamp-monitor.environment.UPS_POLICY;
 }' | jq -e '
   .armed == false and .upsmon == false and .powerdown == null and
   .shutdownOrder == -1 and .port == "auto" and .firewall == false and
   .listeners == ["127.0.0.1"] and .driver.Type == "simple" and
-  .driver.Restart == "on-failure"
+  .driver.Restart == "on-failure" and .policyReferenced == true
 ' >/dev/null
 printf 'UPS evaluated configuration safety assertions passed\n'
