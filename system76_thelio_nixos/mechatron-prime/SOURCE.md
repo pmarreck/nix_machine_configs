@@ -57,6 +57,11 @@ claim takes the superseded commits of the build it selects (same repository
 and branch) into the same batch, ahead of the build, so their verdicts no
 longer wait behind every later build of a frequently pushed branch.
 
+The queue claim library and policy library are then updated from source commit
+`64c2cfd`: the queue keeps arrival order and stores no superseded marks, so a
+claim can no longer read a branch's moved-up newest commit as its oldest and
+supersede it, which had left a branch's newest commit unbuilt.
+
 Run `../test-mechatron-prime-integration` from this directory (or
 `./system76_thelio_nixos/test-mechatron-prime-integration` from the repository
 root) before committing an integration update. The check pins every vendored

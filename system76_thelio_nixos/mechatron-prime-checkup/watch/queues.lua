@@ -23,7 +23,22 @@ function M.ci(command)
 	for _,job in ipairs(value.waiting) do assert(type(job.waiting_seconds)=='number' and job.waiting_seconds>=0,'invalid CI waiting age') end
 	return value
 end
-function M.builds(p,command,uptime,runtime)
+-- Approved build runtimes, keyed by project, from the runtime-approvals ledger
+-- (local/<project> entries). Unreadable or malformed input grants nothing, so
+-- the runtime warning keeps its 1800-second default.
+local function allowances(p,path)
+	local result={}
+	local text=path and p.read(path)
+	local ok,ledger=pcall(json.decode,text or '')
+	if not ok or type(ledger)~='table' or type(ledger.approvals)~='table' then return result end
+	for key,entry in pairs(ledger.approvals) do
+		local project=type(key)=='string' and key:match('^local/([%w_%-]+)$')
+		local seconds=type(entry)=='table' and entry.seconds
+		if project and type(seconds)=='number' and seconds>0 and seconds==math.floor(seconds) then result[project]=seconds end
+	end
+	return result
+end
+function M.builds(p,command,uptime,runtime,approvals)
 	assert(type(uptime)=='number','uptime unavailable for build queue')
 	local locks=assert(json.decode(command({'lslocks','--json','--output','PID,MODE,PATH,BLOCKER',
 		'--filter','PATH =~ "/build-budget/slot-[0-9]+[.]lock$"'})),'invalid build lock JSON')
@@ -44,7 +59,7 @@ function M.builds(p,command,uptime,runtime)
 			held[lock.pid]=true
 		end
 	end
-	local result={holders={},waiting={},scopes={}}
+	local result={holders={},waiting={},scopes={},allowances=allowances(p,approvals)}
 	for pid,process in pairs(processes) do
 		if process.name=='build-budget' and not parents[pid] then
 			local cmd=p.read('/proc/'..pid..'/cmdline')
@@ -71,7 +86,8 @@ function M.builds(p,command,uptime,runtime)
 			local started=tonumber(fields.ActiveEnterTimestampMonotonic)
 			local cpu,tasks=tonumber(fields.CPUUsageNSec),tonumber(fields.TasksCurrent)
 			assert(started and cpu and tasks,'build scope counters unavailable')
-			result.scopes[#result.scopes+1]={id=fields.Id,cpu_ns=cpu,tasks=tasks,age_seconds=math.max(0,math.floor(uptime-started/1000000))}
+			local project=fields.Id:match('^build%-([%w_%-]+)%-%x+%-%x+%-%x+%-%x+%-%x+%.scope$')
+			result.scopes[#result.scopes+1]={id=fields.Id,project=project,cpu_ns=cpu,tasks=tasks,age_seconds=math.max(0,math.floor(uptime-started/1000000))}
 		end
 	end
 	assert(#result.scopes<=128,'scope inventory exceeds snapshot bound')
@@ -91,7 +107,10 @@ function M.issues(current,previous,compare)
 		end
 		local old={}; for _,scope in ipairs(previous and previous.builds and previous.builds.scopes or {}) do old[scope.id]=scope end
 		for _,scope in ipairs(builds.scopes) do
-			if scope.age_seconds>=1800 then add('build:runtime',scope.id..' running '..scope.age_seconds..'s; review runtime allowance') end
+			local approved=scope.project and builds.allowances and builds.allowances[scope.project]
+			if approved then
+				if scope.age_seconds>=approved then add('build:runtime',scope.id..' running '..scope.age_seconds..'s, past its approved '..approved..'s; review runtime allowance') end
+			elseif scope.age_seconds>=1800 then add('build:runtime',scope.id..' running '..scope.age_seconds..'s; review runtime allowance') end
 			if compare and old[scope.id] and old[scope.id].cpu_ns==scope.cpu_ns then
 				add('build:progress',scope.id..' CPU counter unchanged since previous check; inspect I/O and descendants before declaring stuck')
 			end

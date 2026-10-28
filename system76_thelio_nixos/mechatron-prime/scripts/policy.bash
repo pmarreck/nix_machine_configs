@@ -92,12 +92,16 @@ now_utc() {
 # no CI verdict at all. Keeping them in place also keeps the batch line count
 # stable, which interrupt recovery indexes into by line number.
 #
+# Supersession is recomputed from arrival order on every call: a stored
+# `superseded` mark is ignored, so a record is displaced only by a later record
+# of its group in this input.
+#
 # Reads NDJSON on stdin, writes NDJSON on stdout. Records missing repo or ref
 # group under the empty key and are therefore left for downstream validation to
 # reject rather than being silently coalesced together.
 collapse_queue_batch() {
 	jq -c -s '
-		[ to_entries[] | .value + {__i: .key} ]
+		[ to_entries[] | (.value | del(.superseded)) + {__i: .key} ]
 		| group_by(
 			if (.repo | type) == "string" and (.ref | type) == "string"
 			   and .repo != "" and .ref != ""

@@ -34,7 +34,8 @@ function M.run(p,config)
 	s.boot_id=read('/proc/sys/kernel/random/boot_id'):gsub('%s+$','')
 	s.queues={}
 	for name,probe in pairs({ci=function() return queues.ci(command) end,
-		builds=function() return queues.builds(p,command,s.uptime_seconds,config.build_runtime or (p.runtime or '/run/user/unknown')..'/build-budget') end}) do
+		builds=function() return queues.builds(p,command,s.uptime_seconds,config.build_runtime or (p.runtime or '/run/user/unknown')..'/build-budget',
+			config.runtime_approvals or '/etc/mechatron-prime/runtime-approvals.json') end}) do
 		local worked,value=pcall(probe)
 		if worked then s.queues[name]=value else s.probe_errors[#s.probe_errors+1]=name..' queue probe unavailable' end
 	end

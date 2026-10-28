@@ -62,7 +62,8 @@ claim_fifo_job() {
 	local -n selected_lease="$1"
 	local state="$2" queue="$3" lock="$4" batch="$5" claims="$6"
 	local gate lifecycle collapsed ordered remainder settled item repo key candidate delivery verdict held='' picked=false consumed=false status=0
-	local picked_item='' picked_group=''
+	local picked_item='' picked_group='' indexed=false annotated parts index=''
+	local -a drops=()
 	selected_lease=''
 	declare -F ci_delivery_has_result >/dev/null || return 1
 	mkdir -p "$state/leases" "$claims" || return 1
@@ -75,7 +76,14 @@ claim_fifo_job() {
 	collapsed=$(mktemp "$queue.candidates.XXXXXX") || { exec {gate}>&-; exec {lifecycle}>&-; return 1; }
 	remainder=$(mktemp "$queue.remaining.XXXXXX") || { rm -f -- "$collapsed"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
 	settled=$(mktemp "$queue.settled.XXXXXX") || { rm -f -- "$collapsed" "$remainder"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
-	if ! collapse_queue_batch < "$queue" > "$collapsed" 2>/dev/null; then
+	# Collapse only to choose; the queue itself keeps arrival order. Each record
+	# carries its arrival index (__q), so the queue can be rewritten from the
+	# original records. Persisting the collapsed order instead made a later
+	# claim read the moved-up newest commit as the oldest and supersede it.
+	if annotated=$(jq -c -s 'to_entries[] | .value + {__q: .key}' < "$queue" 2>/dev/null) \
+			&& collapse_queue_batch <<< "$annotated" > "$collapsed" 2>/dev/null; then
+		indexed=true
+	else
 		cp -- "$queue" "$collapsed" || status=1
 	fi
 	if [[ "$status" -eq 0 ]] && declare -F prioritize_queue_batch >/dev/null; then
@@ -90,14 +98,18 @@ claim_fifo_job() {
 	if [[ "$status" -eq 0 ]]; then
 		while IFS= read -r item || [[ -n "$item" ]]; do
 			[[ -n "$item" ]] || continue
+			if [[ "$indexed" = true ]]; then
+				parts=$(jq -rc '(.__q | tostring) + " " + (del(.__q) | tojson)' <<< "$item") || { status=1; break; }
+				index=${parts%% *}; item=${parts#* }
+			fi
 			if [[ "$picked" = false ]]; then
 				delivery=$(jq -er '.delivery | strings | select(length>0)' <<< "$item" 2>/dev/null) || delivery=''
 				if [[ -n "$delivery" ]]; then
-					if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then consumed=true; continue; else verdict=$?; fi
+					if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then consumed=true; drops+=("$index"); continue; else verdict=$?; fi
 					if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
 				fi
 				if queue_record_reserved "$state" "$item"; then
-					printf '%s\n' "$item" >> "$remainder" || { status=1; break; }
+					[[ "$indexed" = true ]] || printf '%s\n' "$item" >> "$remainder" || { status=1; break; }
 					continue
 				else verdict=$?; fi
 				if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
@@ -114,7 +126,7 @@ claim_fifo_job() {
 				if flock -n -E 75 "$candidate"; then
 					if [[ -n "$delivery" ]]; then
 						if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then
-							consumed=true; exec {candidate}>&-; continue
+							consumed=true; drops+=("$index"); exec {candidate}>&-; continue
 						else verdict=$?; fi
 						if [[ "$verdict" -ne 1 ]]; then exec {candidate}>&-; status=1; break; fi
 					fi
@@ -122,6 +134,7 @@ claim_fifo_job() {
 					picked_item=$item
 					picked_group=$(jq -c '[.repo, .ref]' <<< "$item" 2>/dev/null) || picked_group=''
 					picked=true
+					drops+=("$index")
 					continue
 				else
 					status=$?
@@ -135,18 +148,26 @@ claim_fifo_job() {
 					'.superseded == true and [.repo, .ref] == $group' <<< "$item" >/dev/null 2>&1; then
 				delivery=$(jq -er '.delivery | strings | select(length>0)' <<< "$item" 2>/dev/null) || delivery=''
 				if [[ -n "$delivery" ]]; then
-					if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then consumed=true; continue; else verdict=$?; fi
+					if ci_delivery_has_result "$state/results.sqlite3" "$delivery"; then consumed=true; drops+=("$index"); continue; else verdict=$?; fi
 					if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
 				fi
 				if queue_record_reserved "$state" "$item"; then :; else
 					verdict=$?
 					if [[ "$verdict" -ne 1 ]]; then status=1; break; fi
 					printf '%s\n' "$item" >> "$settled" || { status=1; break; }
+					drops+=("$index")
 					continue
 				fi
 			fi
-			printf '%s\n' "$item" >> "$remainder" || { status=1; break; }
+			[[ "$indexed" = true ]] || printf '%s\n' "$item" >> "$remainder" || { status=1; break; }
 		done < "$collapsed"
+	fi
+	if [[ "$status" -eq 0 && "$indexed" = true ]]; then
+		local drop_json
+		drop_json="[$(printf '%s\n' "${drops[@]}" | paste -sd,)]"
+		jq -c -s --argjson drop "$drop_json" \
+			'to_entries[] | select(.key as $k | $drop | any(. == $k) | not) | .value | del(.superseded)' \
+			< "$queue" > "$remainder" || status=1
 	fi
 	if [[ "$status" -eq 0 && "$picked" = true ]]; then
 		# Recovery deduplicates against the queue if publication fails before rename.
