@@ -123,6 +123,7 @@ in
       ./mechatron-prime-ops.nix   # tailnet-only host operations console and FSearch timer — Codex 2026-07-11
       ./mechatron-prime-darwin-builder.nix   # aarch64-darwin remote builder on m4max — 2026-09-24
       ./dune-firewall.nix   # Dune player ports UDP 7777 and TCP 31982 — 2026-09-25
+      ./beamflix-firewall.nix   # Mecha BeamFlix receiver ports TCP 7170, UDP 7171 and 7172 — 2026-10-28
       ./dune-world.nix   # user units: world at boot, heal, backup, update check — 2026-09-26
       ./fleet-status.nix # nightly Git fetch and fleet report — 2026-09-29
       ./tmp-cleanup.nix # hourly deletion of inactive ephemeral temporary files
