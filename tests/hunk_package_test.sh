@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Contract for modem-dev/hunk and its Thelio/Tiki placement.
+# Contract for modem-dev/hunk and its Thelio/Framework/Tiki placement.
 
 set -u
 
@@ -54,16 +54,17 @@ placement="$({
 				};
 		in {
 			thelio = placement "thelio-nixos" "pmarreck";
+			framework = placement "framework-nixos" "pmarreck";
 			tiki = placement "tiki-wsl-nixos" "nixos";
 		}
 	' 2>/dev/null
 })"
 placement_status=$?
-expected='{"thelio":{"system":true,"user":false},"tiki":{"system":false,"user":true}}'
+expected='{"framework":{"system":true,"user":false},"thelio":{"system":true,"user":false},"tiki":{"system":false,"user":true}}'
 if [ "$placement_status" -eq 0 ] && [ "$placement" = "$expected" ]; then
-	pass 'Thelio retains Hunk system-wide and Tiki installs it for its active user'
+	pass 'Thelio and Framework install Hunk system-wide and Tiki installs it for its active user'
 else
-	fail 'Hunk must retain its Thelio placement and enter Tiki user packages'
+	fail 'Hunk must be system-wide on Thelio and Framework and in Tiki user packages'
 fi
 
 printf '%d/%d assertions passed\n' "$((total - failures))" "$total"

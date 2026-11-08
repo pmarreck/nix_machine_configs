@@ -2,7 +2,7 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, inputs, system, tmog, ... }:
+{ config, lib, pkgs, inputs, system, tmog, hunkPackage, ... }:
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix).
 # This replaces the old <nixos-unstable>/<nixos-stable>/<nixos-hardware> channel
 # lookups while keeping the host-specific package scopes in this module.
@@ -838,6 +838,9 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
+      # Terminal-first diff viewer from the exact, shared flake input.
+      hunkPackage
+
       stable.wineWow64Packages.stagingFull # use a cached staging build rather than a local override
       # (callPackage ./cursor.nix {}) # for cursor editor
       # bash-completion # Programmable completion for the bash shell # note: caused problems
