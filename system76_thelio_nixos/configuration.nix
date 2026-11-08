@@ -1801,7 +1801,7 @@ in
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell # for tiling windows
       gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
-      gnomeExtensions.lock-keys # for showing caps lock etc
+      gnomeExtensions.lock-keys-2 # for showing caps lock etc (renamed from lock-keys upstream; same extension #36)
       # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
       # gnomeExtensions.user-themes # "incompatible with current Gnome version"
       imwheel # for mouse wheel scrolling
