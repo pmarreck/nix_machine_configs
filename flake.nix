@@ -6,11 +6,14 @@
     # update` advances it without forcing Framework's desktop base to compile.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # The `stable` scope — follows the release-26.05 branch so `nix flake update`
-    # (i.e. `ixnay reify --upgrade`) rolls it. Supersedes the old in-config tarball
-    # pin (rev 721be2608f425037939026ef94839680fe67b9a4). Swap to a rev pin here for
+    # The `stable` scope (and Framework/Tiki base) — follows the nixos-26.05 CHANNEL
+    # branch, which only advances after Hydra has built and cached a commit, so
+    # `nix flake update` (i.e. `ixnay reify --upgrade`) rolls it without local
+    # mass rebuilds. Never use release-26.05: its tip is usually not cached yet.
+    # Supersedes the old in-config tarball pin
+    # (rev 721be2608f425037939026ef94839680fe67b9a4). Swap to a rev pin here for
     # full determinism if a rolling stable ever proves too lively.
-    nixpkgs-2605.url = "github:NixOS/nixpkgs/release-26.05";
+    nixpkgs-2605.url = "github:NixOS/nixpkgs/nixos-26.05";
 
     # A narrow fallback for packages whose current release build has not reached
     # cache.nixos.org yet. Keep Framework's base on 26.05.
