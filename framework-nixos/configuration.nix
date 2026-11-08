@@ -344,6 +344,10 @@ in
   # Preserve the pre-26.11 root-pool import behavior explicitly. This is a
   # single-host root pool; set false if the pool is ever shared across machines.
   boot.zfs.forceImportRoot = true;
+  # NFS client support (same as Thelio): pulls in nfs-utils so `mount.nfs`
+  # exists; without it `mount -t nfs` (e.g. the `nas` helper) dies with
+  # "NFS: mount program didn't pass remote address". Merges with zfs.nix's list.
+  boot.supportedFilesystems = [ "nfs" ];
 
   # Provide compressed swap in RAM (minimal SSD wear, decent burst capacity).
   zramSwap = {
