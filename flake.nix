@@ -70,7 +70,7 @@
     # and break otherwise locked rebuilds. For upgrades, change this URL and
     # tmogVersion together, then run `nix flake update tmog-linux` and the TMOG check.
     tmog-linux = {
-      url = "file+https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage";
+      url = "file+https://tmog.org/rtm/downloads/TaskManagerOG-1.1.1-x86_64.AppImage";
       flake = false;
     };
   };
@@ -92,7 +92,7 @@
       };
       hunkPackage = inputs.hunk.packages.${system}.default;
       printableBinary = inputs.printable-binary.packages.${system}.printableBinaryZig;
-      tmogVersion = "1.0.0";
+      tmogVersion = "1.1.1";
       tmog = pkgs.callPackage ./packages/tmog.nix {
         src = inputs.tmog-linux;
         version = tmogVersion;

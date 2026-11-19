@@ -471,13 +471,13 @@
     "tmog-linux": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-8zeM48X+Rto1CwnE77EJwXuoNihyiekhfL9VXu/ueQU=",
+        "narHash": "sha256-nLaS1yBFOe9xGgErUcLrOyAp/dGvZsqL0AFxdOhJJgA=",
         "type": "file",
-        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage"
+        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.1.1-x86_64.AppImage"
       },
       "original": {
         "type": "file",
-        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.0.0-x86_64.AppImage"
+        "url": "https://tmog.org/rtm/downloads/TaskManagerOG-1.1.1-x86_64.AppImage"
       }
     },
     "treefmt-nix": {
