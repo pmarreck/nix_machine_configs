@@ -18,7 +18,7 @@ check 'timer description states its schedule' jq -e '.timer.description == "Dune
 check 'timer runs every three hours' jq -e '.timer.timerConfig.OnCalendar == "*-*-* 00/3:00:00"' <<< "$config"
 check 'persistent catch-up and target service are preserved' jq -e '.timer.timerConfig.Persistent == true and .timer.timerConfig.Unit == "dune-update-check.service"' <<< "$config"
 check 'user scope and timer activation are preserved' jq -e '(.timer.unitConfig.ConditionUser | length) > 0 and .timer.wantedBy == ["timers.target"]' <<< "$config"
-check 'read-only update check and available-update exit are preserved' jq -e '.service.Type == "oneshot" and (.service.ExecStart | endswith(" update check --json")) and .service.SuccessExitStatus == ["1"]' <<< "$config"
+check 'read-only news and update checks notify without failing the timer' jq -e '.service.Type == "oneshot" and (.service.ExecStart | length == 2) and (.service.ExecStart[0] | startswith("-") and endswith(" news check --notify")) and (.service.ExecStart[1] | endswith(" update check --json --notify")) and .service.SuccessExitStatus == ["1"]' <<< "$config"
 
 # Enumerate a full UTC day and its boundary using systemd's real calendar parser.
 calendar="$(jq -r '.timer.timerConfig.OnCalendar' <<< "$config")"

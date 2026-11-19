@@ -46,6 +46,12 @@ in
       ExecStop = "${world} stop --force";
       TimeoutStartSec = "20min";
       TimeoutStopSec = "6min";
+      NoNewPrivileges = true;
+      LockPersonality = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      RestrictNamespaces = true;
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
     };
   };
 
@@ -59,6 +65,12 @@ in
       ExecStart = "${world} start --no-warn";
       KillMode = "process";
       TimeoutStartSec = "20min";
+      NoNewPrivileges = true;
+      LockPersonality = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      RestrictNamespaces = true;
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
     };
   };
 
@@ -82,6 +94,12 @@ in
       WorkingDirectory = duneRoot;
       ExecStart = "${world} backup create --label scheduled";
       ExecStartPost = "${world} backup prune";
+      NoNewPrivileges = true;
+      LockPersonality = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      RestrictNamespaces = true;
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
     };
   };
 
@@ -104,6 +122,12 @@ in
       Type = "oneshot";
       WorkingDirectory = duneRoot;
       ExecStart = "${world} backup verify latest";
+      NoNewPrivileges = true;
+      LockPersonality = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      RestrictNamespaces = true;
+      RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" "AF_NETLINK" ];
     };
   };
 
@@ -125,7 +149,10 @@ in
     serviceConfig = {
       Type = "oneshot";
       WorkingDirectory = duneRoot;
-      ExecStart = "${world} update check --json";
+      ExecStart = [
+        "-${world} news check --notify"
+        "${world} update check --json --notify"
+      ];
       SuccessExitStatus = [ "1" ];
     };
   };
