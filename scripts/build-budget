@@ -98,6 +98,57 @@ build_budget_priority_names() {
 # Production polling is bounded; tests replace this wait port with barriers.
 build_budget_wait() { sleep 1; }
 
+# Scratch is removed only when the path is an actual directory owned by this
+# user. Keeping this predicate separate also lets the regression model an
+# ownership mismatch without privileged fixture chown operations.
+build_budget_scratch_owned() { [[ -d "$1" && ! -L "$1" && -O "$1" ]]; }
+
+# Prune only scratch paths named by this user's own completion receipts. A
+# malformed receipt, uncertain unit state, symlink, non-direct child, or
+# uninspectable timestamp is retained. Deletion is limited to old build scratch.
+build_budget_prune_scratch() {
+	local runtime="$1" state="$2" base="$3" rm_bin="$4" receipt scratch unit project completed line now completed_epoch mtime resolved status gate
+	receipt="$state/runs.ndjson"
+	[[ -d "$runtime" && ! -L "$runtime" && -O "$runtime" && -d "$state" && ! -L "$state" && -O "$state" ]] || return 0
+	[[ -f "$receipt" && ! -L "$receipt" && -O "$receipt" ]] || return 0
+	[[ -d "$base" && ! -L "$base" ]] || return 0
+	base=$(realpath -e -- "$base") || return 0
+	now="${BUILD_BUDGET_NOW_EPOCH:-$(date -u +%s)}"
+	[[ "$now" =~ ^[0-9]+$ ]] || return 0
+	exec {gate}> "$runtime/.scratch-prune.lock" || return 1
+	flock "$gate" || { exec {gate}>&-; return 1; }
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		[[ -n "$line" ]] || continue
+		if ! IFS=$'\t' read -r scratch unit project completed < <(jq -er '
+			select(.schema == "build-budget/v1" and
+				(.scratch | type == "string" and length > 0) and
+				(.unit | type == "string" and length > 0) and
+				(.datetime | type == "string" and length > 0) and
+				(.project | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"))) |
+			[.scratch,.unit,.project,.datetime] | @tsv' <<< "$line" 2>/dev/null); then continue; fi
+		[[ "$completed" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] || continue
+		completed_epoch=$(date -u -d "$completed" +%s 2>/dev/null) || continue
+		[[ "$completed_epoch" =~ ^[0-9]+$ ]] && (( now - completed_epoch > 3600 )) || continue
+		[[ "$unit" =~ ^build-${project}-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.scope$ ]] || continue
+		[[ "$scratch" == "$base"/build-"$project".* ]] || continue
+		[[ "${scratch##*/}" =~ ^build-${project}\.[A-Za-z0-9]{8}$ ]] || continue
+		build_budget_scratch_owned "$scratch" || continue
+		resolved=$(realpath -e -- "$scratch" 2>/dev/null) || continue
+		[[ "$resolved" == "$scratch" ]] || continue
+		mtime=$(stat -c '%Y' -- "$scratch" 2>/dev/null) || continue
+		[[ "$mtime" =~ ^[0-9]+$ ]] && (( now - mtime > 3600 )) || continue
+		systemctl --user is-active --quiet "$unit" >/dev/null 2>&1
+		status=$?
+		# systemd returns 3 for inactive and 4 for an unknown transient unit.
+		# Any other result is ambiguous and must not authorize deletion.
+		[[ "$status" -eq 3 || "$status" -eq 4 ]] || continue
+		"$rm_bin" -r --one-file-system --preserve-root=all -- "$scratch" || {
+			printf 'build-budget: stale scratch cleanup failed: %s\n' "$scratch" >&2
+		}
+	done < "$receipt"
+	exec {gate}>&-
+}
+
 build_budget_acquire_fair_slot() {
 	local output="$1" runtime="$2" ticket="$3" status warned=0 gate
 	while :; do
@@ -202,6 +253,8 @@ build_budget_main() (
 	identity=$(cat /proc/sys/kernel/random/uuid) || exit 1
 	unit="build-$project-$identity.scope"
 	base="${TMPDIR:-/tmp}"
+	base=$(realpath -e -- "$base") || exit 1
+	build_budget_prune_scratch "$runtime" "$state" "$base" "$rm_bin" || exit $?
 	scratch=$(mktemp -d "$base/build-$project.XXXXXXXX") || exit 1
 	# shellcheck disable=SC2329 # invoked by the EXIT trap
 	build_budget_finish() {

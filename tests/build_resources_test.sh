@@ -109,6 +109,62 @@ assert test "$err" = ''
 assert test "${out#*removed=1}" != "$out"
 unset -f find
 
+# Receipt-driven retention cleanup is confined to this user's own old scratch,
+# and requires a known inactive/expired transient unit. Tests touch fixtures only.
+prune_base="$fixture/prune/tmp"
+prune_state="$fixture/prune/state"
+prune_runtime="$fixture/prune/runtime"
+mkdir -p "$prune_base" "$prune_state" "$prune_runtime" "$fixture/prune/outside"
+prune_now=$(date -u +%s)
+mkdir "$prune_base/build-demo.ABCDEFGH" "$prune_base/build-demo.IJKLMNOP" \
+	"$prune_base/build-demo.QRSTUVWX" "$prune_base/build-demo.YZabcdef" \
+	"$fixture/prune/outside/build-demo.GHIJKLMN" "$prune_base/build-demo.WXYZabcd" \
+	"$prune_base/build-demo.HIJKLMNO"
+ln -s "$fixture/prune/outside" "$prune_base/build-demo.OPQRSTUV"
+touch -d "@$((prune_now - 3601))" "$prune_base/build-demo.ABCDEFGH" \
+	"$prune_base/build-demo.IJKLMNOP" "$prune_base/build-demo.YZabcdef" \
+	"$fixture/prune/outside/build-demo.GHIJKLMN" "$prune_base/build-demo.WXYZabcd" \
+	"$prune_base/build-demo.HIJKLMNO"
+touch -d "@$((prune_now - 3000))" "$prune_base/build-demo.QRSTUVWX"
+prune_receipt() {
+	local path="$1" unit="$2" project="${3:-demo}" age="${4:-3601}" completed
+	completed=$(date -u -d "@$((prune_now - age))" +%Y-%m-%dT%H:%M:%SZ)
+	jq -cn --arg p "$path" --arg u "$unit" --arg project "$project" --arg completed "$completed" \
+		'{schema:"build-budget/v1",project:$project,unit:$u,scratch:$p,datetime:$completed}' >> "$prune_state/runs.ndjson"
+}
+: > "$prune_state/runs.ndjson"
+prune_receipt "$prune_base/build-demo.ABCDEFGH" 'build-demo-11111111-1111-1111-1111-111111111111.scope'
+prune_receipt "$prune_base/build-demo.IJKLMNOP" 'build-demo-22222222-2222-2222-2222-222222222222.scope'
+prune_receipt "$prune_base/build-demo.QRSTUVWX" 'build-demo-33333333-3333-3333-3333-333333333333.scope' demo 3000
+prune_receipt "$prune_base/build-demo.YZabcdef" 'build-demo-44444444-4444-4444-4444-444444444444.scope'
+prune_receipt "$fixture/prune/outside/build-demo.GHIJKLMN" 'build-demo-55555555-5555-5555-5555-555555555555.scope'
+prune_receipt "$prune_base/build-demo.OPQRSTUV" 'build-demo-66666666-6666-6666-6666-666666666666.scope'
+prune_receipt "$prune_base/build-demo.WXYZabcd" 'build-other-77777777-7777-7777-7777-777777777777.scope' other
+prune_receipt "$prune_base/build-demo.HIJKLMNO" 'build-demo-88888888-8888-8888-8888-888888888888.scope'
+printf '{not-json}\n' >> "$prune_state/runs.ndjson"
+build_budget_scratch_owned() {
+	[[ "$1" != "$prune_base/build-demo.HIJKLMNO" ]] && [[ -d "$1" && ! -L "$1" && -O "$1" ]]
+}
+systemctl() {
+	case "${*: -1}" in
+		*22222222*) return 0 ;; # unit active
+		*44444444*) return 1 ;; # ambiguous status, retain
+		*33333333*|*55555555*|*66666666*|*77777777*|*88888888*|*11111111*) return 3 ;;
+		*) return 1 ;;
+	esac
+}
+BUILD_BUDGET_NOW_EPOCH="$prune_now" build_budget_prune_scratch "$prune_runtime" "$prune_state" "$prune_base" /run/current-system/sw/bin/rm
+assert test ! -e "$prune_base/build-demo.ABCDEFGH"
+assert test -d "$prune_base/build-demo.IJKLMNOP"
+assert test -d "$prune_base/build-demo.QRSTUVWX"
+assert test -d "$prune_base/build-demo.YZabcdef"
+assert test -d "$fixture/prune/outside/build-demo.GHIJKLMN"
+assert test -L "$prune_base/build-demo.OPQRSTUV"
+assert test -d "$prune_base/build-demo.WXYZabcd"
+assert test -d "$prune_base/build-demo.HIJKLMNO"
+unset -f build_budget_scratch_owned
+unset -f systemctl
+
 # Real CLI composition with a recording systemd adapter: status, receipts and
 # task-owned scratch retention/cleanup, without launching another build.
 systemctl() {

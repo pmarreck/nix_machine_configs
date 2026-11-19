@@ -43,6 +43,15 @@ directory, and the exact task-owned scratch prefix. Failed cleanup reports a
 warning and preserves the command's original status; it does not try another
 deletion command.
 
+Before allocating a new scratch directory, `build-budget` also considers
+retained build scratch from its private completion receipts. It removes only a
+direct `$TMPDIR/build-<project>.<8 random characters>` child whose receipt and
+directory modification time are both older than 60 minutes, whose recorded
+unit is known inactive or no longer exists, and which is still a real directory
+owned by the invoking user. Missing, malformed, ambiguous, active or
+out-of-scope records are kept. This pruning is limited to the invoking user's
+own recorded build scratch; it does not sweep `/tmp` or archive removed data.
+
 `build-oom-watch.service` watches new kernel OOM decisions, appends private
 `oom.ndjson` records in the same directory and requests critical desktop
 notifications. Records identify process name, PID, unit, project when available,
