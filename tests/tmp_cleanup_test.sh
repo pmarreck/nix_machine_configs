@@ -7,6 +7,9 @@ failures=0
 assert() {
 	if "$@"; then printf 'ok - %s\n' "$*"; else printf 'not ok - %s\n' "$*" >&2; failures=$((failures + 1)); fi
 }
+not_contains() {
+	if grep -Fq -- "$1" <<< "$2"; then return 1; else return 0; fi
+}
 if [ ! -f "$root/scripts/tmp-cleanup" ]; then
 	printf 'not ok - cleanup implementation is missing\n' >&2
 	exit 1
@@ -93,6 +96,14 @@ readlink() { return 1; }
 capture tmp_cleanup_run "$fixture/tmp" "$fixture/proc" "$fixture/recovery" 10000000000 apply
 assert test "$rc" -ne 0
 assert test -f "$fixture/tmp/protected.txt"
+assert test -z "$out"
+assert grep -Fq -- 'cleanup: reference inspection failed (pid=123, entry=cwd); pass skipped' <<< "$err"
+if not_contains "$fixture/tmp" "$err"; then
+	printf 'ok - reference error omits target paths\n'
+else
+	printf 'not ok - reference error exposes a target path\n' >&2
+	failures=$((failures + 1))
+fi
 unset -f readlink
 
 # A per-file error leaves that file and does not prevent an independent move.

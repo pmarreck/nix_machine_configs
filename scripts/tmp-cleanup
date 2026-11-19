@@ -73,7 +73,8 @@ tmp_cleanup_run() (
 			[[ -L "$reference" ]] || continue
 			if ! target=$(readlink -- "$reference" 2>/dev/null); then
 				[[ ! -L "$reference" || ! -d "$process" ]] && continue
-				printf 'cleanup: reference inspection failed; pass skipped\n' >&2; return 1
+				printf 'cleanup: reference inspection failed (pid=%s, entry=%s); pass skipped\n' \
+				"${process##*/}" "${reference#"$process"/}" >&2; return 1
 			fi
 			# Avoid lossy interpretation of unusual /proc link names.
 			if [[ "$target" == *$'\n'* ]]; then
