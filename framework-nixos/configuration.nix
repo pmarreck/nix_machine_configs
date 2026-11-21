@@ -737,7 +737,6 @@ in
       unstable.wasmtime.out # wasm runtime
       unstable.wazero # Zero dependency WebAssembly runtime written in Go, currently the fastest wasm runner
       wdiff # A front end to diff for comparing files on a word per word basis
-      unstable.devin-desktop # windsurf was rebranded/replaced
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
