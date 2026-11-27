@@ -40,6 +40,10 @@ rec {
   };
 
   systemd.tmpfiles.rules = [
+    # One stable lock inode serializes the expiring drain with CI and local
+    # build-slot claims. Clients may flock/read but cannot replace the file.
+    "d /run/mechatron-prime 0755 root root - -"
+    "f /run/mechatron-prime/admission.lock 0644 root root - -"
     "d /etc/mechatron-prime 0710 root mechatron-prime - -"
     "d ${legacyTargetDirectory} 0750 root mechatron-prime - -"
     "z /etc/nix/netrc 0640 root mechatron-prime - -"

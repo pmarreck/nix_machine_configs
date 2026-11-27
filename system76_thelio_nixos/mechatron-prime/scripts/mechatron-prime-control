@@ -31,6 +31,63 @@ case "$action" in
 		write_ci_admission "$state_dir" running "$now" || exit 1
 		"$systemctl_command" --no-block start mechatron-prime-worker.service || exit 1
 		;;
+	drain-start)
+		shift
+		drain_seconds=''
+		while [ "$#" -gt 0 ]; do
+			case "$1" in
+				--seconds) [ "$#" -ge 2 ] || { printf 'drain-start: --seconds requires a value\n' >&2; exit 2; }; shift; drain_seconds="$1" ;;
+				*) printf 'drain-start: unknown option: %s\n' "$1" >&2; exit 2 ;;
+			esac
+			shift
+		done
+		[ -n "$drain_seconds" ] || { printf 'drain-start: --seconds is required\n' >&2; exit 2; }
+		drain_now="${MECHATRON_NOW_EPOCH:-$(date -u +%s)}"
+		drain_owner="${SUDO_USER:-${USER:-$(id -un)}}"
+		admission_drain_lock admission_gate exclusive || exit 1
+		lease_id=''
+		admission_drain_begin lease_id "$(admission_drain_dir)" "$drain_owner" "$drain_seconds" "$drain_now"
+		drain_status=$?
+		# shellcheck disable=SC2154 # populated by admission_drain_lock's nameref
+		exec {admission_gate}>&-
+		case "$drain_status" in
+			0) jq -cn --arg id "$lease_id" --arg owner "$drain_owner" --argjson now "$drain_now" --argjson seconds "$drain_seconds" \
+				'{status:"ok",action:"drain-start",lease_id:$id,owner:$owner,created_at:$now,expires_at:($now+$seconds)}' ;;
+			3) printf 'drain-start: an active drain lease already exists\n' >&2; exit 1 ;;
+			2) printf 'drain-start: duration must be an integer from 1 to 86400 seconds\n' >&2; exit 2 ;;
+			*) printf 'drain-start: invalid lease state or write failure\n' >&2; exit 1 ;;
+		esac
+		exit 0
+		;;
+	drain-release)
+		shift
+		lease_id=''
+		while [ "$#" -gt 0 ]; do
+			case "$1" in
+				--lease-id) [ "$#" -ge 2 ] || { printf 'drain-release: --lease-id requires a value\n' >&2; exit 2; }; shift; lease_id="$1" ;;
+				*) printf 'drain-release: unknown option: %s\n' "$1" >&2; exit 2 ;;
+			esac
+			shift
+		done
+		[ -n "$lease_id" ] || { printf 'drain-release: --lease-id is required\n' >&2; exit 2; }
+		drain_owner="${SUDO_USER:-${USER:-$(id -un)}}"
+		admission_drain_lock admission_gate exclusive || exit 1
+		admission_drain_end "$(admission_drain_dir)" "$lease_id" "$drain_owner"
+		drain_status=$?
+		# shellcheck disable=SC2154 # populated by admission_drain_lock's nameref
+		exec {admission_gate}>&-
+		case "$drain_status" in
+			0) jq -cn --arg id "$lease_id" '{status:"ok",action:"drain-release",lease_id:$id}' ;;
+			2) printf 'drain-release: lease id or owner does not match\n' >&2; exit 1 ;;
+			*) printf 'drain-release: no valid lease to release\n' >&2; exit 1 ;;
+		esac
+		exit 0
+		;;
+	drain-status)
+		drain_now="${MECHATRON_NOW_EPOCH:-$(date -u +%s)}"
+		admission_drain_report "$(admission_drain_dir)" "$drain_now"
+		exit "$?"
+		;;
 	cancel)
 		"$systemctl_command" --no-block stop mechatron-prime-worker.service mechatron-prime-worker@1.service mechatron-prime-worker@2.service || exit 1
 		;;
@@ -190,11 +247,11 @@ case "$action" in
 		exit 0
 		;;
 	--help|-h)
-		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n'
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drain-start --seconds N|drain-release --lease-id ID|drain-status|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n'
 		exit 0
 		;;
 	*)
-		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n' >&2
+		printf 'Usage: mechatron-prime-control {halt|resume|cancel|drain-start --seconds N|drain-release --lease-id ID|drain-status|drop --project P [--branch B] [--commit SHA]|retry --project P --commit SHA}\n' >&2
 		exit 2
 		;;
 esac

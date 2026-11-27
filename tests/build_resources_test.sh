@@ -93,6 +93,9 @@ assert test "$rc" -ne 0
 source "$root/scripts/tmp-cleanup"
 fixture=$(mktemp -d) || exit 1
 trap 'rm-safe -r -- "$fixture" >/dev/null' EXIT
+export MECHATRON_ADMISSION_DIR="$fixture/admission"
+mkdir -p "$MECHATRON_ADMISSION_DIR"
+: > "$MECHATRON_ADMISSION_DIR/admission.lock"
 mkdir -p "$fixture/tmp/mounted" "$fixture/proc/self" "$fixture/work"
 printf '1 0 0:1 / %s rw - fuse fuse rw\n' "$fixture/tmp/mounted" > "$fixture/proc/self/mountinfo"
 printf 'keep\n' > "$fixture/tmp/mounted/content"

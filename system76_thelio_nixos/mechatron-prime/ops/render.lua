@@ -243,6 +243,20 @@ function M.page(model)
 		if worker.id ~= "legacy" then lanes[#lanes + 1] = worker.id .. ": " .. worker.state end
 	end
 	local lane_states = #lanes > 0 and table.concat(lanes, "; ") or "Not reported"
+	local drain = model.mechatron.drain or {state = "unknown"}
+	local admission_label, admission_badge
+	if model.mechatron.admission.state == "halted" then
+		admission_label, admission_badge = "halted", "stopped"
+	elseif model.mechatron.admission.state ~= "running" then
+		admission_label, admission_badge = "unknown", "unknown"
+	elseif drain.state == "draining" then
+		local remaining = math.max(0, math.floor(tonumber(drain.remaining_seconds) or 0))
+		admission_label, admission_badge = "draining · " .. remaining .. "s remaining", "draining"
+	elseif drain.state == "open" or drain.state == "expired" then
+		admission_label, admission_badge = "open", "active"
+	else
+		admission_label, admission_badge = "unknown", "unknown"
+	end
 
 	return string.format([[<!doctype html>
 <html lang="en">
@@ -276,7 +290,7 @@ function M.page(model)
 		.status-active,.status-healthy,.status-waiting,.status-chiming,.status-serving { color:var(--accent); }
 		/* A deliberate mute is amber, not red: the chime is silent because
 		   somebody chose that, which is a different thing from a fault. */
-		.status-degraded,.status-resilvering,.status-inactive,.status-muted,.status-muted-till-reboot,.status-masked { color:var(--warn); }
+		.status-degraded,.status-resilvering,.status-inactive,.status-muted,.status-muted-till-reboot,.status-masked,.status-draining { color:var(--warn); }
 		.status-critical,.status-failed,.status-stopped { color:var(--bad); }
 		dl { display:grid; grid-template-columns:max-content 1fr; gap:8px 18px; margin:0; }
 		dt { color:var(--muted); }
@@ -309,7 +323,7 @@ function M.page(model)
 	</nav>
 	<section class="panel active" data-panel="services">
 		<div class="grid">
-			<article class="card"><div class="card-heading"><h3>Mechatron worker</h3>%s</div><dl><dt>Current builds</dt><dd>%s</dd><dt>Worker lanes</dt><dd>%s</dd><dt>Queue depth</dt><dd>%s</dd></dl>%s</article>
+			<article class="card"><div class="card-heading"><h3>Mechatron worker</h3>%s</div><dl><dt>Current builds</dt><dd>%s</dd><dt>Worker lanes</dt><dd>%s</dd><dt>Queue depth</dt><dd>%s</dd><dt>New admissions</dt><dd>%s</dd></dl>%s</article>
 			<article class="card"><div class="card-heading"><h3>Grandfather clock</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd><dt>Declarative source</dt><dd><code>%s</code></dd></dl>%s</article>
 			<article class="card"><div class="card-heading"><h3>FSearch database</h3>%s</div><dl><dt>Schedule</dt><dd>%s</dd><dt>Next run</dt><dd>%s</dd></dl>%s</article>
 			%s
@@ -343,6 +357,7 @@ document.querySelectorAll('form[data-confirm]').forEach((form) => form.addEventL
 		html_escape(current_build),
 		html_escape(lane_states),
 		html_escape(model.mechatron.queue_depth),
+		status_badge(admission_badge, admission_label),
 		action_forms({
 			{label = "Drain queue", path = "/ops/actions/mechatron-worker/start"},
 			{label = "Halt CI", path = "/ops/actions/mechatron-worker/halt", danger = true},

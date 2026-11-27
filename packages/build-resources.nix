@@ -4,6 +4,7 @@ let
 	wrap = name: pkgs.writeShellScriptBin name ''
 		export PATH="${lib.makeBinPath deps}:$PATH"
 		${lib.optionalString (name == "build-budget") (builtins.readFile ../scripts/admission_priority.bash)}
+		${lib.optionalString (name == "build-budget") (builtins.readFile ../scripts/admission_drain.bash)}
 		${lib.optionalString (name == "build-budget") "export BUILD_BUDGET_RM=\"${pkgs.coreutils}/bin/rm\"\n"}${builtins.readFile (../scripts + "/${name}")}
 	'';
 in pkgs.symlinkJoin {

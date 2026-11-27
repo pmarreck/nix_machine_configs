@@ -1,5 +1,40 @@
 # NixOS plan
 
+## Declarative mise on Thelio (2026-10-23)
+
+- [ ] Install mise in Thelio's global system package set, verify the evaluated host contract and full suite, then build and review dry activation before switching.
+
+## Guarded scratch cleanup and host hashing
+
+- [x] Preserve and integrate collaborator hashing dependencies in 1618723; fix guarded-PATH raw-source scratch cleanup in 3f9eecf with unchanged deletion bounds, 122 controls, all 29 host suites and immutable candidate build green; no activation or push (done 2026-10-13 13:31 EDT).
+
+## Build-slot descriptor custody
+
+- [x] Deploy the existing fixed immutable budget utility with rollback roots; old installed implementation fails 12 controls, new invoked implementation passes all 87; 28 host suites pass, source-body comparison matches f055ed6, actual-helper test adapter is 05d4693; no full activation or unrelated restart (done 2026-10-13 13:12 EDT).
+
+## Local CI webhook provisioning
+
+- [x] Declare and deploy isolated nonroot provisioning, operator-only socket and ops status; 27 host suites, service/socket/ops/client builds and unprivileged dry/live/retry smoke pass; commit 711694b, with no whole-system switch or unrelated restart (done 2026-10-11 16:15 EDT).
+- [ ] Verify declarative broker and ops handover after normal activation; retire matching attached unit links, executable-only ops override and GC roots using the private deployment receipt without restarting CI or the terminal server.
+
+## Native job memory containment (2026-10-09)
+
+- [x] Add isolated two-slot native job scopes, a 32 GiB aggregate envelope and attributed OOM records/notifications; 26 suites plus 58 resource checks pass, live success/failure and isolated 16 MiB OOM probes pass without terminal-server restart; commit 3f199a6 (done 2026-10-09 19:33 EDT).
+- [x] Repair FUSE-root inventory failure in hourly scratch cleanup; the real pass removes 8,958 stale entries, protects 1,019 and reports zero errors under the existing inactive-file policy; commit 3f199a6 (done 2026-10-09 19:33 EDT).
+- [ ] After normal full-flake activation, retire only matching local build-resource unit/executable links and GC roots; verify declarative limits and monitor while preserving agent processes (context: docs/build-resources.md).
+- [ ] Resolve disclosure approval or sanitize the older unpublished configuration commits before pushing the four-commit outgoing history; do not rewrite history without direction.
+
+## Terminal server OOM isolation
+
+- [x] Set the terminal server OOM policy to continue; the unit build and all 24 test suites pass; a persistent policy-only drop-in and user-manager reload leave the PID, invocation and limits unchanged; reply delivered to the requesting project. Commit 8e157ec (done 2026-10-07 09:37 EDT).
+- [ ] Once the generated main-flake server unit contains OOMPolicy=continue, recoverably remove the matching user-service drop-in, reload the user manager and verify the policy, PID and invocation remain unchanged; retain the bridge until then.
+
+## Temporary storage pressure
+
+- [ ] Diagnose intermittent fail-closed `/proc` reference inspection in the hourly cleanup: the error now reports PID and proc-entry kind without the referenced path, and a disposable isolated regression passes; the exact cause of the observed failures remains unknown, so capture the failing entry and measure scan duration before considering bounded retries or deployment.
+- [x] Implement hourly deletion of ephemeral temporary files inactive for 24 hours without archiving, skipping busy subtrees and inspection errors; all 24 test suites and generated-unit builds pass; the first isolated service pass deletes 17,568 entries with zero errors and leaves temporary storage 36% full. Completed 2026-10-06 14:14 EDT.
+- [ ] After the next normal main-flake activation, verify the declarative cleanup timer and retire its two temporary runtime unit overrides and GC roots; no whole-system switch is authorized for this handover alone.
+
 ## Mail attachments and consolidated inbox (2026-09-18)
 
 - [x] Update only unix-mail-redux and its llmsend lock nodes to 872f236 and
@@ -580,6 +615,7 @@ checkpoint tonight; avoid starting a host rebuild after 22:00.
 
 ## Mechatron Prime fleet CI
 
+- [ ] Owner: mechatron-prime; finish the approved `/etc/nixos` review after canonical Mechatron source is clean/green, then vendor, test and rebuild; include tested cleanup for stale unreferenced `/tmp/nix-shell.*` folders (context: docs/plan_context/nix-shell-tmp-pruning.md; blocked: source `7c589ff` is dirty against pin `76235ec`, and the drain symlink check fails open; pruning is built but inactive).
 - [x] Persist the already-running NVMe Nix/Steam/dev-cache mount configuration in a reviewed green commit. Completed 2026-07-22 12:33 EDT.
   - Curiosity poke answered: the combined candidate differed from the running closure only by Mechatron Prime, proving the committed storage configuration retains all three imported ZFS pools and `/nix` build-dir placement.
 - [x] Vendor, build, and activate Mechatron Prime source commit `f74aec6`, including resilient worker exit semantics and the transactional SQLite result ledger. Completed 2026-07-22 12:35 EDT.

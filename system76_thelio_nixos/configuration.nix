@@ -386,7 +386,6 @@ in
 
     # modules to load early in the boot process, for nicer boot splash at correct rez
     initrd = {
-      verbose = false;
       # NOTE: pci_stub is listed FIRST on purpose. It pairs with the
       # "pci-stub.ids=10de:1e07" kernelParam below (the GPU-HIDE TOGGLE) and must
       # claim the 2080 Ti before the nvidia driver probes it, or nvidia wins the
@@ -1434,7 +1433,7 @@ in
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
       # gamehub # REMOVED from nixpkgs (archived upstream, old webkitgtk 4.0)
-      gravit # gravity simulator
+      # gravit # gravity simulator # disabled nov 26 2026 since nix abandoned it since it hasn't had updates since 2022
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
       scorched3d # played the original version a lot in the military
@@ -1585,7 +1584,6 @@ in
       pnpm
       nim
       nixd
-      antigravity-cli # gemini-cli is marked for removal; the command is agy
       aspell
       bashInteractive
       bat
@@ -1622,7 +1620,7 @@ in
       qpdf
       sampler
       sc-im
-      sourceHighlight
+      source-highlight
       television
       tesseract
       trippy
@@ -1781,7 +1779,7 @@ in
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       # latest.firefox-nightly-bin # firefox # had to disable for now due to segfault on unstable: https://github.com/NixOS/patchelf/issues/520
-      firefox-beta
+      firefox
       chromium # like chrome but without the google
       wezterm # nerdy but very nice terminal
       kitty # another nice terminal emulator
@@ -1805,7 +1803,7 @@ in
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell # for tiling windows
       gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
-      gnomeExtensions.lock-keys # for showing caps lock etc
+      # gnomeExtensions.lock-keys # for showing caps lock etc # nix says it's missing as of nov 2026; not sure why, oh well
       # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
       # gnomeExtensions.user-themes # "incompatible with current Gnome version"
       imwheel # for mouse wheel scrolling

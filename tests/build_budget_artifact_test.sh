@@ -8,7 +8,8 @@ if [[ -z "$artifact" ]]; then
 fi
 fixture=$(mktemp -d) || exit 1
 trap 'rm-safe -r -- "$fixture" >/dev/null' EXIT
-mkdir -p "$fixture/home" "$fixture/runtime" "$fixture/state" "$fixture/tmp"
+mkdir -p "$fixture/home" "$fixture/runtime" "$fixture/state" "$fixture/tmp" "$fixture/admission"
+: > "$fixture/admission/admission.lock"
 systemctl() {
 	case "$*" in
 		*'show agentbuilds.slice'*) printf '34359738368\n' ;;
@@ -18,7 +19,8 @@ systemctl() {
 }
 systemd-run() { printf '%s\0' "$@" > "$ARTIFACT_ARGS"; }
 export -f systemctl systemd-run
-HOME="$fixture/home" XDG_RUNTIME_DIR="$fixture/runtime" XDG_STATE_HOME="$fixture/state" TMPDIR="$fixture/tmp" ARTIFACT_ARGS="$fixture/args" \
+HOME="$fixture/home" XDG_RUNTIME_DIR="$fixture/runtime" XDG_STATE_HOME="$fixture/state" TMPDIR="$fixture/tmp" \
+	MECHATRON_ADMISSION_DIR="$fixture/admission" ARTIFACT_ARGS="$fixture/args" \
 	timeout --kill-after=1s 3s "$artifact" --project artifact -- true > "$fixture/out" 2> "$fixture/err"
 status=$?
 if [[ "$status" -ne 0 ]]; then

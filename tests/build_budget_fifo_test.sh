@@ -4,12 +4,26 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 source "$root/scripts/build-budget"
 build_budget_priority_names() { printf '[]\n'; }
 fixture=$(mktemp -d) || exit 1
+export MECHATRON_ADMISSION_DIR="$fixture/admission"
+mkdir -p "$MECHATRON_ADMISSION_DIR"
+: > "$MECHATRON_ADMISSION_DIR/admission.lock"
 children=()
 cleanup() { local child; for child in "${children[@]}"; do kill -TERM "$child" 2>/dev/null; wait "$child" 2>/dev/null; done; command rm -rf -- "$fixture"; }
 trap cleanup EXIT
 failures=0
 assert_eq() { if [[ "$1" != "$2" ]]; then printf 'FAIL: %s expected %s, got %s\n' "$3" "$1" "$2" >&2; failures=$((failures+1)); fi; }
 if ! declare -F build_budget_register_ticket >/dev/null; then printf 'FAIL: FIFO admission is absent\n' >&2; exit 1; fi
+chmod 0444 "$MECHATRON_ADMISSION_DIR/admission.lock"
+admission_drain_lock shared_one shared; assert_eq 0 "$?" 'read-only client obtains shared drain lock'
+admission_drain_lock shared_two shared; assert_eq 0 "$?" 'multiple readers share the drain lock'
+if admission_drain_lock exclusive exclusive 2>/dev/null; then
+	assert_eq 1 0 'read-only client cannot open an exclusive mutation lock'
+else
+	assert_eq 1 "$?" 'read-only client cannot open an exclusive mutation lock'
+fi
+exec {shared_one}<&-
+exec {shared_two}<&-
+chmod 0644 "$MECHATRON_ADMISSION_DIR/admission.lock"
 mkdir "$fixture/runtime"
 build_budget_register_ticket first "$fixture/runtime"
 build_budget_register_ticket second "$fixture/runtime"
@@ -106,5 +120,20 @@ IFS= read -r -t 10 event <&6 || exit 1
 assert_eq slot-young "$event" 'younger advances after oldest'
 wait "$young_pid"; assert_eq 0 "$?" 'younger completes admission'
 children=()
+
+# The host drain gates local slots as well as CI claims. A waiting local job
+# retains its FIFO ticket and advances immediately at exact lease expiry.
+build_budget_register_ticket drained "$fixture/runtime" demo
+drain_ticket=$drained
+printf '%s\n' '{"schema":"mechatron-admission-drain/v1","lease_id":"test-lease","owner":"owner","created_at":100,"expires_at":200}' > "$MECHATRON_ADMISSION_DIR/drain.json"
+MECHATRON_NOW_EPOCH=150
+local_slot_calls=0
+build_budget_acquire_slot() { local -n output="$1"; local_slot_calls=$((local_slot_calls+1)); output=77; }
+build_budget_wait() { assert_eq 0 "$local_slot_calls" 'local waiter does not enter while lease is active'; MECHATRON_NOW_EPOCH=200; }
+build_budget_acquire_fair_slot local_lease "$fixture/runtime" "$drain_ticket"
+assert_eq 0 "$?" 'local waiter proceeds after exact drain expiry'
+assert_eq 1 "$local_slot_calls" 'local waiter does not touch a slot while drained'
+assert_eq true "$(test -f "$drain_ticket" && echo true || echo false)" 'drain preserves the pre-existing FIFO ticket'
+command unlink "$drain_ticket"
 printf 'build-budget FIFO: %d failure(s)\n' "$failures"
 exit "$failures"

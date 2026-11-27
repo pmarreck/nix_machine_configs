@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Persistent admission state and lossless queue recovery shared by the worker
 # and its exact-allowlisted control helper.
+if ! declare -F admission_drain_active >/dev/null; then
+	# shellcheck disable=SC1091
+	source "${BASH_SOURCE[0]%/*}/admission_drain.bash"
+fi
 
 ci_admission_state() {
 	local state_dir="${1:-}"
@@ -14,6 +18,20 @@ ci_admission_state() {
 		running|halted) printf '%s\n' "$state" ;;
 		*) return 1 ;;
 	esac
+}
+
+# The persistent CI halt is separate from the cross-queue expiring drain.
+# Return 0 only when new work may be admitted, 1 for a deliberate stop, and
+# 255 when either control surface is invalid.
+ci_admission_open() {
+	local state_dir="${1:-}" state drain_status=0
+	state="$(ci_admission_state "$state_dir")" || return 255
+	[[ "$state" = running ]] || return 1
+	if declare -F admission_drain_active >/dev/null; then
+		admission_drain_active || drain_status=$?
+		case "$drain_status" in 0) return 1 ;; 1) return 0 ;; *) return 255 ;; esac
+	fi
+	return 0
 }
 
 write_ci_admission() {

@@ -105,8 +105,7 @@ case "$cache_push" in
 	*) printf 'Invalid cache-push setting\n' >&2; exit 1 ;;
 esac
 if [ "${1:-}" = --admission-open ]; then
-	admission_state=$(ci_admission_state "$state_dir") || exit 255
-	[ "$admission_state" = running ]
+	ci_admission_open "$state_dir"
 	exit "$?"
 fi
 
@@ -275,6 +274,7 @@ while :; do
 		else
 			claim_status=$?
 			[ "$claim_status" -eq 3 ] && exit 0
+			[ "$claim_status" -eq 4 ] && { printf 'Mechatron Prime worker: drain active; queue preserved\n'; exit 0; }
 			exit "$claim_status"
 		fi
 	else

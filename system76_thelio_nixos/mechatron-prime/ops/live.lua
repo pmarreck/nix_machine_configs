@@ -101,6 +101,16 @@ function M.collect_mechatron(source, include_recent)
 	local queue_text = source.read("/var/lib/mechatron-prime/queue/builds.ndjson") or ""
 	local control_text = source.read("/var/lib/mechatron-prime/control.json")
 	local control = control_text and cjson.decode(control_text) or nil
+	local drain = {state = "open"}
+	if source.admission_drain_status then
+		local ok, observed = pcall(source.admission_drain_status)
+		if ok and type(observed) == "table"
+			and ({open=true, draining=true, expired=true, invalid=true, unknown=true})[observed.state] then
+			drain = observed
+		else
+			drain = {state = "unknown"}
+		end
+	end
 	local admission = {state = "running", changed_at = ""}
 	if control and (control.state == "running" or control.state == "halted") then
 		admission = {state = control.state, changed_at = control.changed_at or ""}
@@ -149,6 +159,7 @@ function M.collect_mechatron(source, include_recent)
 
 	return {
 		admission = admission,
+		drain = drain,
 		worker_state = worker_state,
 		current = currents[1],
 		currents = currents,

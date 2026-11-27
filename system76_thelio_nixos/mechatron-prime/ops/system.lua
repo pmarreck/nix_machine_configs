@@ -106,6 +106,25 @@ function M.new(adapter, options)
 		return adapter.read(path)
 	end
 
+	--- Return only public-to-the-tailnet drain state, omitting the owner and
+	--- lease UUID. The underlying command is fixed and its output is validated.
+	function system.admission_drain_status()
+		local output, ok = timed({control_binary, "drain-status"})
+		if not ok then return {state = "unknown"} end
+		local decoded = cjson.decode(output or "")
+		if type(decoded) ~= "table" or not ({open=true, draining=true, expired=true, invalid=true})[decoded.state] then
+			return {state = "invalid"}
+		end
+		local result = {state = decoded.state}
+		if type(decoded.remaining_seconds) == "number" and decoded.remaining_seconds >= 0 then
+			result.remaining_seconds = math.floor(decoded.remaining_seconds)
+		end
+		if type(decoded.expires_at) == "number" and decoded.expires_at >= 0 then
+			result.expires_at = math.floor(decoded.expires_at)
+		end
+		return result
+	end
+
 	--- Fixed metadata-only probe: never open or return credential contents.
 	--- Follow an intentional secret-management symlink to its target.
 	function system.private_source_credential()

@@ -40,6 +40,8 @@ let
       + "\n"
       + builtins.readFile ../scripts/status_store.bash
       + "\n"
+      + builtins.readFile ../scripts/admission_drain.bash
+      + "\n"
       + builtins.readFile ../scripts/control_lib.bash
       + "\n"
       + builtins.readFile ../scripts/mechatron-prime-control;
@@ -60,6 +62,8 @@ let
     text = builtins.readFile ../scripts/policy.bash
       + "\n"
       + builtins.readFile ../scripts/status_store.bash
+      + "\n"
+      + builtins.readFile ../scripts/admission_drain.bash
       + "\n"
       + builtins.readFile ../scripts/control_lib.bash
       + "\n"

@@ -61,21 +61,31 @@ queue_record_reserved() {
 claim_fifo_job() {
 	local -n selected_lease="$1"
 	local state="$2" queue="$3" lock="$4" batch="$5" claims="$6"
-	local gate lifecycle collapsed ordered remainder settled item repo key candidate delivery verdict held='' picked=false consumed=false status=0
+	local gate lifecycle collapsed ordered remainder settled item repo key candidate delivery verdict held='' picked=false consumed=false status=0 admission_gate drain_status
 	local picked_item='' picked_group='' indexed=false annotated parts index=''
 	local -a drops=()
 	selected_lease=''
 	declare -F ci_delivery_has_result >/dev/null || return 1
 	mkdir -p "$state/leases" "$claims" || return 1
-	exec {lifecycle}> "$state/.lifecycle.lock" || return 1
-	if ! flock "$lifecycle"; then exec {lifecycle}>&-; return 1; fi
-	if ! recover_idle_lanes_locked "$state" "$queue" "$lock" "$state/results.sqlite3"; then exec {lifecycle}>&-; return 1; fi
-	exec {gate}> "$lock" || { exec {lifecycle}>&-; return 1; }
-	if ! flock "$gate"; then exec {gate}>&-; exec {lifecycle}>&-; return 1; fi
-	if [[ ! -s "$queue" ]]; then exec {gate}>&-; exec {lifecycle}>&-; return 3; fi
-	collapsed=$(mktemp "$queue.candidates.XXXXXX") || { exec {gate}>&-; exec {lifecycle}>&-; return 1; }
-	remainder=$(mktemp "$queue.remaining.XXXXXX") || { rm -f -- "$collapsed"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
-	settled=$(mktemp "$queue.settled.XXXXXX") || { rm -f -- "$collapsed" "$remainder"; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
+	admission_drain_lock admission_gate shared || return 1
+	exec {lifecycle}> "$state/.lifecycle.lock" || { exec {admission_gate}<&-; return 1; }
+	if ! flock "$lifecycle"; then exec {lifecycle}>&-; exec {admission_gate}<&-; return 1; fi
+	if ! recover_idle_lanes_locked "$state" "$queue" "$lock" "$state/results.sqlite3"; then exec {lifecycle}>&-; exec {admission_gate}<&-; return 1; fi
+	exec {gate}> "$lock" || { exec {lifecycle}>&-; exec {admission_gate}<&-; return 1; }
+	if ! flock "$gate"; then exec {gate}>&-; exec {lifecycle}>&-; exec {admission_gate}<&-; return 1; fi
+	drain_status=0
+	admission_drain_active || drain_status=$?
+	if [[ "$drain_status" -eq 0 ]]; then
+		exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-
+		return 4
+	elif [[ "$drain_status" -ne 1 ]]; then
+		exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-
+		return 1
+	fi
+	if [[ ! -s "$queue" ]]; then exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-; return 3; fi
+	collapsed=$(mktemp "$queue.candidates.XXXXXX") || { exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
+	remainder=$(mktemp "$queue.remaining.XXXXXX") || { rm -f -- "$collapsed"; exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
+	settled=$(mktemp "$queue.settled.XXXXXX") || { rm -f -- "$collapsed" "$remainder"; exec {admission_gate}<&-; exec {gate}>&-; exec {lifecycle}>&-; return 1; }
 	# Collapse only to choose; the queue itself keeps arrival order. Each record
 	# carries its arrival index (__q), so the queue can be rewritten from the
 	# original records. Persisting the collapsed order instead made a later
@@ -179,6 +189,7 @@ claim_fifo_job() {
 		chmod 0640 "$remainder" && queue_commit_effect "$remainder" "$queue" || status=1
 	fi
 	rm -f -- "$collapsed" "$remainder" "$settled"
+	exec {admission_gate}<&-
 	exec {gate}>&-
 	exec {lifecycle}>&-
 	if [[ "$status" -ne 0 ]]; then

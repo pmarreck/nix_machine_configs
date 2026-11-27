@@ -4,6 +4,10 @@ if ! declare -F admission_priority_names >/dev/null; then
 	# shellcheck disable=SC1091
 	source "${BASH_SOURCE[0]%/*}/admission_priority.bash"
 fi
+if ! declare -F admission_drain_active >/dev/null; then
+	# shellcheck disable=SC1091
+	source "${BASH_SOURCE[0]%/*}/admission_drain.bash"
+fi
 
 build_budget_valid_project() { [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$ ]]; }
 
@@ -150,17 +154,28 @@ build_budget_prune_scratch() {
 }
 
 build_budget_acquire_fair_slot() {
-	local output="$1" runtime="$2" ticket="$3" status warned=0 gate
+	local output="$1" runtime="$2" ticket="$3" status warned=0 gate drain_gate drain_status
 	while :; do
-		exec {gate}> "$runtime/.queue.lock" || return 1
-		if ! flock "$gate"; then exec {gate}>&-; return 1; fi
+		admission_drain_lock drain_gate shared || return 1
+		drain_status=0
+		admission_drain_active || drain_status=$?
+		if [[ "$drain_status" -eq 2 ]]; then exec {drain_gate}<&-; return 1; fi
+		if [[ "$drain_status" -eq 0 ]]; then
+			exec {drain_gate}<&-
+			if [[ "$warned" -eq 0 ]]; then printf 'build-budget: host drain active; waiting for expiry or release\n' >&2; warned=1; fi
+			build_budget_wait || return $?
+			continue
+		fi
+		exec {gate}> "$runtime/.queue.lock" || { exec {drain_gate}<&-; return 1; }
+		if ! flock "$gate"; then exec {gate}>&-; exec {drain_gate}<&-; return 1; fi
 		if build_budget_ticket_first "$ticket" "$runtime" true; then
 			if build_budget_acquire_slot "$output" "$runtime"; then
-				exec {gate}>&-; return 0
+				exec {gate}>&-; exec {drain_gate}<&-; return 0
 			else status=$?; fi
 			[[ "$status" -eq 75 ]] && status=1
 		else status=$?; fi
 		exec {gate}>&-
+		exec {drain_gate}<&-
 		[[ "$status" -eq 1 ]] || return "$status"
 		if [[ "$warned" -eq 0 ]]; then printf 'build-budget: waiting behind older queued work\n' >&2; warned=1; fi
 		build_budget_wait || return $?
