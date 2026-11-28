@@ -365,11 +365,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1795650736,
-        "narHash": "sha256-In7r31r8QCpFScY73dwQRJ9MDLUyzpFBenZfzXBrXkc=",
+        "lastModified": 1795749680,
+        "narHash": "sha256-mwwBnjhDQs4CT0aC4i2xGKXRJpJ7/7vWHI7Sz4ZY5MI=",
         "owner": "pmarreck",
         "repo": "ollama",
-        "rev": "8536140b929dcf0ef5f889cb55b0ed27de4925a5",
+        "rev": "8a2a09c802af87d65fe846081f8a1c8d028e7549",
         "type": "github"
       },
       "original": {
@@ -654,11 +654,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792962465,
-        "narHash": "sha256-tILnyA884WnpdjAbWTPIBSbcLAzVDmMmwd7wKHadWmY=",
+        "lastModified": 1795749581,
+        "narHash": "sha256-/5XkIvgjtqUVFoOGQ3XghlcISoXFw+OpdaZ0s9hyYK4=",
         "owner": "pmarreck",
         "repo": "unix_mail_redux",
-        "rev": "6858fe40e8c1c01c34705eefe45b402771e7a683",
+        "rev": "15700d6f60f16e980b6d72f2bf60b741a603e942",
         "type": "github"
       },
       "original": {
