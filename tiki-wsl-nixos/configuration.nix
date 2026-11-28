@@ -131,6 +131,7 @@ in
     jq
     libarchive # bsdtar, required by getfile archive tests and runtime
     ldc
+    mise # Nix installs mise; mise manages only Node (global LTS), as on the Thelio
     # Shared dotfile scripts require these modules even when their caller
     # scrubs LUA_PATH/LUA_CPATH, so bake them into LuaJIT's own search path.
     (luajit.withPackages (ps: with ps; [
