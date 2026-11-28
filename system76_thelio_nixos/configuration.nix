@@ -1171,6 +1171,32 @@ in
   hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.production; # was .beta (595.45.04); .vulkan_beta also possible
   hardware.nvidia.nvidiaPersistenced = true; # keep /dev/nvidia* alive at boot so GDM stops racing node creation
   hardware.nvidia.open = false; # 24.05+ made this mandatory (no default). false = proprietary kernel module, matches prior behavior on these Turing/Ampere cards.
+
+  # Niri: scrollable-tiling Wayland compositor, offered as a second GDM session beside
+  # GNOME (choose it from the gear menu on the login screen). The niri module would
+  # otherwise make Niri the default session, so GNOME stays pinned as the default.
+  # Session helpers (launcher, bar, notifications, polkit agent) are listed beside
+  # PaperWM in systemPackages and spawned only by ~/.config/niri/config.kdl.
+  programs.niri.enable = true;
+  services.displayManager.defaultSession = "gnome";
+  # NVIDIA driver quirk: niri can hold ~1 GiB of VRAM instead of ~100 MiB because the
+  # driver does not return freed buffers to its pool. Upstream workaround from the
+  # niri wiki "Nvidia" page (https://github.com/NVIDIA/egl-wayland/issues/126).
+  environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json".text =
+    builtins.toJSON {
+      rules = [
+        {
+          pattern = { feature = "procname"; matches = "niri"; };
+          profile = "Limit Free Buffer Pool On Wayland Compositors";
+        }
+      ];
+      profiles = [
+        {
+          name = "Limit Free Buffer Pool On Wayland Compositors";
+          settings = [ { key = "GLVidHeapReuseRatio"; value = 0; } ];
+        }
+      ];
+    };
   services.gnome.gcr-ssh-agent.enable = false; # GNOME now auto-enables a gcr ssh-agent; disable it since programs.ssh.startAgent is on (they conflict)
   services.gnome.localsearch.enable = false; # do not register GNOME's background home-directory indexer
 
@@ -1648,9 +1674,32 @@ in
 
       # PaperWM — scrollable/carousel tiling for GNOME (the laptop's WM; line 106 of
       # tower-app-parity.txt). Runs on GNOME *Wayland*, so GNOME dropping X11 does NOT
-      # force a switch to Niri, and the GNOME app/settings ecosystem stays. Package is
-      # channel-matched to GNOME 50; enable it in GNOME Extensions after reify.
-      gnomeExtensions.paperwm
+      # force a switch to Niri, and the GNOME app/settings ecosystem stays.
+      # GNOME 51 override: nixpkgs packages extensions.gnome.org, whose newest PaperWM
+      # (148, "50.0.1") declares shell-version <= 50, so GNOME 51.1 marks it OUT OF DATE
+      # and never loads it. Upstream v51.0.0 adds GNOME 51 support (paperwm/PaperWM#1189).
+      # The warning fires once nixpkgs ships a newer build; then drop this override.
+      (lib.warnIf (lib.versionOlder "148" gnomeExtensions.paperwm.version)
+        "PaperWM override: nixpkgs now ships gnomeExtensions.paperwm ${gnomeExtensions.paperwm.version}; check its GNOME 51 support and remove the v51.0.0 override in system76_thelio_nixos/configuration.nix"
+        (gnomeExtensions.paperwm.overrideAttrs (_: {
+          version = "51.0.0";
+          src = fetchFromGitHub {
+            owner = "paperwm";
+            repo = "PaperWM";
+            tag = "v51.0.0";
+            hash = "sha256-m01roFOC/iGHWlKer6X/Qn+MWDl6NJ1YG0KPz3IiqH4=";
+          };
+        })))
+
+      # Niri session helpers (programs.niri is enabled beside the NVIDIA settings).
+      # ~/.config/niri/config.kdl spawns these only inside Niri, so they never compete
+      # with GNOME Shell's own bar, notifications or polkit agent. Mod+T opens ghostty.
+      fuzzel             # application launcher (Mod+D)
+      waybar             # status bar
+      mako               # notification daemon
+      soteria            # polkit authentication agent (GUI privilege prompts)
+      swaylock           # screen locker (Super+Alt+L); its PAM entry comes from programs.niri
+      xwayland-satellite # X11 apps; niri >= 25.08 starts it on demand when it is on PATH
 
       tmux # system-wide so the fleet's non-interactive SSH (and the dorktide agent session) find it on PATH — no abs-path hack
       # Lua toolchain — the SHARED dotfiles (also on framework-nixos + the
