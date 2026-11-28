@@ -43,6 +43,7 @@ annotate=[
 	tests/build_resources_module_test.sh = Evaluated aggregate memory and monitor unit contracts
 	tests/build_resources_test.sh = Pure control and cleanup regression plus recorded runtime adapter tests
 	tests/codex_app_package_test.sh = Static and flake-evaluation contract for the standalone official Codex app package.
+	tests/cosmocc_source_test.sh = Check the shared cosmocc download order through the Framework configuration
 	tests/dotfiles_host_deps_test.sh = Evaluated BLAKE3 dependency placement across all declared NixOS hosts
 	tests/dune_update_timer_test.sh = Effective three-hour update-check timer, preserved service contract and complete daily calendar slots
 	tests/fastfetch_fleet_test.sh = Effective package-placement contract for Fastfetch across declared NixOS hosts

@@ -1,5 +1,5 @@
 # cosmocc: Justine Tunney's official prebuilt Cosmopolitan toolchain,
-# fetched directly from https://cosmo.zip — shared by ALL hosts.
+# shared by all hosts.
 #
 # Why not nixpkgs' `cosmocc`? Two reasons, each sufficient on its own:
 #
@@ -27,7 +27,7 @@
 # on every host, not just WSL. APE execution verified natively on
 # framework-nixos 2026-08-12 ("cosmocc (GCC) 14.1.0").
 #
-# To bump: check https://cosmo.zip/pub/cosmocc/ for the newest version,
+# To bump: check https://github.com/jart/cosmopolitan/releases for the newest version,
 # update `version`, set hash = "" (or lib.fakeHash), build, copy the real
 # hash from the error message.
 {
@@ -43,7 +43,10 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   version = "4.0.2";
 
   src = fetchurl {
-    url = "https://cosmo.zip/pub/cosmocc/cosmocc-${finalAttrs.version}.zip";
+    urls = [
+      "https://github.com/jart/cosmopolitan/releases/download/${finalAttrs.version}/cosmocc-${finalAttrs.version}.zip"
+      "https://cosmo.zip/pub/cosmocc/cosmocc-${finalAttrs.version}.zip"
+    ];
     hash = "sha256-hbjDekBthi5latTsFL6fbOR0wbQ2uWFekaVSCKztP0Q=";
   };
 

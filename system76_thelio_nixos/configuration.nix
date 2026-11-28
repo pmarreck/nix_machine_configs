@@ -1871,7 +1871,7 @@ in
       rustc # rust compiler
       gcc # C compiler
       gnumake # make
-      cosmocc-bin # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++ — prebuilt from cosmo.zip, NOT nixpkgs (see ../cosmocc-bin.nix)
+      cosmocc-bin # Upstream Cosmopolitan C/C++ toolchain. Use CC=cosmocc, CXX=cosmoc++.
       idris2 # Idris2 functional statically-typed programming language that looks cool and compiles to C
       chez # Chez Scheme (useful for idris)
       gmp # GNU Multiple Precision Arithmetic Library

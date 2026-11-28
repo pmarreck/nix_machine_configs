@@ -900,7 +900,7 @@ in
       conky # system monitor
       cool-retro-term # a retro terminal emulator
       coreutils-prefixed # most gnu utils prefixed with "g" to disambiguate them in cross platform scripts that make buggy assumptions
-      cosmocc-bin # Cosmopolitan (Actually Portable Executable) C/C++ toolchain; use via CC=cosmocc, CXX=cosmoc++ — prebuilt from cosmo.zip, NOT nixpkgs (see ../cosmocc-bin.nix)
+      cosmocc-bin # Upstream Cosmopolitan C/C++ toolchain. Use CC=cosmocc, CXX=cosmoc++.
       cowsay # a classic
       curl # curl is better than wget because it supports more protocols
       dcfldd # dd with progress bar and inline hash verification
