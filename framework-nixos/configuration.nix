@@ -1174,8 +1174,8 @@ in
 
 
   # Open ports in the firewall.
-  networking.firewall.allowedTCPPorts = [ 8200 ]; # DLNA (minidlna) for cast-to-tv
-  networking.firewall.allowedUDPPorts = [ 1900 ]; # SSDP/UPnP discovery for DLNA
+  networking.firewall.allowedTCPPorts = [ 7170 7173 8200 ]; # BeamFlix media server (7170), phone remote (7173), DLNA (minidlna) for cast-to-tv
+  networking.firewall.allowedUDPPorts = [ 1900 7171 7172 ]; # SSDP/UPnP discovery (1900), BeamFlix AirPlay timing (7171) and SSDP/DLNA/Roku replies (7172)
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
 
