@@ -2,7 +2,7 @@
 
 ## Declarative mise on Thelio (2026-10-23)
 
-- [ ] Install mise in Thelio's global system package set, verify the evaluated host contract and full suite, then build and review dry activation before switching.
+- [x] Install mise in Thelio's global system package set, verify the evaluated host contract and full suite, then build and review dry activation before switching. Verified 2026-11-28: the running system provides mise 2026.10.17 from /run/current-system/sw, and tiki now carries the same contract (tiki_mise_test.sh) (done 2026-11-28 00:57 EST; commit fd8aeac).
 
 ## Guarded scratch cleanup and host hashing
 
@@ -22,7 +22,7 @@
 - [x] Add isolated two-slot native job scopes, a 32 GiB aggregate envelope and attributed OOM records/notifications; 26 suites plus 58 resource checks pass, live success/failure and isolated 16 MiB OOM probes pass without terminal-server restart; commit 3f199a6 (done 2026-10-09 19:33 EDT).
 - [x] Repair FUSE-root inventory failure in hourly scratch cleanup; the real pass removes 8,958 stale entries, protects 1,019 and reports zero errors under the existing inactive-file policy; commit 3f199a6 (done 2026-10-09 19:33 EDT).
 - [ ] After normal full-flake activation, retire only matching local build-resource unit/executable links and GC roots; verify declarative limits and monitor while preserving agent processes (context: docs/build-resources.md).
-- [ ] Resolve disclosure approval or sanitize the older unpublished configuration commits before pushing the four-commit outgoing history; do not rewrite history without direction.
+- [x] Resolve disclosure approval or sanitize the older unpublished configuration commits before pushing the four-commit outgoing history; do not rewrite history without direction. Answer: no rewrite needed. Those commits reached GitHub in the 2026-10-17 merge 802ccdd; a gitleaks scan of all 274 published commits flags only an SSH public host key, which is not a secret, and the 24 later Thelio commits scanned clean before the owner-approved 2026-11-28 push (done 2026-11-28 00:57 EST; commit 8b2d04d).
 
 ## Terminal server OOM isolation
 
