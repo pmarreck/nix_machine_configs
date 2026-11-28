@@ -49,9 +49,13 @@
 - [x] Reproduce the single-origin failure and add an upstream release download
       while keeping the pinned archive hash. The regression check passed and
       Nix fetched and verified the archive from GitHub. (2026-11-23 14:02 EST)
-- [ ] Clear the pre-existing fleet test failure before committing. The Thelio
-      derivation rejects `boot.initrd.verbose` on the pinned unstable input.
-      The failure also reproduces on the original checkout.
+- [x] Clear the pre-existing fleet test failure before committing. The Thelio
+      `boot.initrd.verbose` rejection no longer reproduces: all three hosts
+      evaluate on yolo, and the change is committed as 965f813. Two suite
+      failures remain that predate it and also fail at da819b7:
+      `mechatron_vendor_test.sh` (vendored files differ from Mechatron Prime
+      76235ec) and `nixpkgs_alias_warnings_test.sh` ("thelio installs
+      antigravity-cli"). (2026-11-28 01:50 EST)
 - [x] Build and activate Framework generation 122 (`26.05.20261105.c56a87d`).
       The live and boot profiles match, `cosmocc` runs from the system profile,
       and systemd reports no failed units. Kernel 6.18.60 takes effect on the
