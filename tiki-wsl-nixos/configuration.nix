@@ -1,4 +1,4 @@
-{ pkgs, tmog, herdrPackage, hunkPackage, printableBinary, ... }:
+{ config, pkgs, tmog, herdrPackage, hunkPackage, printableBinary, ... }:
 
 let
   # Existing pinned/obfuscated package for the licensed Berkeley Mono files.
@@ -66,6 +66,15 @@ in
   # Cranelift backend panics on the programs used by distro/distro_version on
   # this host, so retain frawk as an explicit tool but use GNU Awk by default.
   environment.variables.AWK = "${pkgs.gawkInteractive}/bin/gawk";
+
+  # The dotfiles repo-awareness hook warns agents about unpushed or unintegrated
+  # commits in this host's configuration checkout, but it finds that checkout
+  # through /etc/nixos, which stays nearly empty here on purpose (its README
+  # explains why). Name the checkout this host rebuilds from: the repository
+  # README clones it into the default user's ~/nixos-configs. A session variable
+  # is set through PAM, so the daily host-config-fetch user timer sees it too.
+  environment.sessionVariables.REPO_AWARENESS_HOST_REPOS =
+    "${config.users.users.${config.wsl.defaultUser}.home}/nixos-configs";
 
   # Give the WSL guest its own tailnet identity, distinct from the Windows
   # host. Authenticate it once after activation with `sudo tailscale up`.
