@@ -66,4 +66,7 @@ annotate=[
 	tests/tmog_package_test.sh = Contract for TMog pinning, smoke check, and per-user host placement
 	tests/tmp_cleanup_test.sh = Deterministic inactivity, busy-path, no-archive and retry regression tests
 	tests/tode_package_test.sh = TDD contract for pinned Tode artifacts, immutable runtime resolution, XDG launcher isolation, smoke check, and Peter-only installation.
+	tests/wsl_nfs_client_test.sh = Checks evaluated NFS support and the locked mount.nfs executable.
+	tests/wsl_paplay_test.sh = Verifies the WSL host installs the locked PulseAudio package and its working paplay CLI.
+	tiki-wsl-nixos/configuration.nix = WSL host configuration; enables NFS client support for mount.nfs.
 ]

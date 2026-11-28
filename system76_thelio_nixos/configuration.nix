@@ -1433,7 +1433,7 @@ in
       jazz2 # open source reimplementation of classic Jazz Jackrabbit 2 game
       newtonwars # missile game with gravity as a core element
       # gamehub # REMOVED from nixpkgs (archived upstream, old webkitgtk 4.0)
-      # gravit # gravity simulator # disabled nov 26 2026 since nix abandoned it since it hasn't had updates since 2022
+      # gravit removed from nixpkgs unstable (unmaintained upstream since 2022-06).
       xaos # smooth fractal explorer
       almonds # TUI fractal viewer
       scorched3d # played the original version a lot in the military
@@ -1779,7 +1779,7 @@ in
       bc # calculator (also a basic language... possibly useful for education?)
       conky # system monitor
       # latest.firefox-nightly-bin # firefox # had to disable for now due to segfault on unstable: https://github.com/NixOS/patchelf/issues/520
-      firefox
+      firefox # was firefox-beta; nixpkgs removed the beta and its alias now points at stable
       chromium # like chrome but without the google
       wezterm # nerdy but very nice terminal
       kitty # another nice terminal emulator
@@ -1803,7 +1803,7 @@ in
       # gnomeExtensions.scrovol # doesn't work with latest gnome
       gnomeExtensions.pop-shell # for tiling windows
       gnomeExtensions.rclone-manager # adds an indicator to the top panel so you can manage the rclone profiles configured in your system
-      # gnomeExtensions.lock-keys # for showing caps lock etc # nix says it's missing as of nov 2026; not sure why, oh well
+      gnomeExtensions.lock-keys-2 # for showing caps lock etc (renamed from lock-keys upstream; same extension #36)
       # gnomeExtensions.random-wallpaper # "incompatible with current Gnome version"
       # gnomeExtensions.user-themes # "incompatible with current Gnome version"
       imwheel # for mouse wheel scrolling

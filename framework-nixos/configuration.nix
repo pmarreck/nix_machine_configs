@@ -2,7 +2,7 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, inputs, system, tmog, ... }:
+{ config, lib, pkgs, inputs, system, tmog, hunkPackage, ... }:
 # `inputs` + `system` are injected via flake specialArgs (see /etc/nixos/flake.nix).
 # This replaces the old <nixos-unstable>/<nixos-stable>/<nixos-hardware> channel
 # lookups while keeping the host-specific package scopes in this module.
@@ -132,6 +132,9 @@ in
     # This keeps system upgrades from compiling large desktop applications locally.
     "always-allow-substitutes" = true;
     trusted-users = [ "root" "pmarreck" ];
+    # Declared here so root (sudo nix ..., ixnay reify) has flakes too; previously only
+    # ~/.config/nix/nix.conf enabled them, which sudo does not read.
+    experimental-features = [ "nix-command" "flakes" ];
   };
 
   # Avoid building fragile package HTML docs as part of the system profile.
@@ -341,6 +344,10 @@ in
   # Preserve the pre-26.11 root-pool import behavior explicitly. This is a
   # single-host root pool; set false if the pool is ever shared across machines.
   boot.zfs.forceImportRoot = true;
+  # NFS client support (same as Thelio): pulls in nfs-utils so `mount.nfs`
+  # exists; without it `mount -t nfs` (e.g. the `nas` helper) dies with
+  # "NFS: mount program didn't pass remote address". Merges with zfs.nix's list.
+  boot.supportedFilesystems = [ "nfs" ];
 
   # Provide compressed swap in RAM (minimal SSD wear, decent burst capacity).
   zramSwap = {
@@ -536,7 +543,7 @@ in
       bun # Fast JavaScript runtime and package manager
       unstable.capstone # Advanced disassembly library
       unstable.circumflex # Hacker News TUI (command: "clx")
-      # claude-code and codex removed (installed via pipx/pnpm/volta instead)
+      # claude-code and codex removed (installed via npm under mise-managed Node instead)
       clinfo
       colordiff # A tool to colorize diff output
       crawl # roguelike
@@ -617,7 +624,7 @@ in
       nmap # Network exploration tool and security scanner
       nms # No More Secrets, a recreation of the live decryption effect from the famous hacker movie "Sneakers"
       nnn # Terminal file manager
-      # nodejs_20 # javascript runtime # moved to managing via Volta
+      mise # runtime manager; manages ONLY Node (global LTS from ~/.config/mise/config.toml, exposed via shims in dotfiles .pathconfig). Replaces Volta.
       ocl-icd # for opencl
       ocrmypdf # Adds an OCR text layer to scanned PDF files, allowing them to be searched
       odin # A programming language for creating multi-platform apps
@@ -730,7 +737,6 @@ in
       unstable.wasmtime.out # wasm runtime
       unstable.wazero # Zero dependency WebAssembly runtime written in Go, currently the fastest wasm runner
       wdiff # A front end to diff for comparing files on a word per word basis
-      unstable.devin-desktop # windsurf was rebranded/replaced
       unstable.wiper # TUI tool that pinpoints large folders, scans directories and shows how your space is used
       xaos # smooth fractal explorer
       xdotool # for automating x11. Fake keyboard/mouse input, window management, and more
@@ -759,7 +765,7 @@ in
       ## ])
 
       # IXNAY USER PACKAGES (pmarreck) START - DO NOT REMOVE
-      unstable.antigravity # Agentic development platform, evolving the IDE into the agent-first era
+      unstable.antigravity-ide # Agentic development platform, evolving the IDE into the agent-first era
       cfunge # Fast Befunge interpreter
       unstable.gh # GitHub CLI tool
       opencode # AI coding agent built for the terminal
@@ -835,6 +841,9 @@ in
     # List packages installed in system profile. To search, run:
     # $ nix search wget
     systemPackages = with pkgs; [
+      # Terminal-first diff viewer from the exact, shared flake input.
+      hunkPackage
+
       stable.wineWow64Packages.stagingFull # use a cached staging build rather than a local override
       # (callPackage ./cursor.nix {}) # for cursor editor
       # bash-completion # Programmable completion for the bash shell # note: caused problems
@@ -883,7 +892,9 @@ in
       cargo # rust package manager
       cheese # gnome webcam tool
       chez # Chez Scheme (useful for idris)
-      chromium # like chrome but without the google
+      # Chromium omitted (2026-09-17): Peter uses Firefox; an uncached Chromium
+      # source build delayed the travel update and consumed scarce disk space.
+      # Revisit only if needed, preferably when a binary substitute is available.
       # clipgrab # disabled on nixos-25.11 (qtwebengine-5.15.x is marked insecure)
       comma # for trying out software, see "let" section above
       conky # system monitor

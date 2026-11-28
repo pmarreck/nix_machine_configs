@@ -32,6 +32,7 @@ in
 
   # WSL instances are routinely stopped rather than shut down conventionally.
   boot.tmp.cleanOnBoot = true;
+  boot.supportedFilesystems = [ "nfs" ];
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
@@ -130,6 +131,7 @@ in
     jq
     libarchive # bsdtar, required by getfile archive tests and runtime
     ldc
+    mise # Nix installs mise; mise manages only Node (global LTS), as on the Thelio
     # Shared dotfile scripts require these modules even when their caller
     # scrubs LUA_PATH/LUA_CPATH, so bake them into LuaJIT's own search path.
     (luajit.withPackages (ps: with ps; [
@@ -163,6 +165,7 @@ in
     openssl # CLI plus libcrypto for compare-dirs' LuaJIT FFI backend
     pkg-config
     printableBinary
+    pulseaudio # paplay CLI for WSLg audio playback
     zed-editor
     zellij
     sniffnet

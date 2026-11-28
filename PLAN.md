@@ -35,6 +35,15 @@
 - [x] Implement hourly deletion of ephemeral temporary files inactive for 24 hours without archiving, skipping busy subtrees and inspection errors; all 24 test suites and generated-unit builds pass; the first isolated service pass deletes 17,568 entries with zero errors and leaves temporary storage 36% full. Completed 2026-10-06 14:14 EDT.
 - [ ] After the next normal main-flake activation, verify the declarative cleanup timer and retire its two temporary runtime unit overrides and GC roots; no whole-system switch is authorized for this handover alone.
 
+## WSL NFS client support (2026-10-26)
+
+- [x] Add a failing effective-configuration test requiring the WSL host to support NFS and supply `mount.nfs`; then add the narrow NFS filesystem declaration. Completed 2026-10-26 EDT: two assertions failed before the config change; all three pass afterward.
+  - Curiosity poke: a declared filesystem does not prove the userspace helper exists in the active system profile.
+- [x] Run the complete suite, build and dry-activate the exact WSL host, switch, and verify the live helper. Completed 2026-10-26 EDT: 18/18 test files pass; activation succeeds; the active system provides `mount.nfs` 2.9.1.
+  - Curiosity poke: adding NFS client support also starts NFS-related systemd units; inspect activation before switching.
+- [ ] Resolve the separate remote-export denial before claiming an end-to-end NFS mount. NFSv3 reports server access denied and NFSv4 reports operation not permitted from this WSL guest.
+  - Curiosity poke: virtualization may remap a reserved source port; verify server logs before changing export security.
+
 ## Mail attachments and consolidated inbox (2026-09-18)
 
 - [x] Update only unix-mail-redux and its llmsend lock nodes to 872f236 and
@@ -644,3 +653,12 @@ checkpoint tonight; avoid starting a host rebuild after 22:00.
 - [ ] Review `ixnay reify --no-update` dry activation before making the new `thelio-nixos` generation the next boot target.
 - [ ] Provision and verify the audited GitHub hooks without exposing their shared secret. Curiosity poke: require whole-set preflight and exact post-mutation counts.
 - [ ] Trigger repository builds in controlled waves and verify dynamic badge state transitions. Curiosity poke: verify repaired `capy` advertises package, build, and test targets before its first delivery.
+
+## WSL audio CLI (2026-10-09)
+
+- [x] Add the locked Nixpkgs package that provides `paplay` to the WSL host's
+  declarative system packages, rebuild, and verify the command is available.
+  Completed 2026-10-09 19:24 EDT: PulseAudio 17.0 is active in the WSL
+  system profile, `paplay --version` succeeds, and all 17 test files pass.
+  - Curiosity poke: test the provider's actual `bin/paplay` executable as well
+    as its placement in the evaluated WSL configuration.
